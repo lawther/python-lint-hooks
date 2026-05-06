@@ -64,6 +64,12 @@ uv run ml-lint src/ --exclude venv/ node_modules/
 uv run ml-lint src/ --extend-exclude build/
 uv run ml-lint src/ --no-respect-gitignore
 uv run ml-lint src/ --force-exclude
+
+# Rule selection and ignoring
+uv run ml-lint src/ --select ML001 ML005
+uv run ml-lint src/ --extend-select ML003
+uv run ml-lint src/ --ignore ML002
+uv run ml-lint src/ --extend-ignore ML001
 ```
 
 Exits with code `1` if any violations are found, `0` otherwise. Output follows the ruff/flake8 format:
@@ -76,10 +82,17 @@ src/mypackage/models.py:10:1: ML005 Dataclass 'Config' is not frozen; use @datac
 
 ## Configuration
 
-Configure in `pyproject.toml` under `[tool.python-lint-hooks]`. Options behave similarly to [Ruff's exclusion settings](https://docs.astral.sh/ruff/settings/#exclude).
+Configure in `pyproject.toml` under `[tool.python-lint-hooks]`. Options behave similarly to [Ruff's selection settings](https://docs.astral.sh/ruff/settings/#select) and [exclusion settings](https://docs.astral.sh/ruff/settings/#exclude).
 
 ```toml
 [tool.python-lint-hooks]
+# Rule selection (prefix matching supported, e.g. "ML")
+select = ["ML"]
+extend-select = []
+ignore = []
+extend-ignore = []
+
+# Exclusions
 # Overwrites the default exclusion list
 exclude = ["tests/", "migrations/"]
 
@@ -92,6 +105,13 @@ respect-gitignore = true
 # Enforce exclusions even for paths passed explicitly on command line (default: false)
 force-exclude = false
 ```
+
+### Rule Selection Behavior
+*   **`select`**: Resets the active rules. CLI `--select` completely overrides the configuration `select`.
+*   **`ignore`**: Disables specific rules. CLI `--ignore` completely overrides the configuration `ignore`.
+*   **`extend-*`**: These flags are additive across both CLI and configuration.
+*   **Prefix Matching**: You can select or ignore entire categories using prefixes. For example, `select = ["ML"]` enables all rules starting with `ML`.
+*   **Precedence**: `ignore` always takes precedence over `select`. If a rule is both selected and ignored, it will be ignored.
 
 ### Default Exclusions
 By default, `ml-lint` excludes a comprehensive list of common "junk" and environment directories, including `.git`, `.venv`, `node_modules`, `__pycache__`, `build`, `dist`, etc.
