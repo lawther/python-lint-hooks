@@ -7,26 +7,87 @@ import sys
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
+import pathspec
+from pydantic import BaseModel, Field
 
 from python_lint_hooks.checker import Violation, check_file
 
+if TYPE_CHECKING:
+    pass
+
+
+# Ruff's default exclusion list
+RUFF_DEFAULT_EXCLUDE = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
 
 class _HooksConfig(BaseModel):
-    exclude: list[str] = []
+    exclude: list[str] = Field(default_factory=lambda: RUFF_DEFAULT_EXCLUDE)
+    extend_exclude: list[str] = Field(default_factory=list, alias="extend-exclude")
+    respect_gitignore: bool = Field(default=True, alias="respect-gitignore")
+    force_exclude: bool = Field(default=False, alias="force-exclude")
+
+    class Config:
+        populate_by_name = True
 
 
 @dataclass(frozen=True)
 class _RunConfig:
     paths: list[Path]
     exclude: list[str]
+    extend_exclude: list[str]
+    respect_gitignore: bool
+    force_exclude: bool
 
     @classmethod
     def from_args(cls, args: argparse.Namespace, hooks_config: _HooksConfig) -> _RunConfig:
+        # Override config with CLI arguments if provided
+        exclude = getattr(args, "exclude", None)
+        if exclude is None:
+            exclude = hooks_config.exclude
+
+        extend_exclude = hooks_config.extend_exclude
+        cli_extend_exclude = getattr(args, "extend_exclude", None)
+        if cli_extend_exclude:
+            extend_exclude = extend_exclude + cli_extend_exclude
+
+        respect_gitignore = getattr(args, "respect_gitignore", None)
+        if respect_gitignore is None:
+            respect_gitignore = hooks_config.respect_gitignore
+
+        force_exclude = getattr(args, "force_exclude", None)
+        if force_exclude is None:
+            force_exclude = hooks_config.force_exclude
+
         return cls(
             paths=[Path(p) for p in args.paths],
-            exclude=hooks_config.exclude,
+            exclude=exclude,
+            extend_exclude=extend_exclude,
+            respect_gitignore=respect_gitignore,
+            force_exclude=force_exclude,
         )
 
 
@@ -44,32 +105,67 @@ def _load_hooks_config(config_path: Path) -> _HooksConfig:
     return _HooksConfig.model_validate(hooks_raw)
 
 
-def _is_excluded(path: Path, excludes: list[str], root: Path) -> bool:
+def _load_gitignore(root: Path) -> pathspec.PathSpec:
+    gitignore_path = root / ".gitignore"
+    if gitignore_path.exists():
+        with gitignore_path.open("r", encoding="utf-8") as f:
+            return pathspec.PathSpec.from_lines("gitwildmatch", f)
+    return pathspec.PathSpec.from_lines("gitwildmatch", [])
+
+
+def _is_excluded(path: Path, spec: pathspec.PathSpec, gitignore_spec: pathspec.PathSpec | None, root: Path) -> bool:
     try:
-        rel = path.relative_to(root)
+        # Resolve to absolute then to relative to root to ensure we have a clean relative path
+        rel_path = path.resolve().relative_to(root.resolve())
     except ValueError:
         return False
-    for exclude in excludes:
-        exclude_path = Path(exclude.rstrip("/"))
-        try:
-            rel.relative_to(exclude_path)
-            return True
-        except ValueError:
-            pass
-    return False
+
+    # pathspec expects posix-style paths
+    path_str = rel_path.as_posix()
+    if path.is_dir():
+        path_str += "/"
+
+    # Check explicit excludes
+    if spec.match_file(path_str):
+        return True
+
+    # Check gitignore if enabled
+    return bool(gitignore_spec and gitignore_spec.match_file(path_str))
 
 
-def _collect_files(paths: list[Path], excludes: list[str], root: Path) -> list[Path]:
+def _collect_files(config: _RunConfig, root: Path) -> list[Path]:
     files: list[Path] = []
-    for path in paths:
+    # Ensure patterns are treated as gitwildmatch
+    spec = pathspec.PathSpec.from_lines("gitwildmatch", config.exclude + config.extend_exclude)
+
+    # Load gitignore from the root (CWD)
+    gitignore_spec = _load_gitignore(root) if config.respect_gitignore else None
+
+    for p in config.paths:
+        path = (root / p).resolve()
+
         if path.is_file() and path.suffix == ".py":
-            if not _is_excluded(path, excludes, root):
+            # If it's an explicit file path, we only exclude it if force_exclude is True
+            if not config.force_exclude or not _is_excluded(path, spec, gitignore_spec, root):
                 files.append(path)
         elif path.is_dir():
             for py_file in sorted(path.rglob("*.py")):
-                if not _is_excluded(py_file, excludes, root):
+                is_parent_excluded = False
+                try:
+                    rel_to_root = py_file.resolve().relative_to(root.resolve())
+                    # Check each parent directory for exclusion
+                    for parent in list(rel_to_root.parents)[:-1]:  # exclude '.'
+                        if _is_excluded(root / parent, spec, gitignore_spec, root):
+                            is_parent_excluded = True
+                            break
+                except ValueError:
+                    pass
+
+                if not is_parent_excluded and not _is_excluded(py_file, spec, gitignore_spec, root):
                     files.append(py_file)
-    return files
+
+    # De-duplicate files while preserving order
+    return list(dict.fromkeys(files))
 
 
 def main() -> None:
@@ -88,13 +184,36 @@ def main() -> None:
         default="pyproject.toml",
         help="Path to config file (default: pyproject.toml)",
     )
+    parser.add_argument(
+        "--exclude",
+        nargs="+",
+        help="List of paths, used to omit files and/or directories from analysis",
+    )
+    parser.add_argument(
+        "--extend-exclude",
+        nargs="+",
+        dest="extend_exclude",
+        help="Like --exclude, but adds additional files and directories on top of those already excluded",
+    )
+    parser.add_argument(
+        "--respect-gitignore",
+        action=argparse.BooleanOptionalAction,
+        dest="respect_gitignore",
+        help="Respect file exclusions via `.gitignore` and other standard ignore files",
+    )
+    parser.add_argument(
+        "--force-exclude",
+        action=argparse.BooleanOptionalAction,
+        dest="force_exclude",
+        help="Enforce exclusions, even for paths passed to Ruff directly on the command-line",
+    )
     args = parser.parse_args()
 
     hooks_config = _load_hooks_config(Path(args.config))
     run_config = _RunConfig.from_args(args, hooks_config)
-    root = Path.cwd()
+    root = Path.cwd().resolve()
 
-    files = _collect_files(run_config.paths, run_config.exclude, root)
+    files = _collect_files(run_config, root)
 
     all_violations: list[Violation] = []
     for file in files:
