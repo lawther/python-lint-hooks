@@ -158,7 +158,55 @@ class _Checker(ast.NodeVisitor):
                     col=node.col_offset + 1,
                 )
             )
+
+        # GEMINI.md: "Strongly prefer to make dataclasses immutable where possible. Use @dataclass(frozen=True)"
+        self._check_frozen_dataclass(node)
         self.generic_visit(node)
+
+    def _check_frozen_dataclass(self, node: ast.ClassDef) -> None:
+        for decorator in node.decorator_list:
+            # Handle both @dataclass and @dataclasses.dataclass
+            is_dataclass = False
+            if (isinstance(decorator, ast.Name) and decorator.id == "dataclass") or (
+                isinstance(decorator, ast.Attribute)
+                and isinstance(decorator.value, ast.Name)
+                and decorator.value.id == "dataclasses"
+                and decorator.attr == "dataclass"
+            ):
+                is_dataclass = True
+            elif isinstance(decorator, ast.Call):
+                func = decorator.func
+                if (isinstance(func, ast.Name) and func.id == "dataclass") or (
+                    isinstance(func, ast.Attribute)
+                    and isinstance(func.value, ast.Name)
+                    and func.value.id == "dataclasses"
+                    and func.attr == "dataclass"
+                ):
+                    is_dataclass = True
+
+            if is_dataclass:
+                is_frozen = False
+                if isinstance(decorator, ast.Call):
+                    for keyword in decorator.keywords:
+                        if (
+                            keyword.arg == "frozen"
+                            and isinstance(keyword.value, ast.Constant)
+                            and keyword.value.value is True
+                        ):
+                            is_frozen = True
+                            break
+
+                if not is_frozen and not _has_noqa(self._source_lines, [decorator.lineno], "ML005"):
+                    self.violations.append(
+                        Violation(
+                            code="ML005",
+                            message=f"Dataclass '{node.name}' is not frozen; use @dataclass(frozen=True)",
+                            path=self._path,
+                            line=decorator.lineno,
+                            col=decorator.col_offset + 1,
+                        )
+                    )
+                break
 
 
 def check_file(path: Path) -> list[Violation]:

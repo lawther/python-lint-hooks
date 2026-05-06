@@ -374,3 +374,73 @@ def test_multiple_dict_violations(tmp_path: Path) -> None:
     )
     assert len(violations) == 2
     assert all(v.code == "ML001" for v in violations)
+
+
+# ---------------------------------------------------------------------------
+# ML005: Frozen Dataclasses
+# ---------------------------------------------------------------------------
+
+
+def test_dataclass_not_frozen(tmp_path: Path) -> None:
+    violations = _check(
+        textwrap.dedent("""\
+            from dataclasses import dataclass
+            @dataclass
+            class Point:
+                x: int
+        """),
+        tmp_path,
+    )
+    assert _codes(violations) == ["ML005"]
+
+
+def test_dataclass_frozen_explicit(tmp_path: Path) -> None:
+    violations = _check(
+        textwrap.dedent("""\
+            from dataclasses import dataclass
+            @dataclass(frozen=True)
+            class Point:
+                x: int
+        """),
+        tmp_path,
+    )
+    assert _codes(violations) == []
+
+
+def test_dataclass_frozen_false(tmp_path: Path) -> None:
+    violations = _check(
+        textwrap.dedent("""\
+            from dataclasses import dataclass
+            @dataclass(frozen=False)
+            class Point:
+                x: int
+        """),
+        tmp_path,
+    )
+    assert _codes(violations) == ["ML005"]
+
+
+def test_dataclass_attr_style(tmp_path: Path) -> None:
+    violations = _check(
+        textwrap.dedent("""\
+            import dataclasses
+            @dataclasses.dataclass
+            class Point:
+                x: int
+        """),
+        tmp_path,
+    )
+    assert _codes(violations) == ["ML005"]
+
+
+def test_dataclass_noqa(tmp_path: Path) -> None:
+    violations = _check(
+        textwrap.dedent("""\
+            from dataclasses import dataclass
+            @dataclass  # noqa: ML005
+            class Mutable:
+                x: int
+        """),
+        tmp_path,
+    )
+    assert _codes(violations) == []
