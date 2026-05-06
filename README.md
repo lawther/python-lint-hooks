@@ -9,6 +9,7 @@ Custom Python linting rules, distributed as a pip-installable CLI tool.
 | `ML001` | Function returns a bare `dict` | Use a dataclass instead |
 | `ML002` | Function returns a bare `tuple` | Use a NamedTuple instead |
 | `ML003` | Class defined inside a function | Move it to module level |
+| `ML005` | Dataclass is not frozen | Use `@dataclass(frozen=True)` |
 
 **ML001 and ML002** catch all forms of bare dict/tuple returns, including unparameterised (`-> dict`), parameterised (`-> dict[str, str]`), optional (`-> dict[str, str] | None`, `-> Optional[dict[str, str]]`), union (`-> Union[dict[str, str], None]`), and `typing.Dict`/`typing.Tuple` variants.
 
@@ -57,6 +58,12 @@ uv run ml-lint src/ lib/
 
 # Use a non-default config file
 uv run ml-lint src/ --config path/to/pyproject.toml
+
+# Exclusion overrides (Ruff-style)
+uv run ml-lint src/ --exclude venv/ node_modules/
+uv run ml-lint src/ --extend-exclude build/
+uv run ml-lint src/ --no-respect-gitignore
+uv run ml-lint src/ --force-exclude
 ```
 
 Exits with code `1` if any violations are found, `0` otherwise. Output follows the ruff/flake8 format:
@@ -64,18 +71,30 @@ Exits with code `1` if any violations are found, `0` otherwise. Output follows t
 ```
 src/mypackage/utils.py:42:1: ML001 Function 'parse_response' returns bare dict; use a dataclass instead
 src/mypackage/models.py:17:5: ML002 Function 'as_pair' returns bare tuple; use a NamedTuple instead
+src/mypackage/models.py:10:1: ML005 Dataclass 'Config' is not frozen; use @dataclass(frozen=True)
 ```
 
 ## Configuration
 
-Configure in `pyproject.toml` under `[tool.python-lint-hooks]`:
+Configure in `pyproject.toml` under `[tool.python-lint-hooks]`. Options behave similarly to [Ruff's exclusion settings](https://docs.astral.sh/ruff/settings/#exclude).
 
 ```toml
 [tool.python-lint-hooks]
-exclude = ["tests/", "migrations/", "scripts/"]
+# Overwrites the default exclusion list
+exclude = ["tests/", "migrations/"]
+
+# Adds to the exclusion list without overwriting defaults
+extend-exclude = ["scripts/"]
+
+# Respect .gitignore files (default: true)
+respect-gitignore = true
+
+# Enforce exclusions even for paths passed explicitly on command line (default: false)
+force-exclude = false
 ```
 
-`exclude` is a list of directory paths (relative to the working directory). Any `.py` file under an excluded directory is skipped entirely. Paths are matched as prefixes, so `"tests/"` excludes `tests/unit/test_foo.py` as well as `tests/test_bar.py`.
+### Default Exclusions
+By default, `ml-lint` excludes a comprehensive list of common "junk" and environment directories, including `.git`, `.venv`, `node_modules`, `__pycache__`, `build`, `dist`, etc.
 
 ## Suppressing individual violations
 
