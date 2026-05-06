@@ -1,25 +1,17 @@
-"""AST-based checks for bare return types and classes defined inside functions."""
+"""AST-based checks for return types, classes defined inside functions, and non-frozen dataclasses."""
 
 from __future__ import annotations
 
 import ast
 from dataclasses import dataclass
-from enum import Enum, auto
 from pathlib import Path
 from typing import TypeAlias
 
 _DICT_NAMES: frozenset[str] = frozenset({"dict", "Dict"})
 _TUPLE_NAMES: frozenset[str] = frozenset({"tuple", "Tuple"})
+_PRIMITIVE_NAMES: frozenset[str] = frozenset({"str", "int", "float", "bool", "bytes", "Any", "None"})
 
 _FuncNode: TypeAlias = ast.FunctionDef | ast.AsyncFunctionDef
-
-
-class _BareKind(Enum):
-    """Which bare built-in type was found in a return annotation."""
-
-    NONE = auto()
-    DICT = auto()
-    TUPLE = auto()
 
 
 @dataclass(frozen=True)
@@ -34,58 +26,6 @@ class Violation:
 
     def format(self) -> str:
         return f"{self.path}:{self.line}:{self.col}: {self.code} {self.message}"
-
-
-def _kind_from_name(name: str) -> _BareKind:
-    """Map a bare name string to its BareKind, or NONE if not a bare type."""
-    if name in _DICT_NAMES:
-        return _BareKind.DICT
-    if name in _TUPLE_NAMES:
-        return _BareKind.TUPLE
-    return _BareKind.NONE
-
-
-def _find_bare_kind_subscript(node: ast.Subscript) -> _BareKind:
-    """Resolve a Subscript annotation node to a BareKind."""
-    head = node.value
-    if isinstance(head, ast.Name):
-        kind = _kind_from_name(head.id)
-        if kind is not _BareKind.NONE:
-            return kind
-        if head.id == "Optional":
-            return _find_bare_kind(node.slice)
-        if head.id == "Union":
-            elts = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
-            for elt in elts:
-                kind = _find_bare_kind(elt)
-                if kind is not _BareKind.NONE:
-                    return kind
-    elif isinstance(head, ast.Attribute):
-        return _kind_from_name(head.attr)
-    return _BareKind.NONE
-
-
-def _find_bare_kind(node: ast.expr) -> _BareKind:
-    """Return which bare built-in type the annotation resolves to, or NONE.
-
-    Handles: dict, tuple, Dict, Tuple, typing.Dict, typing.Tuple,
-    Optional[dict/tuple], Union[dict/tuple, ...], dict|None, tuple|None,
-    and nested combinations thereof.
-
-    Does NOT flag dict/tuple appearing only as type arguments to another
-    container — e.g. list[dict[str, str]] returns NONE because the return
-    type is a list, not a dict.
-    """
-    if isinstance(node, ast.Name):
-        return _kind_from_name(node.id)
-    if isinstance(node, ast.Attribute):
-        return _kind_from_name(node.attr)
-    if isinstance(node, ast.Subscript):
-        return _find_bare_kind_subscript(node)
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
-        left = _find_bare_kind(node.left)
-        return left if left is not _BareKind.NONE else _find_bare_kind(node.right)
-    return _BareKind.NONE
 
 
 def _has_noqa(source_lines: list[str], line_numbers: list[int], code: str) -> bool:
@@ -106,6 +46,158 @@ def _has_noqa(source_lines: list[str], line_numbers: list[int], code: str) -> bo
     return False
 
 
+class _ReturnAnalyzer:
+    """Recursive analyzer for function return type annotations."""
+
+    def __init__(self, func_name: str) -> None:
+        self.func_name = func_name
+        self.violations: list[tuple[str, str, int, int]] = []
+
+    def analyze(self, node: ast.AST) -> None:
+        if isinstance(node, ast.Name):
+            self._check_name(node)
+        elif isinstance(node, ast.Attribute):
+            self._check_attribute(node)
+        elif isinstance(node, ast.Subscript):
+            self._check_subscript(node)
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+            self.analyze(node.left)
+            self.analyze(node.right)
+        elif isinstance(node, ast.Tuple):  # e.g. -> (int, str) which is valid but we treat as tuple
+            self.violations.append(
+                (
+                    "ML101",
+                    f"Function '{self.func_name}' returns bare tuple; use a NamedTuple instead",
+                    node.lineno,
+                    node.col_offset + 1,
+                )
+            )
+            for elt in node.elts:
+                self.analyze(elt)
+
+    def _check_name(self, node: ast.Name) -> None:
+        if node.id in _DICT_NAMES:
+            self.violations.append(
+                (
+                    "ML100",
+                    f"Function '{self.func_name}' returns bare dict; use a dataclass instead",
+                    node.lineno,
+                    node.col_offset + 1,
+                )
+            )
+        elif node.id in _TUPLE_NAMES:
+            self.violations.append(
+                (
+                    "ML101",
+                    f"Function '{self.func_name}' returns bare tuple; use a NamedTuple instead",
+                    node.lineno,
+                    node.col_offset + 1,
+                )
+            )
+
+    def _check_attribute(self, node: ast.Attribute) -> None:
+        if node.attr in _DICT_NAMES:
+            self.violations.append(
+                (
+                    "ML100",
+                    f"Function '{self.func_name}' returns bare dict; use a dataclass instead",
+                    node.lineno,
+                    node.col_offset + 1,
+                )
+            )
+        elif node.attr in _TUPLE_NAMES:
+            self.violations.append(
+                (
+                    "ML101",
+                    f"Function '{self.func_name}' returns bare tuple; use a NamedTuple instead",
+                    node.lineno,
+                    node.col_offset + 1,
+                )
+            )
+
+    def _check_subscript(self, node: ast.Subscript) -> None:
+        # Resolve head (e.g. dict in dict[str, str])
+        head = node.value
+        head_name = ""
+        if isinstance(head, ast.Name):
+            head_name = head.id
+        elif isinstance(head, ast.Attribute):
+            head_name = head.attr
+
+        if head_name in _DICT_NAMES:
+            self._analyze_dict_subscript(node)
+        elif head_name in _TUPLE_NAMES:
+            self._analyze_tuple_subscript(node)
+        # It's something else like list[...] or Optional[...], recurse into slice
+        elif isinstance(node.slice, ast.Tuple):
+            for elt in node.slice.elts:
+                self.analyze(elt)
+        else:
+            self.analyze(node.slice)
+
+    def _analyze_dict_subscript(self, node: ast.Subscript) -> None:
+        # dict[K, V]
+        if not isinstance(node.slice, ast.Tuple) or len(node.slice.elts) != 2:  # noqa: PLR2004
+            # dict with one arg (like dict[str]) is technically invalid but we catch as bare
+            self.violations.append(
+                (
+                    "ML100",
+                    f"Function '{self.func_name}' returns bare dict; use a dataclass instead",
+                    node.lineno,
+                    node.col_offset + 1,
+                )
+            )
+            return
+
+        k, v = node.slice.elts
+        if self._is_primitive(k) and self._is_primitive(v):
+            message = (
+                f"Function '{self.func_name}' returns dict of primitives; "
+                "use NewType for keys/values or use a dataclass"
+            )
+            self.violations.append(("ML102", message, node.lineno, node.col_offset + 1))
+
+        # Still recurse into K and V in case they contain further violations (e.g. dict[str, list[dict]])
+        self.analyze(k)
+        self.analyze(v)
+
+    def _analyze_tuple_subscript(self, node: ast.Subscript) -> None:
+        # tuple[T, ...] or tuple[T1, T2]
+        is_variable = False
+        elts = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
+
+        if any(isinstance(elt, ast.Constant) and elt.value is Ellipsis for elt in elts):
+            is_variable = True
+
+        if is_variable:
+            message = (
+                f"Function '{self.func_name}' returns variable-length tuple; use list[T] or custom collection instead"
+            )
+            self.violations.append(("ML104", message, node.lineno, node.col_offset + 1))
+        else:
+            self.violations.append(
+                (
+                    "ML103",
+                    f"Function '{self.func_name}' returns fixed-length tuple; use a NamedTuple instead",
+                    node.lineno,
+                    node.col_offset + 1,
+                )
+            )
+
+        for elt in elts:
+            if not (isinstance(elt, ast.Constant) and elt.value is Ellipsis):
+                self.analyze(elt)
+
+    def _is_primitive(self, node: ast.AST) -> bool:
+        if isinstance(node, ast.Name):
+            return node.id in _PRIMITIVE_NAMES
+        if isinstance(node, ast.Attribute):
+            return node.attr in _PRIMITIVE_NAMES
+        if isinstance(node, ast.Constant):
+            return node.value is None or node.value is Ellipsis
+        return False
+
+
 class _Checker(ast.NodeVisitor):
     def __init__(self, path: Path, source_lines: list[str]) -> None:
         self._path = path
@@ -115,28 +207,26 @@ class _Checker(ast.NodeVisitor):
 
     def _visit_function(self, node: _FuncNode) -> None:
         if self._function_depth == 0 and node.returns is not None:
-            kind = _find_bare_kind(node.returns)
-            if kind is not _BareKind.NONE:
-                match kind:
-                    case _BareKind.DICT:
-                        code = "ML001"
-                        message = f"Function '{node.name}' returns bare dict; use a dataclass instead"
-                    case _BareKind.TUPLE:
-                        code = "ML002"
-                        message = f"Function '{node.name}' returns bare tuple; use a NamedTuple instead"
-                noqa_lines = [node.lineno]
-                if node.returns.end_lineno is not None and node.returns.end_lineno != node.lineno:
-                    noqa_lines.append(node.returns.end_lineno)
+            analyzer = _ReturnAnalyzer(node.name)
+            analyzer.analyze(node.returns)
+
+            for code, message, line, col in analyzer.violations:
+                noqa_lines = [line]
+                # If it's a multi-line return annotation, check all relevant lines
+                if node.returns.end_lineno is not None and node.returns.end_lineno != line:
+                    noqa_lines.extend(range(line, node.returns.end_lineno + 1))
+
                 if not _has_noqa(self._source_lines, noqa_lines, code):
                     self.violations.append(
                         Violation(
                             code=code,
                             message=message,
                             path=self._path,
-                            line=node.lineno,
-                            col=node.col_offset + 1,
+                            line=line,
+                            col=col,
                         )
                     )
+
         self._function_depth += 1
         self.generic_visit(node)
         self._function_depth -= 1
@@ -148,10 +238,10 @@ class _Checker(ast.NodeVisitor):
         self._visit_function(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        if self._function_depth > 0 and not _has_noqa(self._source_lines, [node.lineno], "ML003"):
+        if self._function_depth > 0 and not _has_noqa(self._source_lines, [node.lineno], "ML300"):
             self.violations.append(
                 Violation(
-                    code="ML003",
+                    code="ML300",
                     message=f"Class '{node.name}' defined inside a function",
                     path=self._path,
                     line=node.lineno,
@@ -196,10 +286,10 @@ class _Checker(ast.NodeVisitor):
                             is_frozen = True
                             break
 
-                if not is_frozen and not _has_noqa(self._source_lines, [decorator.lineno], "ML005"):
+                if not is_frozen and not _has_noqa(self._source_lines, [decorator.lineno], "ML200"):
                     self.violations.append(
                         Violation(
-                            code="ML005",
+                            code="ML200",
                             message=f"Dataclass '{node.name}' is not frozen; use @dataclass(frozen=True)",
                             path=self._path,
                             line=decorator.lineno,

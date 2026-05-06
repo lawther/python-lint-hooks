@@ -259,7 +259,7 @@ def main() -> None:
     parser.add_argument(
         "--ignore",
         nargs="+",
-        help="List of rule codes to ignore (e.g., ML005)",
+        help="List of rule codes to ignore (e.g., ML200)",
     )
     parser.add_argument(
         "--extend-ignore",

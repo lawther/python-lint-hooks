@@ -6,12 +6,17 @@ Custom Python linting rules, distributed as a pip-installable CLI tool.
 
 | Code | Description | Suggestion |
 |------|-------------|------------|
-| `ML001` | Function returns a bare `dict` | Use a dataclass instead |
-| `ML002` | Function returns a bare `tuple` | Use a NamedTuple instead |
-| `ML003` | Class defined inside a function | Move it to module level |
-| `ML005` | Dataclass is not frozen | Use `@dataclass(frozen=True)` |
+| `ML100` | Function returns a bare `dict` | Use a dataclass instead |
+| `ML101` | Function returns a bare `tuple` | Use a NamedTuple instead |
+| `ML102` | Function returns a `dict` of primitives | Use a dataclass or `NewType` for keys/values |
+| `ML103` | Function returns a fixed-length `tuple` | Use a NamedTuple instead |
+| `ML104` | Function returns a variable-length `tuple` | Use `list[T]` or a custom collection |
+| `ML200` | Dataclass is not frozen | Use `@dataclass(frozen=True)` |
+| `ML300` | Class defined inside a function | Move it to module level |
 
-**ML001 and ML002** catch all forms of bare dict/tuple returns, including unparameterised (`-> dict`), parameterised (`-> dict[str, str]`), optional (`-> dict[str, str] | None`, `-> Optional[dict[str, str]]`), union (`-> Union[dict[str, str], None]`), and `typing.Dict`/`typing.Tuple` variants.
+**ML100 - ML104** catch violations related to return types. Unlike standard linting, these rules are **recursive** and will catch bare or primitive dicts/tuples even when nested inside other types like `list[...]` or `Optional[...]`.
+
+**The `NewType` Exception:** `ML102` only flags dictionaries where both the key and value are standard Python primitives (`str`, `int`, `float`, etc.). If you use a custom type (e.g. via `NewType`), the dictionary is permitted as a valid mapping.
 
 Functions defined inside other functions are exempt from ML001/ML002 — inner functions are implementation details and are not part of a public interface.
 
@@ -66,18 +71,18 @@ uv run ml-lint src/ --no-respect-gitignore
 uv run ml-lint src/ --force-exclude
 
 # Rule selection and ignoring
-uv run ml-lint src/ --select ML001 ML005
-uv run ml-lint src/ --extend-select ML003
-uv run ml-lint src/ --ignore ML002
-uv run ml-lint src/ --extend-ignore ML001
+uv run ml-lint src/ --select ML100 ML200
+uv run ml-lint src/ --extend-select ML300
+uv run ml-lint src/ --ignore ML101
+uv run ml-lint src/ --extend-ignore ML100
 ```
 
 Exits with code `1` if any violations are found, `0` otherwise. Output follows the ruff/flake8 format:
 
 ```
-src/mypackage/utils.py:42:1: ML001 Function 'parse_response' returns bare dict; use a dataclass instead
-src/mypackage/models.py:17:5: ML002 Function 'as_pair' returns bare tuple; use a NamedTuple instead
-src/mypackage/models.py:10:1: ML005 Dataclass 'Config' is not frozen; use @dataclass(frozen=True)
+src/mypackage/utils.py:42:1: ML100 Function 'parse_response' returns bare dict; use a dataclass instead
+src/mypackage/models.py:17:5: ML103 Function 'as_pair' returns fixed-length tuple; use a NamedTuple instead
+src/mypackage/models.py:10:1: ML200 Dataclass 'Config' is not frozen; use @dataclass(frozen=True)
 ```
 
 ## Configuration
@@ -122,13 +127,13 @@ Place a `# noqa: <code>` comment on the `def` line (or on the return annotation 
 
 ```python
 # Suppress a specific code
-def legacy_helper() -> dict[str, str]:  # noqa: ML001
+def legacy_helper() -> dict[str, str]:  # noqa: ML102
     ...
 
 # Suppress on the annotation line for multi-line signatures
 def build_index(
     items: list[str],
-) -> dict[str, int]:  # noqa: ML001
+) -> dict[str, int]:  # noqa: ML102
     ...
 
 # Bare # noqa suppresses all ML codes on that line

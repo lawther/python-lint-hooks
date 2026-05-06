@@ -20,7 +20,8 @@ def run_lint(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
 def temp_repo(tmp_path: Path) -> Path:
     # Create a dummy structure
     (tmp_path / "src").mkdir()
-    # ML003: Class inside function
+    # ML300: Class inside function
+
     (tmp_path / "src" / "main.py").write_text("def f():\n    class C: pass\n")
     (tmp_path / "src" / "helper.py").write_text("def f(): pass\n")  # Clean
 
