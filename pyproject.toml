@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "python-lint-hooks"
+version = "0.1.0"
+description = "Custom Python linting rules."
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.0",
+]
+
+[project.scripts]
+ml-lint = "python_lint_hooks.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/python_lint_hooks"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.11",
+    "ty>=0.0.1a14",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "B",
+    "C4",
+    "E",
+    "F",
+    "I",
+    "S",
+    "PL",
+    "RUF",
+    "UP",
+    "ANN",
+    "SIM",
+]
+ignore = [
+    "D100",
+    "D104",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_*.py" = ["S101", "ANN"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
