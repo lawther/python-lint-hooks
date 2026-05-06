@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/lawther/python-lint-hooks/compare/v0.1.0...v0.2.0) (2026-05-06)
+
+
+### Features
+
+* add Ruff-like exclusion options to CLI ([8a137ff](https://github.com/lawther/python-lint-hooks/commit/8a137ffba6278a62f62999863a9efd4c46d6ba18))
+
+
+### Documentation
+
+* add GEMINI.md coding conventions and link in CLAUDE.md ([407948d](https://github.com/lawther/python-lint-hooks/commit/407948d51f03a7f5e6ae4e7d8276df053e31aeb8))
+
 ## 0.1.0 (2026-05-06)
 
 
