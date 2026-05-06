@@ -1,4 +1,5 @@
 """AST-based checks for bare return types and classes defined inside functions."""
+
 from __future__ import annotations
 
 import ast
@@ -35,6 +36,35 @@ class Violation:
         return f"{self.path}:{self.line}:{self.col}: {self.code} {self.message}"
 
 
+def _kind_from_name(name: str) -> _BareKind:
+    """Map a bare name string to its BareKind, or NONE if not a bare type."""
+    if name in _DICT_NAMES:
+        return _BareKind.DICT
+    if name in _TUPLE_NAMES:
+        return _BareKind.TUPLE
+    return _BareKind.NONE
+
+
+def _find_bare_kind_subscript(node: ast.Subscript) -> _BareKind:
+    """Resolve a Subscript annotation node to a BareKind."""
+    head = node.value
+    if isinstance(head, ast.Name):
+        kind = _kind_from_name(head.id)
+        if kind is not _BareKind.NONE:
+            return kind
+        if head.id == "Optional":
+            return _find_bare_kind(node.slice)
+        if head.id == "Union":
+            elts = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
+            for elt in elts:
+                kind = _find_bare_kind(elt)
+                if kind is not _BareKind.NONE:
+                    return kind
+    elif isinstance(head, ast.Attribute):
+        return _kind_from_name(head.attr)
+    return _BareKind.NONE
+
+
 def _find_bare_kind(node: ast.expr) -> _BareKind:
     """Return which bare built-in type the annotation resolves to, or NONE.
 
@@ -47,45 +77,14 @@ def _find_bare_kind(node: ast.expr) -> _BareKind:
     type is a list, not a dict.
     """
     if isinstance(node, ast.Name):
-        if node.id in _DICT_NAMES:
-            return _BareKind.DICT
-        if node.id in _TUPLE_NAMES:
-            return _BareKind.TUPLE
-
-    elif isinstance(node, ast.Attribute):
-        if node.attr in _DICT_NAMES:
-            return _BareKind.DICT
-        if node.attr in _TUPLE_NAMES:
-            return _BareKind.TUPLE
-
-    elif isinstance(node, ast.Subscript):
-        head = node.value
-        if isinstance(head, ast.Name):
-            if head.id in _DICT_NAMES:
-                return _BareKind.DICT
-            if head.id in _TUPLE_NAMES:
-                return _BareKind.TUPLE
-            if head.id == "Optional":
-                return _find_bare_kind(node.slice)
-            if head.id == "Union":
-                s = node.slice
-                elts = s.elts if isinstance(s, ast.Tuple) else [s]
-                for elt in elts:
-                    kind = _find_bare_kind(elt)
-                    if kind is not _BareKind.NONE:
-                        return kind
-        elif isinstance(head, ast.Attribute):
-            if head.attr in _DICT_NAMES:
-                return _BareKind.DICT
-            if head.attr in _TUPLE_NAMES:
-                return _BareKind.TUPLE
-
-    elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        return _kind_from_name(node.id)
+    if isinstance(node, ast.Attribute):
+        return _kind_from_name(node.attr)
+    if isinstance(node, ast.Subscript):
+        return _find_bare_kind_subscript(node)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
         left = _find_bare_kind(node.left)
-        if left is not _BareKind.NONE:
-            return left
-        return _find_bare_kind(node.right)
-
+        return left if left is not _BareKind.NONE else _find_bare_kind(node.right)
     return _BareKind.NONE
 
 
@@ -100,7 +99,7 @@ def _has_noqa(source_lines: list[str], line_numbers: list[int], code: str) -> bo
         _, _, noqa_tail = line.partition("# noqa")
         noqa_tail = noqa_tail.strip()
         if not noqa_tail or not noqa_tail.startswith(":"):
-            return True  # bare # noqa suppresses everything
+            return True  # bare
         codes = [c.strip() for c in noqa_tail[1:].split(",")]
         if code in codes:
             return True
@@ -125,7 +124,6 @@ class _Checker(ast.NodeVisitor):
                     case _BareKind.TUPLE:
                         code = "ML002"
                         message = f"Function '{node.name}' returns bare tuple; use a NamedTuple instead"
-                # Accept # noqa on either the `def` line or the annotation's last line.
                 noqa_lines = [node.lineno]
                 if node.returns.end_lineno is not None and node.returns.end_lineno != node.lineno:
                     noqa_lines.append(node.returns.end_lineno)
@@ -150,17 +148,16 @@ class _Checker(ast.NodeVisitor):
         self._visit_function(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        if self._function_depth > 0:
-            if not _has_noqa(self._source_lines, [node.lineno], "ML003"):
-                self.violations.append(
-                    Violation(
-                        code="ML003",
-                        message=f"Class '{node.name}' defined inside a function",
-                        path=self._path,
-                        line=node.lineno,
-                        col=node.col_offset + 1,
-                    )
+        if self._function_depth > 0 and not _has_noqa(self._source_lines, [node.lineno], "ML003"):
+            self.violations.append(
+                Violation(
+                    code="ML003",
+                    message=f"Class '{node.name}' defined inside a function",
+                    path=self._path,
+                    line=node.lineno,
+                    col=node.col_offset + 1,
                 )
+            )
         self.generic_visit(node)
 
 
