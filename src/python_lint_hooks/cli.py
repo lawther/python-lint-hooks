@@ -49,6 +49,10 @@ class _HooksConfig(BaseModel):
     extend_exclude: list[str] = Field(default_factory=list, alias="extend-exclude")
     respect_gitignore: bool = Field(default=True, alias="respect-gitignore")
     force_exclude: bool = Field(default=False, alias="force-exclude")
+    select: list[str] = Field(default_factory=list)
+    extend_select: list[str] = Field(default_factory=list, alias="extend-select")
+    ignore: list[str] = Field(default_factory=list)
+    extend_ignore: list[str] = Field(default_factory=list, alias="extend-ignore")
 
     class Config:
         populate_by_name = True
@@ -61,10 +65,12 @@ class _RunConfig:
     extend_exclude: list[str]
     respect_gitignore: bool
     force_exclude: bool
+    select: list[str]
+    ignore: list[str]
 
     @classmethod
     def from_args(cls, args: argparse.Namespace, hooks_config: _HooksConfig) -> _RunConfig:
-        # Override config with CLI arguments if provided
+        # Exclusion logic (matches Ruff's override/additive behavior)
         exclude = getattr(args, "exclude", None)
         if exclude is None:
             exclude = hooks_config.exclude
@@ -74,6 +80,7 @@ class _RunConfig:
         if cli_extend_exclude:
             extend_exclude = extend_exclude + cli_extend_exclude
 
+        # Boolean flags
         respect_gitignore = getattr(args, "respect_gitignore", None)
         if respect_gitignore is None:
             respect_gitignore = hooks_config.respect_gitignore
@@ -82,12 +89,43 @@ class _RunConfig:
         if force_exclude is None:
             force_exclude = hooks_config.force_exclude
 
+        # Selection logic: CLI --select overrides Config select.
+        select = getattr(args, "select", None)
+        if select is None:
+            select = hooks_config.select
+
+        # Selection logic: extend-select is additive across CLI and Config.
+        extend_select = hooks_config.extend_select
+        cli_extend_select = getattr(args, "extend_select", None)
+        if cli_extend_select:
+            extend_select = extend_select + cli_extend_select
+
+        final_select = select + extend_select
+        if not final_select:
+            # If nothing is selected, default to all ML rules (Ruff selects some by default)
+            final_select = ["ML"]
+
+        # Ignore logic: CLI --ignore overrides Config ignore.
+        ignore = getattr(args, "ignore", None)
+        if ignore is None:
+            ignore = hooks_config.ignore
+
+        # Ignore logic: extend-ignore is additive across CLI and Config.
+        extend_ignore = hooks_config.extend_ignore
+        cli_extend_ignore = getattr(args, "extend_ignore", None)
+        if cli_extend_ignore:
+            extend_ignore = extend_ignore + cli_extend_ignore
+
+        final_ignore = ignore + extend_ignore
+
         return cls(
             paths=[Path(p) for p in args.paths],
             exclude=exclude,
             extend_exclude=extend_exclude,
             respect_gitignore=respect_gitignore,
             force_exclude=force_exclude,
+            select=final_select,
+            ignore=final_ignore,
         )
 
 
@@ -207,6 +245,28 @@ def main() -> None:
         dest="force_exclude",
         help="Enforce exclusions, even for paths passed to Ruff directly on the command-line",
     )
+    parser.add_argument(
+        "--select",
+        nargs="+",
+        help="List of rule codes to enable (e.g., ML001)",
+    )
+    parser.add_argument(
+        "--extend-select",
+        nargs="+",
+        dest="extend_select",
+        help="Like --select, but adds additional rule codes on top of those already selected",
+    )
+    parser.add_argument(
+        "--ignore",
+        nargs="+",
+        help="List of rule codes to ignore (e.g., ML005)",
+    )
+    parser.add_argument(
+        "--extend-ignore",
+        nargs="+",
+        dest="extend_ignore",
+        help="Like --ignore, but adds additional rule codes on top of those already ignored",
+    )
     args = parser.parse_args()
 
     hooks_config = _load_hooks_config(Path(args.config))
@@ -217,7 +277,21 @@ def main() -> None:
 
     all_violations: list[Violation] = []
     for file in files:
-        all_violations.extend(check_file(file))
+        violations = check_file(file)
+
+        # Filter violations based on --select and --ignore with prefix matching
+        filtered = []
+        for v in violations:
+            # Rule is selected if its code or any prefix is in the select list
+            is_selected = any(v.code.startswith(s) for s in run_config.select)
+
+            # Rule is ignored if its code or any prefix is in the ignore list
+            is_ignored = any(v.code.startswith(i) for i in run_config.ignore)
+
+            if is_selected and not is_ignored:
+                filtered.append(v)
+
+        all_violations.extend(filtered)
 
     for violation in sorted(all_violations, key=lambda v: (str(v.path), v.line, v.col)):
         print(violation.format())
