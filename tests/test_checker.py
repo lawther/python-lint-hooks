@@ -207,6 +207,48 @@ def test_variable_length_tuple_flagged(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# ML105 — NewType wrapping forbidden types
+# ---------------------------------------------------------------------------
+
+
+def test_newtype_wrapping_bare_dict_flagged(tmp_path: Path) -> None:
+    code = """\
+        from typing import NewType
+        HeaderDict = NewType("HeaderDict", dict[str, str])
+    """
+    violations = _check(textwrap.dedent(code), tmp_path)
+    assert _codes(violations) == ["ML105"]
+    assert "NewType 'HeaderDict' wraps a forbidden type" in violations[0].message
+
+
+def test_newtype_wrapping_bare_tuple_flagged(tmp_path: Path) -> None:
+    code = """\
+        from typing import NewType
+        Coords = NewType("Coords", tuple[int, int])
+    """
+    violations = _check(textwrap.dedent(code), tmp_path)
+    assert _codes(violations) == ["ML105"]
+
+
+def test_newtype_wrapping_ok_type_allowed(tmp_path: Path) -> None:
+    code = """\
+        from typing import NewType
+        UserId = NewType("UserId", int)
+    """
+    violations = _check(textwrap.dedent(code), tmp_path)
+    assert violations == []
+
+
+def test_noqa_ml105_suppresses(tmp_path: Path) -> None:
+    code = """\
+        from typing import NewType
+        HeaderDict = NewType("HeaderDict", dict[str, str])  # noqa: ML105
+    """
+    violations = _check(textwrap.dedent(code), tmp_path)
+    assert violations == []
+
+
+# ---------------------------------------------------------------------------
 # ML300 — class defined inside a function
 # ---------------------------------------------------------------------------
 

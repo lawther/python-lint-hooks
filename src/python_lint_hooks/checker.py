@@ -237,6 +237,42 @@ class _Checker(ast.NodeVisitor):
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         self._visit_function(node)
 
+    def visit_Call(self, node: ast.Call) -> None:
+        # GEMINI.md: "I want to add a rule that will catch a sneaky attempt like this where they try to define a NewType
+        # that would fail one of the existing lint checks."
+        # ML105: NewType wrapping forbidden types
+        if self._is_newtype_call(node) and len(node.args) >= 2:  # noqa: PLR2004
+            analyzer = _ReturnAnalyzer("dummy")
+            analyzer.analyze(node.args[1])
+            if analyzer.violations:
+                # Get the name from the first argument if it's a constant string
+                newtype_name = "unknown"
+                if isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                    newtype_name = node.args[0].value
+
+                if not _has_noqa(self._source_lines, [node.lineno], "ML105"):
+                    msg = f"NewType '{newtype_name}' wraps a forbidden type; use a dataclass or NamedTuple instead"
+                    self.violations.append(
+                        Violation(
+                            code="ML105",
+                            message=msg,
+                            path=self._path,
+                            line=node.lineno,
+                            col=node.col_offset + 1,
+                        )
+                    )
+
+        self.generic_visit(node)
+
+    def _is_newtype_call(self, node: ast.Call) -> bool:
+        func = node.func
+        return (isinstance(func, ast.Name) and func.id == "NewType") or (
+            isinstance(func, ast.Attribute)
+            and isinstance(func.value, ast.Name)
+            and func.value.id == "typing"
+            and func.attr == "NewType"
+        )
+
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         if self._function_depth > 0 and not _has_noqa(self._source_lines, [node.lineno], "ML300"):
             self.violations.append(
