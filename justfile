@@ -24,7 +24,7 @@ test:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "Running tests..."
-    uv run pytest
+    uv run pytest --cov=python_lint_hooks --cov-report=term-missing --cov-branch
     echo "{{success}}Tests passed{{reset}}"
 
 # Setup the development environment from a fresh clone

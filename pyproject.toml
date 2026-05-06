@@ -21,6 +21,7 @@ packages = ["src/python_lint_hooks"]
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+    "pytest-cov>=7.1.0",
     "pytest-randomly>=4.1.0",
     "ruff>=0.11",
     "ty>=0.0.1a14",
