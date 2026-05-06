@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/lawther/python-lint-hooks/compare/v0.3.0...v0.4.0) (2026-05-06)
+
+
+### Features
+
+* add ML105 to catch NewType bypasses of return type rules ([0321c6d](https://github.com/lawther/python-lint-hooks/commit/0321c6db90c8b67f28296bd43028ad84fc7ccd65))
+* add ML201 to catch classes wrapping only forbidden types ([4e9886d](https://github.com/lawther/python-lint-hooks/commit/4e9886de156bb132d4bd6002f9662e4f76a9300e))
+
 ## [0.3.0](https://github.com/lawther/python-lint-hooks/compare/v0.2.0...v0.3.0) (2026-05-06)
 
 
