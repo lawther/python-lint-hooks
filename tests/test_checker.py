@@ -26,18 +26,12 @@ def _codes(violations: list[Violation]) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# ML001 — bare dict / tuple returns
+# ML001 — bare dict returns
 # ---------------------------------------------------------------------------
 
 
 def test_bare_dict_subscript_flagged(tmp_path: Path) -> None:
-    # The most common case: a typed dict return.
     violations = _check("def foo() -> dict[str, str]: ...\n", tmp_path)
-    assert _codes(violations) == ["ML001"]
-
-
-def test_bare_tuple_subscript_flagged(tmp_path: Path) -> None:
-    violations = _check("def foo() -> tuple[str, int]: ...\n", tmp_path)
     assert _codes(violations) == ["ML001"]
 
 
@@ -47,19 +41,9 @@ def test_bare_dict_no_subscript_flagged(tmp_path: Path) -> None:
     assert _codes(violations) == ["ML001"]
 
 
-def test_bare_tuple_no_subscript_flagged(tmp_path: Path) -> None:
-    violations = _check("def foo() -> tuple: ...\n", tmp_path)
-    assert _codes(violations) == ["ML001"]
-
-
 def test_capital_dict_flagged(tmp_path: Path) -> None:
     # typing.Dict (pre-3.9 style) must also be caught.
     violations = _check("from typing import Dict\ndef foo() -> Dict[str, str]: ...\n", tmp_path)
-    assert _codes(violations) == ["ML001"]
-
-
-def test_capital_tuple_flagged(tmp_path: Path) -> None:
-    violations = _check("from typing import Tuple\ndef foo() -> Tuple[str, int]: ...\n", tmp_path)
     assert _codes(violations) == ["ML001"]
 
 
@@ -70,7 +54,6 @@ def test_typing_attribute_dict_flagged(tmp_path: Path) -> None:
 
 
 def test_dict_union_none_flagged(tmp_path: Path) -> None:
-    # dict | None — the return type is still logically a dict.
     violations = _check("def foo() -> dict[str, str] | None: ...\n", tmp_path)
     assert _codes(violations) == ["ML001"]
 
@@ -102,13 +85,72 @@ def test_chained_union_with_dict_flagged(tmp_path: Path) -> None:
     assert _codes(violations) == ["ML001"]
 
 
-def test_async_function_flagged(tmp_path: Path) -> None:
+def test_ml001_message_suggests_dataclass(tmp_path: Path) -> None:
+    # The message for a dict violation must mention dataclass, not NamedTuple.
+    violations = _check("def foo() -> dict[str, str]: ...\n", tmp_path)
+    assert len(violations) == 1
+    assert "dataclass" in violations[0].message
+    assert "NamedTuple" not in violations[0].message
+
+
+# ---------------------------------------------------------------------------
+# ML002 — bare tuple returns
+# ---------------------------------------------------------------------------
+
+
+def test_bare_tuple_subscript_flagged(tmp_path: Path) -> None:
+    violations = _check("def foo() -> tuple[str, int]: ...\n", tmp_path)
+    assert _codes(violations) == ["ML002"]
+
+
+def test_bare_tuple_no_subscript_flagged(tmp_path: Path) -> None:
+    violations = _check("def foo() -> tuple: ...\n", tmp_path)
+    assert _codes(violations) == ["ML002"]
+
+
+def test_capital_tuple_flagged(tmp_path: Path) -> None:
+    violations = _check("from typing import Tuple\ndef foo() -> Tuple[str, int]: ...\n", tmp_path)
+    assert _codes(violations) == ["ML002"]
+
+
+def test_typing_attribute_tuple_flagged(tmp_path: Path) -> None:
+    violations = _check("import typing\ndef foo() -> typing.Tuple[str, int]: ...\n", tmp_path)
+    assert _codes(violations) == ["ML002"]
+
+
+def test_tuple_union_none_flagged(tmp_path: Path) -> None:
+    violations = _check("def foo() -> tuple[str, int] | None: ...\n", tmp_path)
+    assert _codes(violations) == ["ML002"]
+
+
+def test_optional_tuple_flagged(tmp_path: Path) -> None:
+    violations = _check(
+        "from typing import Optional\ndef foo() -> Optional[tuple[str, int]]: ...\n",
+        tmp_path,
+    )
+    assert _codes(violations) == ["ML002"]
+
+
+def test_ml002_message_suggests_namedtuple(tmp_path: Path) -> None:
+    # The message for a tuple violation must mention NamedTuple, not dataclass.
+    violations = _check("def foo() -> tuple[str, int]: ...\n", tmp_path)
+    assert len(violations) == 1
+    assert "NamedTuple" in violations[0].message
+    assert "dataclass" not in violations[0].message
+
+
+def test_async_function_dict_flagged(tmp_path: Path) -> None:
     violations = _check("async def foo() -> dict[str, str]: ...\n", tmp_path)
     assert _codes(violations) == ["ML001"]
 
 
+def test_async_function_tuple_flagged(tmp_path: Path) -> None:
+    violations = _check("async def foo() -> tuple[str, int]: ...\n", tmp_path)
+    assert _codes(violations) == ["ML002"]
+
+
 # ---------------------------------------------------------------------------
-# ML001 — cases that must NOT be flagged
+# ML001 / ML002 — cases that must NOT be flagged
 # ---------------------------------------------------------------------------
 
 
@@ -149,12 +191,12 @@ def test_none_return_ok(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# ML001 — nesting rules
+# Nesting rules (shared by ML001 and ML002)
 # ---------------------------------------------------------------------------
 
 
 def test_nested_function_not_flagged(tmp_path: Path) -> None:
-    # Inner functions are exempt; outer function has no annotation here.
+    # Inner functions are exempt regardless of their return type.
     violations = _check(
         textwrap.dedent("""\
             def outer() -> None:
@@ -167,7 +209,7 @@ def test_nested_function_not_flagged(tmp_path: Path) -> None:
 
 
 def test_outer_function_flagged_inner_exempt(tmp_path: Path) -> None:
-    # Outer's bare dict return is flagged; inner's is not (it's nested).
+    # Outer's bare dict is flagged; inner's is not.
     violations = _check(
         textwrap.dedent("""\
             def outer() -> dict[str, str]:
@@ -183,7 +225,7 @@ def test_outer_function_flagged_inner_exempt(tmp_path: Path) -> None:
 
 
 def test_class_method_flagged(tmp_path: Path) -> None:
-    # Methods in top-level classes are not nested in a function — they must be checked.
+    # Methods in top-level classes are not nested in a function — checked.
     violations = _check(
         textwrap.dedent("""\
             class Foo:
@@ -200,30 +242,40 @@ def test_class_in_class_method_flagged(tmp_path: Path) -> None:
         textwrap.dedent("""\
             class Outer:
                 class Inner:
-                    def method(self) -> dict[str, str]: ...
+                    def method(self) -> tuple[str, int]: ...
         """),
         tmp_path,
     )
-    assert _codes(violations) == ["ML001"]
+    assert _codes(violations) == ["ML002"]
 
 
 # ---------------------------------------------------------------------------
-# ML001 — noqa suppression
+# noqa suppression (ML001 and ML002)
 # ---------------------------------------------------------------------------
 
 
-def test_noqa_ml001_suppresses(tmp_path: Path) -> None:
+def test_noqa_ml001_suppresses_dict(tmp_path: Path) -> None:
     violations = _check("def foo() -> dict[str, str]: ...  # noqa: ML001\n", tmp_path)
     assert violations == []
 
 
-def test_bare_noqa_suppresses(tmp_path: Path) -> None:
+def test_noqa_ml002_suppresses_tuple(tmp_path: Path) -> None:
+    violations = _check("def foo() -> tuple[str, int]: ...  # noqa: ML002\n", tmp_path)
+    assert violations == []
+
+
+def test_bare_noqa_suppresses_dict(tmp_path: Path) -> None:
     violations = _check("def foo() -> dict[str, str]: ...  # noqa\n", tmp_path)
     assert violations == []
 
 
-def test_noqa_other_code_does_not_suppress(tmp_path: Path) -> None:
-    # noqa for a different code must not suppress ML001.
+def test_bare_noqa_suppresses_tuple(tmp_path: Path) -> None:
+    violations = _check("def foo() -> tuple[str, int]: ...  # noqa\n", tmp_path)
+    assert violations == []
+
+
+def test_noqa_wrong_code_does_not_suppress(tmp_path: Path) -> None:
+    # ML002 noqa does not suppress an ML001 dict violation.
     violations = _check("def foo() -> dict[str, str]: ...  # noqa: ML002\n", tmp_path)
     assert _codes(violations) == ["ML001"]
 
@@ -243,7 +295,7 @@ def test_noqa_on_annotation_line_suppresses(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# ML002 — class defined inside a function
+# ML003 — class defined inside a function
 # ---------------------------------------------------------------------------
 
 
@@ -256,7 +308,7 @@ def test_class_inside_function_flagged(tmp_path: Path) -> None:
         """),
         tmp_path,
     )
-    assert _codes(violations) == ["ML002"]
+    assert _codes(violations) == ["ML003"]
 
 
 def test_class_at_module_level_ok(tmp_path: Path) -> None:
@@ -281,14 +333,14 @@ def test_class_inside_method_flagged(tmp_path: Path) -> None:
         """),
         tmp_path,
     )
-    assert _codes(violations) == ["ML002"]
+    assert _codes(violations) == ["ML003"]
 
 
-def test_noqa_ml002_suppresses(tmp_path: Path) -> None:
+def test_noqa_ml003_suppresses(tmp_path: Path) -> None:
     violations = _check(
         textwrap.dedent("""\
             def outer() -> None:
-                class Inner:  # noqa: ML002
+                class Inner:  # noqa: ML003
                     pass
         """),
         tmp_path,
@@ -301,11 +353,23 @@ def test_noqa_ml002_suppresses(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_multiple_violations_reported(tmp_path: Path) -> None:
+def test_dict_and_tuple_violations_separate_codes(tmp_path: Path) -> None:
+    # Dict violation gets ML001, tuple violation gets ML002.
     violations = _check(
         textwrap.dedent("""\
             def foo() -> dict[str, str]: ...
             def bar() -> tuple[int, str]: ...
+        """),
+        tmp_path,
+    )
+    assert _codes(violations) == ["ML001", "ML002"]
+
+
+def test_multiple_dict_violations(tmp_path: Path) -> None:
+    violations = _check(
+        textwrap.dedent("""\
+            def foo() -> dict[str, str]: ...
+            def bar() -> dict[str, int]: ...
         """),
         tmp_path,
     )
