@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.0](https://github.com/lawther/python-lint-hooks/compare/v0.2.0...v0.3.0) (2026-05-06)
+
+
+### Features
+
+* add pytest-randomly to development dependencies ([14cd9f8](https://github.com/lawther/python-lint-hooks/commit/14cd9f800263df0d6979556e370dd5db4e4dbd68))
+* add Ruff-like --select and --ignore CLI filtering ([71e76aa](https://github.com/lawther/python-lint-hooks/commit/71e76aa158e53d6aa764bb3aca92437a6622c2b7))
+* enforce frozen=True for dataclasses (ML005) ([5b46303](https://github.com/lawther/python-lint-hooks/commit/5b46303192d9830e837b6a3480ff2a60a842dfd3))
+* expanded return type enforcement and thematic renumbering ([ed4a0f4](https://github.com/lawther/python-lint-hooks/commit/ed4a0f4403e1db7f2b71137ca626fb4784ce72f5)), closes [#5](https://github.com/lawther/python-lint-hooks/issues/5)
+
+
+### Documentation
+
+* document --select, --ignore and prefix matching behavior ([988de6a](https://github.com/lawther/python-lint-hooks/commit/988de6a6428da1ce20b08c6d1684c753244f64f5))
+* update README with ML005 and new CLI options ([49400bf](https://github.com/lawther/python-lint-hooks/commit/49400bfee22fc5dae417e14246085a6a2a6b2494))
+
 ## [0.2.0](https://github.com/lawther/python-lint-hooks/compare/v0.1.0...v0.2.0) (2026-05-06)
 
 
