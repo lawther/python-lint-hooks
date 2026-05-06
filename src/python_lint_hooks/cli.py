@@ -1,10 +1,11 @@
 """CLI entry point for ml-lint."""
+
 from __future__ import annotations
 
 import argparse
 import sys
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic import BaseModel

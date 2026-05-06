@@ -4,12 +4,11 @@ Each test isolates one behaviour of the AST visitor. We test the checker
 directly (via check_file) rather than through the CLI to keep tests fast and
 focused.
 """
+
 from __future__ import annotations
 
 import textwrap
 from pathlib import Path
-
-import pytest
 
 from python_lint_hooks.checker import Violation, check_file
 
@@ -250,7 +249,7 @@ def test_class_in_class_method_flagged(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# noqa suppression (ML001 and ML002)
+# Inline suppression (ML001 and ML002)
 # ---------------------------------------------------------------------------
 
 
