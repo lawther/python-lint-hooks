@@ -132,6 +132,21 @@ def test_for_loop_over_tainted_variable_flagged(tmp_path: Path) -> None:
     assert "v" in ml400_violations[0].message
 
 
+def test_annotated_assignment_from_untrusted_source_flagged(tmp_path: Path) -> None:
+    # Type-annotated assignments (`data: dict = json.loads(...)`) are ubiquitous in
+    # modern typed Python. enter_AnnAssign is a separate AST visitor from enter_Assign,
+    # so a missing implementation there would silently let every annotated assignment
+    # bypass ML400 — a genuine security gap.
+    code = textwrap.dedent("""
+        import json
+        def foo():
+            data: dict = json.loads('{"a": 1}')
+            print(data["a"])
+    """)
+    violations = check(code, tmp_path)
+    assert "ML400" in codes(violations)
+
+
 def test_regression_user_snippet(tmp_path: Path) -> None:
     code = textwrap.dedent("""
         import json
