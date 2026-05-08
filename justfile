@@ -24,7 +24,10 @@ test:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "Running tests..."
-    uv run pytest --cov=python_lint_hooks --cov-report=term-missing --cov-branch
+    cov_json=$(mktemp)
+    trap 'rm -f "$cov_json"' EXIT
+    uv run pytest --cov=python_lint_hooks --cov-report=term-missing --cov-branch --cov-report=json:"$cov_json"
+    uv run python scripts/branch_summary.py "$cov_json"
     echo "{{success}}Tests passed{{reset}}"
 
 # Setup the development environment from a fresh clone
