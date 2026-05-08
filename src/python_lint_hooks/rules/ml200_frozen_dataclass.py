@@ -18,7 +18,7 @@ def _is_dataclass_decorator(decorator: ast.expr) -> bool:
     if isinstance(node, ast.Name):
         return node.id == "dataclass"
     if isinstance(node, ast.Attribute):
-        return isinstance(node.value, ast.Name) and node.value.id == "dataclasses" and node.attr == "dataclass"
+        return isinstance(node.value, ast.Name) and node.attr == "dataclass"
     return False
 
 
