@@ -14,7 +14,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, ClassVar
 
 from python_lint_hooks.noqa import has_noqa
-from python_lint_hooks.violation import Violation
+from python_lint_hooks.violation import RuleCode, Violation
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -49,7 +49,7 @@ class Rule:
     coverage and must pass explicit `noqa_lines`.
     """
 
-    code: ClassVar[str]
+    code: ClassVar[RuleCode]
     category: ClassVar[RuleCategory]
     summary: ClassVar[str]
     suggestion: ClassVar[str]

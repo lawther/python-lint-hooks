@@ -43,7 +43,7 @@ Every rule file must:
 3. Declare these four `ClassVar` fields:
 
 ```python
-code: ClassVar[str] = "ML150"
+code: ClassVar[RuleCode] = RuleCode.ML150
 category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES
 summary: ClassVar[str] = "One-line description for the README table"
 suggestion: ClassVar[str] = "What the author should do instead"
@@ -52,7 +52,7 @@ suggestion: ClassVar[str] = "What the author should do instead"
 4. Emit violations **only** via `self.report()` — never by appending to `self.violations` directly (except ML400, which has a special dual-line noqa requirement).
 5. **Not recurse** inside hook methods — the runner handles tree traversal.
 
-The file is auto-discovered at import time via `pkgutil.iter_modules`. No registration list to update.
+`just new-rule` handles adding `RuleCode.ML150` to the enum in `violation.py` automatically. The file is auto-discovered at import time via `pkgutil.iter_modules`.
 
 ---
 
@@ -206,12 +206,12 @@ from __future__ import annotations
 import ast
 from typing import ClassVar
 
-from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, register
+from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, register
 
 
 @register
 class ML150(Rule):
-    code: ClassVar[str] = "ML150"
+    code: ClassVar[RuleCode] = RuleCode.ML150
     category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES
     summary: ClassVar[str] = "Function returns a bare `list`"
     suggestion: ClassVar[str] = "Use `list[T]` with an explicit element type"

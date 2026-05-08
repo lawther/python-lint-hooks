@@ -9,7 +9,7 @@ from __future__ import annotations
 import ast
 from typing import ClassVar
 
-from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, register
+from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, register
 
 
 def _is_dataclass_decorator(decorator: ast.expr) -> bool:
@@ -31,7 +31,7 @@ def _is_frozen(decorator: ast.Call) -> bool:
 
 @register
 class ML200(Rule):
-    code: ClassVar[str] = "ML200"
+    code: ClassVar[RuleCode] = RuleCode.ML200
     category: ClassVar[RuleCategory] = RuleCategory.CLASS_SHAPE
     summary: ClassVar[str] = "Dataclass is not frozen"
     suggestion: ClassVar[str] = "Use `@dataclass(frozen=True)`"

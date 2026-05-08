@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from python_lint_hooks.runner import check_file
-from python_lint_hooks.violation import Violation
+from python_lint_hooks.violation import RuleCode, Violation
 
 
 def check(code: str, tmp_path: Path) -> list[Violation]:
@@ -15,6 +15,6 @@ def check(code: str, tmp_path: Path) -> list[Violation]:
     return check_file(path)
 
 
-def codes(violations: list[Violation]) -> list[str]:
+def codes(violations: list[Violation]) -> list[RuleCode]:
     """Extract rule codes from a list of violations."""
     return [v.code for v in violations]

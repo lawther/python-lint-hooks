@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from python_lint_hooks.noqa import has_noqa
-from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, register
+from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, register
 from python_lint_hooks.violation import Violation
 
 _UNTRUSTED_FUNCS: frozenset[str] = frozenset({"loads", "load", "safe_load", "full_load", "literal_eval"})
@@ -28,7 +28,7 @@ class _Tainted:
 
 @register
 class ML400(Rule):
-    code: ClassVar[str] = "ML400"
+    code: ClassVar[RuleCode] = RuleCode.ML400
     category: ClassVar[RuleCategory] = RuleCategory.DATA_TRUST
     summary: ClassVar[str] = "Unvalidated external data used without Pydantic validation"
     suggestion: ClassVar[str] = "Validate with a Pydantic model before use"

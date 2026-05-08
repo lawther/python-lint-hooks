@@ -93,13 +93,15 @@ new-rule code:
         echo "Rule file already exists: $rule_file" >&2
         exit 1
     fi
-    sed "s/MLxxx/${code}/g" src/python_lint_hooks/rules/_template.py > "$rule_file"
+    sed "s/MLxxx/${code}/g" src/python_lint_hooks/rules/_template.py | sed 's/  # ty: ignore\[unresolved-attribute\]  # placeholder replaced by just new-rule//' > "$rule_file"
     sed "s/MLxxx/${code}/g; s/mlxxx/${lower}/g" tests/rules/_template.py > "$test_file"
+    python3 -c "import pathlib,sys; code=sys.argv[1]; p=pathlib.Path('src/python_lint_hooks/violation.py'); src=p.read_text(); sentinel='    # -- add new codes above this line --'; entry='    '+code+' = \"'+code+'\"'; p.write_text(src.replace(sentinel, entry+chr(10)+sentinel))" "$code"
     echo "Created: $rule_file"
     echo "Created: $test_file"
+    echo "Added:   RuleCode.${code} to src/python_lint_hooks/violation.py"
     echo ""
     echo "Next steps:"
-    echo "  1. Edit $rule_file — fill in code/category/summary/suggestion and implement enter_*/leave_* hooks"
+    echo "  1. Edit $rule_file — fill in category/summary/suggestion and implement enter_*/leave_* hooks"
     echo "  2. Edit $test_file  — replace TODO stubs with real test cases"
     echo "  3. Run: just precommit"
     echo "  4. Run: just docs-rules  (updates README.md rules table)"

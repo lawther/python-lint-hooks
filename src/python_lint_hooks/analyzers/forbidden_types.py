@@ -10,6 +10,8 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 
+from python_lint_hooks.violation import RuleCode
+
 _DICT_NAMES: frozenset[str] = frozenset({"dict", "Dict"})
 _TUPLE_NAMES: frozenset[str] = frozenset({"tuple", "Tuple"})
 _PRIMITIVE_NAMES: frozenset[str] = frozenset({"str", "int", "float", "bool", "bytes", "Any", "None"})
@@ -19,7 +21,7 @@ _PRIMITIVE_NAMES: frozenset[str] = frozenset({"str", "int", "float", "bool", "by
 class ForbiddenTypeFinding:
     """A single forbidden-type finding in a type annotation (no path/message — pure analysis)."""
 
-    code: str
+    code: RuleCode
     line: int
     col: int
 
@@ -45,21 +47,21 @@ class ForbiddenTypeAnalyzer:
             self.analyze(node.left)
             self.analyze(node.right)
         elif isinstance(node, ast.Tuple):
-            self.findings.append(ForbiddenTypeFinding("ML101", node.lineno, node.col_offset + 1))
+            self.findings.append(ForbiddenTypeFinding(RuleCode.ML101, node.lineno, node.col_offset + 1))
             for elt in node.elts:
                 self.analyze(elt)
 
     def _check_name(self, node: ast.Name) -> None:
         if node.id in _DICT_NAMES:
-            self.findings.append(ForbiddenTypeFinding("ML100", node.lineno, node.col_offset + 1))
+            self.findings.append(ForbiddenTypeFinding(RuleCode.ML100, node.lineno, node.col_offset + 1))
         elif node.id in _TUPLE_NAMES:
-            self.findings.append(ForbiddenTypeFinding("ML101", node.lineno, node.col_offset + 1))
+            self.findings.append(ForbiddenTypeFinding(RuleCode.ML101, node.lineno, node.col_offset + 1))
 
     def _check_attribute(self, node: ast.Attribute) -> None:
         if node.attr in _DICT_NAMES:
-            self.findings.append(ForbiddenTypeFinding("ML100", node.lineno, node.col_offset + 1))
+            self.findings.append(ForbiddenTypeFinding(RuleCode.ML100, node.lineno, node.col_offset + 1))
         elif node.attr in _TUPLE_NAMES:
-            self.findings.append(ForbiddenTypeFinding("ML101", node.lineno, node.col_offset + 1))
+            self.findings.append(ForbiddenTypeFinding(RuleCode.ML101, node.lineno, node.col_offset + 1))
 
     def _check_subscript(self, node: ast.Subscript) -> None:
         head = node.value
@@ -81,12 +83,12 @@ class ForbiddenTypeAnalyzer:
 
     def _check_dict_subscript(self, node: ast.Subscript) -> None:
         if not isinstance(node.slice, ast.Tuple) or len(node.slice.elts) != 2:  # noqa: PLR2004
-            self.findings.append(ForbiddenTypeFinding("ML100", node.lineno, node.col_offset + 1))
+            self.findings.append(ForbiddenTypeFinding(RuleCode.ML100, node.lineno, node.col_offset + 1))
             return
 
         k, v = node.slice.elts
         if _is_primitive(k) and _is_primitive(v):
-            self.findings.append(ForbiddenTypeFinding("ML102", node.lineno, node.col_offset + 1))
+            self.findings.append(ForbiddenTypeFinding(RuleCode.ML102, node.lineno, node.col_offset + 1))
 
         self.analyze(k)
         self.analyze(v)
@@ -95,7 +97,7 @@ class ForbiddenTypeAnalyzer:
         elts = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
         is_variable = any(isinstance(elt, ast.Constant) and elt.value is Ellipsis for elt in elts)
 
-        code = "ML104" if is_variable else "ML103"
+        code = RuleCode.ML104 if is_variable else RuleCode.ML103
         self.findings.append(ForbiddenTypeFinding(code, node.lineno, node.col_offset + 1))
 
         for elt in elts:

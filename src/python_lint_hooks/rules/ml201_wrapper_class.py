@@ -11,12 +11,12 @@ import ast
 from typing import ClassVar
 
 from python_lint_hooks.analyzers.forbidden_types import ForbiddenTypeAnalyzer
-from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, register
+from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, register
 
 
 @register
 class ML201(Rule):
-    code: ClassVar[str] = "ML201"
+    code: ClassVar[RuleCode] = RuleCode.ML201
     category: ClassVar[RuleCategory] = RuleCategory.CLASS_SHAPE
     summary: ClassVar[str] = "Class contains only forbidden types"
     suggestion: ClassVar[str] = "Use a proper abstraction with well-typed fields"

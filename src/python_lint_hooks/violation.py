@@ -3,14 +3,30 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum, unique
 from pathlib import Path
+
+
+@unique
+class RuleCode(StrEnum):
+    ML100 = "ML100"
+    ML101 = "ML101"
+    ML102 = "ML102"
+    ML103 = "ML103"
+    ML104 = "ML104"
+    ML105 = "ML105"
+    ML200 = "ML200"
+    ML201 = "ML201"
+    ML300 = "ML300"
+    ML400 = "ML400"
+    # -- add new codes above this line --
 
 
 @dataclass(frozen=True)
 class Violation:
     """A single rule violation found in a source file."""
 
-    code: str
+    code: RuleCode
     message: str
     path: Path
     line: int

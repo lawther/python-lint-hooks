@@ -11,7 +11,7 @@ import ast
 from typing import ClassVar
 
 from python_lint_hooks.analyzers.forbidden_types import ForbiddenTypeAnalyzer
-from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, register
+from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, register
 
 
 def _is_newtype_call(node: ast.Call) -> bool:
@@ -26,7 +26,7 @@ def _is_newtype_call(node: ast.Call) -> bool:
 
 @register
 class ML105(Rule):
-    code: ClassVar[str] = "ML105"
+    code: ClassVar[RuleCode] = RuleCode.ML105
     category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES
     summary: ClassVar[str] = "`NewType` wraps a forbidden type"
     suggestion: ClassVar[str] = "Use a dataclass or NamedTuple instead"

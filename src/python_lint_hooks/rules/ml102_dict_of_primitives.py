@@ -10,12 +10,12 @@ import ast
 from typing import ClassVar
 
 from python_lint_hooks.analyzers.forbidden_types import ForbiddenTypeAnalyzer
-from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, annotation_noqa_lines, register
+from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, annotation_noqa_lines, register
 
 
 @register
 class ML102(Rule):
-    code: ClassVar[str] = "ML102"
+    code: ClassVar[RuleCode] = RuleCode.ML102
     category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES
     summary: ClassVar[str] = "Function returns a `dict` of primitives"
     suggestion: ClassVar[str] = "Use a dataclass or `NewType` for keys/values"

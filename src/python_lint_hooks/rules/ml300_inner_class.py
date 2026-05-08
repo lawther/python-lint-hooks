@@ -9,12 +9,12 @@ from __future__ import annotations
 import ast
 from typing import ClassVar
 
-from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, register
+from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, register
 
 
 @register
 class ML300(Rule):
-    code: ClassVar[str] = "ML300"
+    code: ClassVar[RuleCode] = RuleCode.ML300
     category: ClassVar[RuleCategory] = RuleCategory.SCOPE
     summary: ClassVar[str] = "Class defined inside a function"
     suggestion: ClassVar[str] = "Move it to module level"

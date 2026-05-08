@@ -6,10 +6,10 @@ import ast
 from pathlib import Path
 
 from python_lint_hooks.rules import CheckContext, Rule, all_rules
-from python_lint_hooks.violation import Violation
+from python_lint_hooks.violation import RuleCode, Violation
 
 
-def check_file(path: Path, enabled_codes: frozenset[str] | None = None) -> list[Violation]:
+def check_file(path: Path, enabled_codes: frozenset[RuleCode] | None = None) -> list[Violation]:
     """Parse path and return violations from all enabled rules.
 
     When enabled_codes is None every registered rule runs. The CLI computes the enabled
