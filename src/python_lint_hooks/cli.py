@@ -135,7 +135,7 @@ def _load_hooks_config(config_path: Path) -> _HooksConfig:
     if not config_path.exists():
         return _HooksConfig()
     with config_path.open("rb") as f:
-        data = tomllib.load(f)
+        data = tomllib.load(f)  # noqa: ML400
     tool = data.get("tool")
     if not isinstance(tool, dict):
         return _HooksConfig()
