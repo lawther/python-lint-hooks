@@ -194,6 +194,22 @@ def test_multi_generator_comprehension_only_tainted_iter_flagged(tmp_path: Path)
     assert "v" in ml400_violations[0].message
 
 
+def test_for_loop_over_safe_iterable_clears_previously_tainted_variable(tmp_path: Path) -> None:
+    # enter_For only calls _set_taint inside `if is_tainted:`, so when the loop
+    # iterates a non-tainted iterable, a previously-tainted variable reused as the
+    # loop target is never untainted — producing a false positive on every access
+    # inside the loop body.
+    code = textwrap.dedent("""
+        import json
+        def foo():
+            data = json.loads('{"a": 1}')
+            for data in [{"a": "safe"}]:
+                print(data["a"])
+    """)
+    violations = check(code, tmp_path)
+    assert "ML400" not in codes(violations)
+
+
 def test_regression_user_snippet(tmp_path: Path) -> None:
     code = textwrap.dedent("""
         import json

@@ -93,9 +93,8 @@ class ML400(Rule):
                 is_tainted = True
                 source_node = info.source_node
 
-        if is_tainted:
-            for name in _get_names(node.target):
-                self._set_taint(name, True, source_node)
+        for name in _get_names(node.target):
+            self._set_taint(name, is_tainted, source_node)
 
     def enter_ListComp(self, node: ast.ListComp) -> None:
         self._handle_comprehension(node.generators)
