@@ -114,3 +114,11 @@ def test_typing_any_value_flagged(tmp_path: Path) -> None:
     # This exercises _is_primitive() for an ast.Attribute node (qualified name).
     violations = check("import typing\ndef foo() -> dict[str, typing.Any]: ...\n", tmp_path)
     assert codes(violations) == ["ML102"]
+
+
+def test_none_constant_key_is_primitive_flagged(tmp_path: Path) -> None:
+    # None as a dict key appears as ast.Constant(value=None) in the AST, not ast.Name('None').
+    # _is_primitive() has a separate Constant branch for this case; dict[None, str] should
+    # be ML102 because None is a primitive type per the rule.
+    violations = check("def foo() -> dict[None, str]: ...\n", tmp_path)
+    assert codes(violations) == ["ML102"]
