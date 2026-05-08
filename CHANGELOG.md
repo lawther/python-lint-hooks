@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.5.0](https://github.com/lawther/python-lint-hooks/compare/v0.4.0...v0.5.0) (2026-05-08)
+
+
+### Features
+
+* add docs-rules, check-rules-docs, and new-rule justfile recipes ([e5ac3f5](https://github.com/lawther/python-lint-hooks/commit/e5ac3f5657548104bc7d97690e7d6e30617a8ff5))
+* add ML400 rule to detect unvalidated external data usage ([8bd289b](https://github.com/lawther/python-lint-hooks/commit/8bd289b8e530642cae8161dadfce69cfe02af8cb))
+
+
+### Bug Fixes
+
+* disallow bare # noqa suppressions to prevent over-suppression ([9e6e668](https://github.com/lawther/python-lint-hooks/commit/9e6e6689b9f0befc8c1c38a4eca9c5ca2c3268cc))
+* include ml400_untrusted_data.py omitted from previous staging ([53f31a6](https://github.com/lawther/python-lint-hooks/commit/53f31a63fcfcb688d6ae6b5d1c1da6524f0132ff))
+* suppress ML400 on tomllib.load in cli (pre-validation navigation) ([4b65652](https://github.com/lawther/python-lint-hooks/commit/4b6565272ce57b1d044c719c2082fe580b3b7fd0))
+
+
+### Documentation
+
+* add CONTRIBUTING_RULES.md and link from GEMINI.md ([485b189](https://github.com/lawther/python-lint-hooks/commit/485b189259fedc2379739011be4fd9017c0e4059))
+* update justfile integration example in README ([e6d12ef](https://github.com/lawther/python-lint-hooks/commit/e6d12efcceb5b7a3c927514bedcc061bd07234d0))
+
 ## [0.4.0](https://github.com/lawther/python-lint-hooks/compare/v0.3.0...v0.4.0) (2026-05-06)
 
 
