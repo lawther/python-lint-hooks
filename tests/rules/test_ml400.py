@@ -147,6 +147,20 @@ def test_annotated_assignment_from_untrusted_source_flagged(tmp_path: Path) -> N
     assert "ML400" in codes(violations)
 
 
+def test_list_comprehension_directly_over_untrusted_call_flagged(tmp_path: Path) -> None:
+    # When the comprehension iter IS the untrusted call (no intermediate variable),
+    # _handle_comprehension sets source_node = gen (an ast.comprehension node).
+    # ast.comprehension has no lineno attribute, so _report_ml400's hasattr guard
+    # at line 152 fires and silently drops the violation — a genuine bug.
+    code = textwrap.dedent("""
+        import json
+        def foo():
+            names = [v["name"] for v in json.loads('[{"name": "a"}]')]
+    """)
+    violations = check(code, tmp_path)
+    assert "ML400" in codes(violations)
+
+
 def test_regression_user_snippet(tmp_path: Path) -> None:
     code = textwrap.dedent("""
         import json

@@ -112,7 +112,7 @@ class ML400(Rule):
     def _handle_comprehension(self, generators: list[ast.comprehension]) -> None:
         for gen in generators:
             is_tainted = self._is_untrusted_source(gen.iter)
-            source_node: ast.AST | None = gen if is_tainted else None
+            source_node: ast.AST | None = gen.iter if is_tainted else None
 
             if not is_tainted and isinstance(gen.iter, ast.Name):
                 info = self._get_taint_info(gen.iter.id)
