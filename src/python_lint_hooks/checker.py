@@ -415,18 +415,6 @@ class _Checker(ast.NodeVisitor):
         )
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        if self._function_depth > 0 and not _has_noqa(self._source_lines, [node.lineno], "ML300"):
-            self.violations.append(
-                Violation(
-                    code="ML300",
-                    message=f"Class '{node.name}' defined inside a function",
-                    path=self._path,
-                    line=node.lineno,
-                    col=node.col_offset + 1,
-                )
-            )
-
-        # GEMINI.md: "Strongly prefer to make dataclasses immutable where possible. Use @dataclass(frozen=True)"
         self._check_frozen_dataclass(node)
         self._check_wrapper_class(node)
         self.generic_visit(node)
@@ -507,10 +495,17 @@ class _Checker(ast.NodeVisitor):
 
 
 def check_file(path: Path) -> list[Violation]:
-    """Parse path and return all ML rule violations found."""
+    """Parse path and return all ML rule violations found.
+
+    Combines results from the legacy _Checker (for rules not yet ported to the Rule
+    registry) and from the runner (for rules that have been ported). Once all rules are
+    ported this shim will be removed.
+    """
+    from python_lint_hooks.runner import check_file as runner_check_file  # noqa: PLC0415
+
     source = path.read_text(encoding="utf-8")
     source_lines = source.splitlines()
     tree = ast.parse(source, filename=str(path))
     checker = _Checker(path, source_lines)
     checker.visit(tree)
-    return checker.violations
+    return checker.violations + runner_check_file(path)

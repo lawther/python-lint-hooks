@@ -249,60 +249,6 @@ def test_noqa_ml105_suppresses(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# ML300 — class defined inside a function
-# ---------------------------------------------------------------------------
-
-
-def test_class_inside_function_flagged(tmp_path: Path) -> None:
-    violations = _check(
-        textwrap.dedent("""\
-            def outer() -> None:
-                class Inner:
-                    pass
-        """),
-        tmp_path,
-    )
-    assert _codes(violations) == ["ML300"]
-
-
-def test_class_at_module_level_ok(tmp_path: Path) -> None:
-    violations = _check(
-        textwrap.dedent("""\
-            class Foo:
-                pass
-        """),
-        tmp_path,
-    )
-    assert violations == []
-
-
-def test_class_inside_method_flagged(tmp_path: Path) -> None:
-    # A class defined inside a method is still inside a function.
-    violations = _check(
-        textwrap.dedent("""\
-            class Outer:
-                def method(self) -> None:
-                    class Inner:
-                        pass
-        """),
-        tmp_path,
-    )
-    assert _codes(violations) == ["ML300"]
-
-
-def test_noqa_ml300_suppresses(tmp_path: Path) -> None:
-    violations = _check(
-        textwrap.dedent("""\
-            def outer() -> None:
-                class Inner:  # noqa: ML300
-                    pass
-        """),
-        tmp_path,
-    )
-    assert violations == []
-
-
-# ---------------------------------------------------------------------------
 # Mixed violations
 # ---------------------------------------------------------------------------
 
