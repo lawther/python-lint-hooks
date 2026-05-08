@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeAlias, cast
 
+from python_lint_hooks.noqa import has_noqa as _has_noqa
+from python_lint_hooks.violation import Violation
+
 _DICT_NAMES: frozenset[str] = frozenset({"dict", "Dict"})
 _TUPLE_NAMES: frozenset[str] = frozenset({"tuple", "Tuple"})
 _PRIMITIVE_NAMES: frozenset[str] = frozenset({"str", "int", "float", "bool", "bytes", "Any", "None"})
@@ -15,36 +18,7 @@ _UNTRUSTED_FUNCS: frozenset[str] = frozenset({"loads", "load", "safe_load", "ful
 _FuncNode: TypeAlias = ast.FunctionDef | ast.AsyncFunctionDef
 
 
-@dataclass(frozen=True)
-class Violation:
-    """A single rule violation found in a source file."""
-
-    code: str
-    message: str
-    path: Path
-    line: int
-    col: int
-
-    def format(self) -> str:
-        return f"{self.path}:{self.line}:{self.col}: {self.code} {self.message}"
-
-
-def _has_noqa(source_lines: list[str], line_numbers: list[int], code: str) -> bool:
-    """Return True if any of the given source lines carries a noqa suppressing code."""
-    for lineno in line_numbers:
-        if lineno < 1 or lineno > len(source_lines):
-            continue
-        line = source_lines[lineno - 1]
-        if "# noqa" not in line:
-            continue
-        _, _, noqa_tail = line.partition("# noqa")
-        noqa_tail = noqa_tail.strip()
-        if not noqa_tail or not noqa_tail.startswith(":"):
-            return False  # Disallow bare
-        codes = [c.strip() for c in noqa_tail[1:].split(",")]
-        if code in codes:
-            return True
-    return False
+__all__ = ["Violation", "check_file"]
 
 
 class _ReturnAnalyzer:
