@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.1](https://github.com/lawther/python-lint-hooks/compare/v0.6.0...v0.6.1) (2026-05-08)
+
+
+### Bug Fixes
+
+* exclude ClassVar fields from ML201 all-forbidden-types check ([42cf5b1](https://github.com/lawther/python-lint-hooks/commit/42cf5b1f474488af94f7a23bee7db6559b36ab97))
+* recognise [@alias](https://github.com/alias).dataclass regardless of module alias name ([d51ae7e](https://github.com/lawther/python-lint-hooks/commit/d51ae7e67b83d24d7e9473b70524027ac302b96e))
+* recognise t.NewType regardless of typing module alias name ([0f26908](https://github.com/lawther/python-lint-hooks/commit/0f26908bf9201b62101741b47d261438ac6bf800))
+
 ## [0.6.0](https://github.com/lawther/python-lint-hooks/compare/v0.5.0...v0.6.0) (2026-05-08)
 
 
