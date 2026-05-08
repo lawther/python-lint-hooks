@@ -176,6 +176,24 @@ def test_starred_unpack_from_untrusted_source_flagged(tmp_path: Path) -> None:
     assert "ML400" in codes(violations)
 
 
+def test_multi_generator_comprehension_only_tainted_iter_flagged(tmp_path: Path) -> None:
+    # A list comprehension with two generators: one tainted, one safe.
+    # The safe generator exercises the 119->123 branch (_handle_comprehension
+    # sees a non-tainted Name and falls through), and 123->113 (loop continues
+    # without tainting that variable). The safe loop variable must not be flagged.
+    code = textwrap.dedent("""
+        import json
+        def foo():
+            raw = json.loads('[{"name": "a"}]')
+            suffixes = ["x", "y"]
+            result = [v["name"] + s for v in raw for s in suffixes]
+    """)
+    violations = check(code, tmp_path)
+    ml400_violations = [v for v in violations if v.code == "ML400"]
+    assert len(ml400_violations) == 1
+    assert "v" in ml400_violations[0].message
+
+
 def test_regression_user_snippet(tmp_path: Path) -> None:
     code = textwrap.dedent("""
         import json
