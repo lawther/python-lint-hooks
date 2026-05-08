@@ -227,6 +227,23 @@ def test_set_comprehension_loop_variable_does_not_produce_false_positive(tmp_pat
     assert "ML400" not in codes(violations)
 
 
+def test_attribute_assignment_target_does_not_taint(tmp_path: Path) -> None:
+    # _get_names falls through to `return []` when the assignment target is an
+    # ast.Attribute node (e.g. `self.data = json.loads(...)`). The attribute path
+    # is not a trackable name in the local scope, so no taint is set and no
+    # violation should fire when the same attribute is accessed later.
+    code = textwrap.dedent("""
+        import json
+        class Processor:
+            def load(self):
+                self.data = json.loads('{"a": 1}')
+            def use(self):
+                print(self.data["a"])
+    """)
+    violations = check(code, tmp_path)
+    assert "ML400" not in codes(violations)
+
+
 def test_regression_user_snippet(tmp_path: Path) -> None:
     code = textwrap.dedent("""
         import json
