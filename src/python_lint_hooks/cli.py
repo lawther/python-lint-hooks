@@ -12,7 +12,9 @@ from typing import TYPE_CHECKING
 import pathspec
 from pydantic import BaseModel, Field
 
-from python_lint_hooks.checker import Violation, check_file
+from python_lint_hooks.rules import all_rules
+from python_lint_hooks.runner import check_file
+from python_lint_hooks.violation import Violation
 
 if TYPE_CHECKING:
     pass
@@ -275,23 +277,16 @@ def main() -> None:
 
     files = _collect_files(run_config, root)
 
+    enabled_codes = frozenset(
+        cls.code
+        for cls in all_rules()
+        if any(cls.code.startswith(s) for s in run_config.select)
+        and not any(cls.code.startswith(i) for i in run_config.ignore)
+    )
+
     all_violations: list[Violation] = []
     for file in files:
-        violations = check_file(file)
-
-        # Filter violations based on --select and --ignore with prefix matching
-        filtered = []
-        for v in violations:
-            # Rule is selected if its code or any prefix is in the select list
-            is_selected = any(v.code.startswith(s) for s in run_config.select)
-
-            # Rule is ignored if its code or any prefix is in the ignore list
-            is_ignored = any(v.code.startswith(i) for i in run_config.ignore)
-
-            if is_selected and not is_ignored:
-                filtered.append(v)
-
-        all_violations.extend(filtered)
+        all_violations.extend(check_file(file, enabled_codes))
 
     for violation in sorted(all_violations, key=lambda v: (str(v.path), v.line, v.col)):
         print(violation.format())
