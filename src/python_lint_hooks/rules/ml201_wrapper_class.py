@@ -14,6 +14,16 @@ from python_lint_hooks.analyzers.forbidden_types import ForbiddenTypeAnalyzer
 from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, register
 
 
+def _is_classvar(annotation: ast.expr) -> bool:
+    """Return True if the annotation is ClassVar or ClassVar[...] (bare or qualified)."""
+    node = annotation.value if isinstance(annotation, ast.Subscript) else annotation
+    if isinstance(node, ast.Name):
+        return node.id == "ClassVar"
+    if isinstance(node, ast.Attribute):
+        return node.attr == "ClassVar"
+    return False
+
+
 @register
 class ML201(Rule):
     code: ClassVar[RuleCode] = RuleCode.ML201
@@ -25,7 +35,9 @@ class ML201(Rule):
         super().__init__(context)
 
     def enter_ClassDef(self, node: ast.ClassDef) -> None:
-        annotations = [stmt for stmt in node.body if isinstance(stmt, ast.AnnAssign)]
+        annotations = [
+            stmt for stmt in node.body if isinstance(stmt, ast.AnnAssign) and not _is_classvar(stmt.annotation)
+        ]
         if not annotations:
             return
 
