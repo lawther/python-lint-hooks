@@ -116,6 +116,13 @@ def test_typing_any_value_flagged(tmp_path: Path) -> None:
     assert codes(violations) == ["ML102"]
 
 
+def test_subscript_key_not_primitive_ok(tmp_path: Path) -> None:
+    # dict[list[str], str] — the key type is ast.Subscript, which is not Name/Attribute/Constant.
+    # _is_primitive() returns False (the fallback branch), so this is NOT ML102.
+    violations = check("def foo() -> dict[list[str], str]: ...\n", tmp_path)
+    assert violations == []
+
+
 def test_none_constant_key_is_primitive_flagged(tmp_path: Path) -> None:
     # None as a dict key appears as ast.Constant(value=None) in the AST, not ast.Name('None').
     # _is_primitive() has a separate Constant branch for this case; dict[None, str] should
