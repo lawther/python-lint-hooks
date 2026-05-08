@@ -42,8 +42,6 @@ class ML201(Rule):
             return
 
         for ann in annotations:
-            if ann.annotation is None:
-                continue
             analyzer = ForbiddenTypeAnalyzer()
             analyzer.analyze(ann.annotation)
             if not analyzer.findings:
