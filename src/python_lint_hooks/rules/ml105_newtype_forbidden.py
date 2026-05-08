@@ -17,10 +17,7 @@ from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, 
 def _is_newtype_call(node: ast.Call) -> bool:
     func = node.func
     return (isinstance(func, ast.Name) and func.id == "NewType") or (
-        isinstance(func, ast.Attribute)
-        and isinstance(func.value, ast.Name)
-        and func.value.id == "typing"
-        and func.attr == "NewType"
+        isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.attr == "NewType"
     )
 
 
