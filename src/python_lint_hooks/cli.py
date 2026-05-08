@@ -7,7 +7,6 @@ import sys
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import pathspec
 from pydantic import BaseModel, Field
@@ -15,10 +14,6 @@ from pydantic import BaseModel, Field
 from python_lint_hooks.rules import all_rules
 from python_lint_hooks.runner import check_file
 from python_lint_hooks.violation import Violation
-
-if TYPE_CHECKING:
-    pass
-
 
 # Ruff's default exclusion list
 RUFF_DEFAULT_EXCLUDE = [
