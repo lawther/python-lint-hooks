@@ -202,4 +202,6 @@ def _get_names(node: ast.AST) -> list[str]:
         for elt in node.elts:
             names.extend(_get_names(elt))
         return names
+    if isinstance(node, ast.Starred):
+        return _get_names(node.value)
     return []

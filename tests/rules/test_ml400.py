@@ -161,6 +161,21 @@ def test_list_comprehension_directly_over_untrusted_call_flagged(tmp_path: Path)
     assert "ML400" in codes(violations)
 
 
+def test_starred_unpack_from_untrusted_source_flagged(tmp_path: Path) -> None:
+    # _get_names recurses into Tuple/List elements but has no branch for ast.Starred,
+    # so `*rest` in `_first, *rest = json.loads(...)` falls through to `return []`
+    # and is never tainted — a genuine security gap. Accessing rest[0]["key"] must
+    # be flagged because rest contains raw untrusted data.
+    code = textwrap.dedent("""
+        import json
+        def foo():
+            _first, *rest = json.loads('[{"a": 1}, {"b": 2}]')
+            print(rest[0]["b"])
+    """)
+    violations = check(code, tmp_path)
+    assert "ML400" in codes(violations)
+
+
 def test_regression_user_snippet(tmp_path: Path) -> None:
     code = textwrap.dedent("""
         import json
