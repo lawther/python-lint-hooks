@@ -97,16 +97,18 @@ class ML400(Rule):
             self._set_taint(name, is_tainted, source_node)
 
     def enter_ListComp(self, node: ast.ListComp) -> None:
+        self._taint_stack.append({})
         self._handle_comprehension(node.generators)
 
-    def enter_SetComp(self, node: ast.SetComp) -> None:
-        self._handle_comprehension(node.generators)
+    def leave_ListComp(self, node: ast.ListComp) -> None:
+        self._taint_stack.pop()
 
-    def enter_DictComp(self, node: ast.DictComp) -> None:
-        self._handle_comprehension(node.generators)
-
-    def enter_GeneratorExp(self, node: ast.GeneratorExp) -> None:
-        self._handle_comprehension(node.generators)
+    enter_SetComp = enter_ListComp  # type: ignore[assignment]
+    leave_SetComp = leave_ListComp  # type: ignore[assignment]
+    enter_DictComp = enter_ListComp  # type: ignore[assignment]
+    leave_DictComp = leave_ListComp  # type: ignore[assignment]
+    enter_GeneratorExp = enter_ListComp  # type: ignore[assignment]
+    leave_GeneratorExp = leave_ListComp  # type: ignore[assignment]
 
     def _handle_comprehension(self, generators: list[ast.comprehension]) -> None:
         for gen in generators:
@@ -119,9 +121,8 @@ class ML400(Rule):
                     is_tainted = True
                     source_node = info.source_node
 
-            if is_tainted:
-                for name in _get_names(gen.target):
-                    self._set_taint(name, True, source_node)
+            for name in _get_names(gen.target):
+                self._set_taint(name, is_tainted, source_node)
 
     # ------------------------------------------------------------------
     # Usage detection — subscript and .get() access on tainted names

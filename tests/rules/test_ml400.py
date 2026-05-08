@@ -210,6 +210,23 @@ def test_for_loop_over_safe_iterable_clears_previously_tainted_variable(tmp_path
     assert "ML400" not in codes(violations)
 
 
+def test_set_comprehension_loop_variable_does_not_produce_false_positive(tmp_path: Path) -> None:
+    # _handle_comprehension runs in the enclosing scope without pushing a new
+    # taint frame, and only calls _set_taint when is_tainted is True. So when
+    # a comprehension loop variable shares a name with a previously-tainted outer
+    # variable, and the iterator is non-tainted, the outer taint is never cleared
+    # for that name — every subscript access inside the comp fires a false positive.
+    code = textwrap.dedent("""
+        import json
+        def foo():
+            v = json.loads('[{"a": 1}]')
+            safe = [{"a": "safe"}]
+            names = {v["a"] for v in safe}
+    """)
+    violations = check(code, tmp_path)
+    assert "ML400" not in codes(violations)
+
+
 def test_regression_user_snippet(tmp_path: Path) -> None:
     code = textwrap.dedent("""
         import json
