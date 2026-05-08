@@ -104,7 +104,7 @@ def test_unvalidated_data_shadowed_ok(tmp_path: Path) -> None:
 
 def test_for_loop_over_tainted_variable_flagged(tmp_path: Path) -> None:
     # A regular for loop is semantically equivalent to the list-comp in
-    # test_regression_user_snippet, but exercises enter_For (lines 87-98) instead of
+    # test_regression_user_snippet, but exercises enter_For instead of
     # enter_ListComp → _handle_comprehension. Both paths must propagate taint to the
     # loop variable so that subscript access on it is flagged.
     code = textwrap.dedent("""
@@ -149,9 +149,8 @@ def test_annotated_assignment_from_untrusted_source_flagged(tmp_path: Path) -> N
 
 def test_list_comprehension_directly_over_untrusted_call_flagged(tmp_path: Path) -> None:
     # When the comprehension iter IS the untrusted call (no intermediate variable),
-    # _handle_comprehension sets source_node = gen (an ast.comprehension node).
-    # ast.comprehension has no lineno attribute, so _report_ml400's hasattr guard
-    # at line 152 fires and silently drops the violation — a genuine bug.
+    # _handle_comprehension must use gen.iter (an ast.expr with lineno) as the
+    # source_node rather than gen itself (an ast.comprehension, which has no lineno).
     code = textwrap.dedent("""
         import json
         def foo():
@@ -162,10 +161,9 @@ def test_list_comprehension_directly_over_untrusted_call_flagged(tmp_path: Path)
 
 
 def test_starred_unpack_from_untrusted_source_flagged(tmp_path: Path) -> None:
-    # _get_names recurses into Tuple/List elements but has no branch for ast.Starred,
-    # so `*rest` in `_first, *rest = json.loads(...)` falls through to `return []`
-    # and is never tainted — a genuine security gap. Accessing rest[0]["key"] must
-    # be flagged because rest contains raw untrusted data.
+    # _get_names must recurse into ast.Starred so that `*rest` in
+    # `_first, *rest = json.loads(...)` is tainted. Without the Starred branch it
+    # would fall through to `return []` and rest would silently escape validation.
     code = textwrap.dedent("""
         import json
         def foo():
@@ -178,9 +176,8 @@ def test_starred_unpack_from_untrusted_source_flagged(tmp_path: Path) -> None:
 
 def test_multi_generator_comprehension_only_tainted_iter_flagged(tmp_path: Path) -> None:
     # A list comprehension with two generators: one tainted, one safe.
-    # The safe generator exercises the 119->123 branch (_handle_comprehension
-    # sees a non-tainted Name and falls through), and 123->113 (loop continues
-    # without tainting that variable). The safe loop variable must not be flagged.
+    # _handle_comprehension must leave the safe loop variable clean so that
+    # only access via the tainted variable triggers a violation.
     code = textwrap.dedent("""
         import json
         def foo():
@@ -195,10 +192,9 @@ def test_multi_generator_comprehension_only_tainted_iter_flagged(tmp_path: Path)
 
 
 def test_for_loop_over_safe_iterable_clears_previously_tainted_variable(tmp_path: Path) -> None:
-    # enter_For only calls _set_taint inside `if is_tainted:`, so when the loop
-    # iterates a non-tainted iterable, a previously-tainted variable reused as the
-    # loop target is never untainted — producing a false positive on every access
-    # inside the loop body.
+    # enter_For must always call _set_taint for the loop target, not only when
+    # the iterable is tainted. If it skips the untainted case, a previously-tainted
+    # variable reused as the loop target is never cleared, producing a false positive.
     code = textwrap.dedent("""
         import json
         def foo():
@@ -211,11 +207,10 @@ def test_for_loop_over_safe_iterable_clears_previously_tainted_variable(tmp_path
 
 
 def test_set_comprehension_loop_variable_does_not_produce_false_positive(tmp_path: Path) -> None:
-    # _handle_comprehension runs in the enclosing scope without pushing a new
-    # taint frame, and only calls _set_taint when is_tainted is True. So when
-    # a comprehension loop variable shares a name with a previously-tainted outer
-    # variable, and the iterator is non-tainted, the outer taint is never cleared
-    # for that name — every subscript access inside the comp fires a false positive.
+    # Comprehensions push a fresh taint scope, so a loop variable that shadows a
+    # tainted outer name must be treated as clean inside the comprehension body.
+    # If the scope push is missing, the outer taint leaks in and every subscript
+    # access on the loop variable fires a false positive.
     code = textwrap.dedent("""
         import json
         def foo():

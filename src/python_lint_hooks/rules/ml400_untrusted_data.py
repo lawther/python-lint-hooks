@@ -42,28 +42,28 @@ class ML400(Rule):
     # Scope tracking — push/pop a taint scope on function/comprehension entry/exit
     # ------------------------------------------------------------------
 
-    def enter_FunctionDef(self, node: ast.FunctionDef) -> None:
+    def enter_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self._taint_stack.append({})
 
-    def leave_FunctionDef(self, node: ast.FunctionDef) -> None:
+    def leave_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self._taint_stack.pop()
 
-    enter_AsyncFunctionDef = enter_FunctionDef  # type: ignore[assignment]
-    leave_AsyncFunctionDef = leave_FunctionDef  # type: ignore[assignment]
+    enter_AsyncFunctionDef = enter_FunctionDef
+    leave_AsyncFunctionDef = leave_FunctionDef
 
-    def enter_ListComp(self, node: ast.ListComp) -> None:
+    def enter_ListComp(self, node: ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp) -> None:
         self._taint_stack.append({})
         self._handle_comprehension(node.generators)
 
-    def leave_ListComp(self, node: ast.ListComp) -> None:
+    def leave_ListComp(self, node: ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp) -> None:
         self._taint_stack.pop()
 
-    enter_SetComp = enter_ListComp  # type: ignore[assignment]
-    leave_SetComp = leave_ListComp  # type: ignore[assignment]
-    enter_DictComp = enter_ListComp  # type: ignore[assignment]
-    leave_DictComp = leave_ListComp  # type: ignore[assignment]
-    enter_GeneratorExp = enter_ListComp  # type: ignore[assignment]
-    leave_GeneratorExp = leave_ListComp  # type: ignore[assignment]
+    enter_SetComp = enter_ListComp
+    leave_SetComp = leave_ListComp
+    enter_DictComp = enter_ListComp
+    leave_DictComp = leave_ListComp
+    enter_GeneratorExp = enter_ListComp
+    leave_GeneratorExp = leave_ListComp
 
     # ------------------------------------------------------------------
     # Taint propagation
