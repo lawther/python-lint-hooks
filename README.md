@@ -135,10 +135,6 @@ def build_index(
     items: list[str],
 ) -> dict[str, int]:  # noqa: ML102
     ...
-
-# Bare # noqa suppresses all ML codes on that line
-def another() -> tuple[str, int]:  # noqa
-    ...
 ```
 
 ## Integration with justfile and pre-commit

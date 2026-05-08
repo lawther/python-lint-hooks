@@ -39,7 +39,7 @@ def _has_noqa(source_lines: list[str], line_numbers: list[int], code: str) -> bo
         _, _, noqa_tail = line.partition("# noqa")
         noqa_tail = noqa_tail.strip()
         if not noqa_tail or not noqa_tail.startswith(":"):
-            return True  # bare
+            return False  # Disallow bare
         codes = [c.strip() for c in noqa_tail[1:].split(",")]
         if code in codes:
             return True

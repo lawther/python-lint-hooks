@@ -489,3 +489,9 @@ def test_noqa_wrong_code_does_not_suppress(tmp_path: Path) -> None:
     # ML103 noqa does not suppress an ML102 dict violation.
     violations = _check("def foo() -> dict[str, str]: ...  # noqa: ML103\n", tmp_path)
     assert _codes(violations) == ["ML102"]
+
+
+def test_bare_noqa_does_not_suppress(tmp_path: Path) -> None:
+    # Bare
+    violations = _check("def foo() -> dict[str, str]: ...  # noqa\n", tmp_path)
+    assert _codes(violations) == ["ML102"]
