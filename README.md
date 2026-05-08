@@ -149,14 +149,14 @@ The recommended setup keeps the justfile as the single source of truth, with the
 **justfile:**
 
 ```just
-# Check for bare dict/tuple returns and classes defined inside functions
-check-bare-returns:
+# Run ml-lint (return types, class shape, scope, and data-trust rules)
+lint-ml:
     @uv run ml-lint src/
 
 # Include in your main lint recipe
 lint:
     # ... ruff, ty, etc.
-    just check-bare-returns
+    just lint-ml
 ```
 
 **`.githooks/pre-commit`** (or however your hooks are wired):
@@ -168,7 +168,7 @@ just precommit
 **`.github/workflows/ci.yml`:**
 
 ```yaml
-- run: just check-bare-returns
+- run: just lint-ml
 ```
 
 ## Ruff integration
