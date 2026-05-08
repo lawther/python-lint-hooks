@@ -102,6 +102,36 @@ def test_unvalidated_data_shadowed_ok(tmp_path: Path) -> None:
     assert len([v for v in violations if v.code == "ML400"]) == 1
 
 
+def test_for_loop_over_tainted_variable_flagged(tmp_path: Path) -> None:
+    # A regular for loop is semantically equivalent to the list-comp in
+    # test_regression_user_snippet, but exercises enter_For (lines 87-98) instead of
+    # enter_ListComp → _handle_comprehension. Both paths must propagate taint to the
+    # loop variable so that subscript access on it is flagged.
+    code = textwrap.dedent("""
+        import json
+        import subprocess
+
+        def process():
+            result = subprocess.run(["cmd"], capture_output=True, text=True, check=True)
+            raw_versions = json.loads(result.stdout)
+
+            versions = []
+            for v in raw_versions:
+                versions.append(
+                    SecretVersion(
+                        name=v["name"],
+                        state=v.get("state", "UNKNOWN"),
+                    )
+                )
+            return versions
+    """)
+    violations = check(code, tmp_path)
+    ml400_violations = [v for v in violations if v.code == "ML400"]
+    # Flagged once at the source, not once per access
+    assert len(ml400_violations) == 1
+    assert "v" in ml400_violations[0].message
+
+
 def test_regression_user_snippet(tmp_path: Path) -> None:
     code = textwrap.dedent("""
         import json
