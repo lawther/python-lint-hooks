@@ -415,37 +415,7 @@ class _Checker(ast.NodeVisitor):
         )
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        self._check_wrapper_class(node)
         self.generic_visit(node)
-
-    def _check_wrapper_class(self, node: ast.ClassDef) -> None:
-        # ML201: Classes wrapping only forbidden types
-        # We only care about annotated assignments (AnnAssign) in the class body.
-        # If there are no AnnAssigns, it's not a data-carrying class we want to flag here.
-        annotations = [stmt for stmt in node.body if isinstance(stmt, ast.AnnAssign)]
-        if not annotations:
-            return
-
-        all_forbidden = True
-        for ann in annotations:
-            if ann.annotation is None:
-                continue
-            analyzer = _ReturnAnalyzer("dummy")
-            analyzer.analyze(ann.annotation)
-            if not analyzer.violations:
-                all_forbidden = False
-                break
-
-        if all_forbidden and not _has_noqa(self._source_lines, [node.lineno], "ML201"):
-            self.violations.append(
-                Violation(
-                    code="ML201",
-                    message=f"Class '{node.name}' only contains forbidden types; use a proper abstraction",
-                    path=self._path,
-                    line=node.lineno,
-                    col=node.col_offset + 1,
-                )
-            )
 
 
 def check_file(path: Path) -> list[Violation]:

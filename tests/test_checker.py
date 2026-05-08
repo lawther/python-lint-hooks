@@ -278,61 +278,6 @@ def test_multiple_dict_violations(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# ML201: Classes wrapping only forbidden types
-# ---------------------------------------------------------------------------
-
-
-def test_dataclass_wrapping_only_forbidden_flagged(tmp_path: Path) -> None:
-    code = """\
-        from dataclasses import dataclass
-        @dataclass(frozen=True)
-        class MatchCacheBuildResult:
-            counts: dict[int, int]
-    """
-    violations = _check(textwrap.dedent(code), tmp_path)
-    assert _codes(violations) == ["ML201"]
-    assert "Class 'MatchCacheBuildResult' only contains forbidden types" in violations[0].message
-
-
-def test_class_wrapping_only_forbidden_flagged(tmp_path: Path) -> None:
-    code = """\
-        class Wrapper:
-            data: dict[str, str]
-    """
-    violations = _check(textwrap.dedent(code), tmp_path)
-    assert _codes(violations) == ["ML201"]
-
-
-def test_class_with_multiple_forbidden_flagged(tmp_path: Path) -> None:
-    code = """\
-        class MultiWrapper:
-            data: dict[str, str]
-            meta: tuple[int, int]
-    """
-    violations = _check(textwrap.dedent(code), tmp_path)
-    assert _codes(violations) == ["ML201"]
-
-
-def test_class_with_mixed_types_ok(tmp_path: Path) -> None:
-    code = """\
-        class Valid:
-            data: dict[str, str]
-            id: int
-    """
-    violations = _check(textwrap.dedent(code), tmp_path)
-    assert violations == []
-
-
-def test_noqa_ml201_suppresses(tmp_path: Path) -> None:
-    code = """\
-        class Wrapper:  # noqa: ML201
-            data: dict[str, str]
-    """
-    violations = _check(textwrap.dedent(code), tmp_path)
-    assert violations == []
-
-
-# ---------------------------------------------------------------------------
 # Suppression via noqa on return annotations
 # ---------------------------------------------------------------------------
 
