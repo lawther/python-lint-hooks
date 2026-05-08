@@ -23,6 +23,16 @@
    - The exception is in test code. Copious comments explaining the 'why' are allowed in test code.
 - Do not 'number' steps in the code. It's not necessary.
 
+# Adding a New Lint Rule
+
+To add a new lint rule to this project, follow the guide in [CONTRIBUTING_RULES.md](CONTRIBUTING_RULES.md). Start with:
+
+```sh
+just new-rule MLxxx
+```
+
+Do not add rule logic directly to any existing file — each rule lives in its own module under `src/python_lint_hooks/rules/`.
+
 # Checks Architecture
 
 The **justfile is the single source of truth** for all check commands. Pre-commit hooks and CI are both thin wrappers that call the same justfile recipes — there is no logic duplicated between them.
