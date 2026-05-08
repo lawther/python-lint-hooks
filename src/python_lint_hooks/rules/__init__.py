@@ -7,6 +7,7 @@ inside it to be added to the registry.
 
 from __future__ import annotations
 
+import ast
 import importlib
 import pkgutil
 from enum import Enum
@@ -78,6 +79,15 @@ class Rule:
                 col=col,
             )
         )
+
+
+def annotation_noqa_lines(returns: ast.expr) -> list[int]:
+    """Return the line range of a return annotation for noqa suppression."""
+    start = returns.lineno
+    end = returns.end_lineno
+    if end is not None and end != start:
+        return list(range(start, end + 1))
+    return [start]
 
 
 _REGISTRY: list[type[Rule]] = []

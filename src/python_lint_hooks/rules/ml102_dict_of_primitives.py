@@ -10,15 +10,7 @@ import ast
 from typing import ClassVar
 
 from python_lint_hooks.analyzers.forbidden_types import ForbiddenTypeAnalyzer
-from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, register
-
-
-def _noqa_lines(returns: ast.expr) -> list[int]:
-    start = returns.lineno
-    end = returns.end_lineno
-    if end is not None and end != start:
-        return list(range(start, end + 1))
-    return [start]
+from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, annotation_noqa_lines, register
 
 
 @register
@@ -53,5 +45,5 @@ class ML102(Rule):
                 finding.line,
                 finding.col,
                 f"Function '{func_name}' returns dict of primitives; use NewType for keys/values or use a dataclass",
-                noqa_lines=_noqa_lines(returns),
+                noqa_lines=annotation_noqa_lines(returns),
             )
