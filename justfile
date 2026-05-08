@@ -58,7 +58,9 @@ precommit:
         just _lint-justfile
         just _check-lock
         just lint
+        just docs-rules
         xargs -r -0 git add < "$staged_list"
+        git add README.md
         just test
     ) > "$tmpfile" 2>&1
     status=$?
@@ -67,6 +69,37 @@ precommit:
         exit $status
     fi
     echo "{{success}}All pre-commit checks passed{{reset}}"
+
+# Regenerate the rules table in README.md from registered rule metadata
+docs-rules:
+    @uv run python scripts/generate_rules_table.py
+
+# [private] Fail if README.md rules table is out of date (used in precommit)
+check-rules-docs:
+    @uv run python scripts/generate_rules_table.py --check
+
+# Scaffold a new rule. Usage: just new-rule ML150
+new-rule code:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    code="{{code}}"
+    lower=$(echo "$code" | tr '[:upper:]' '[:lower:]')
+    rule_file="src/python_lint_hooks/rules/${lower}.py"
+    test_file="tests/rules/test_${lower}.py"
+    if [ -f "$rule_file" ]; then
+        echo "Rule file already exists: $rule_file" >&2
+        exit 1
+    fi
+    sed "s/MLxxx/${code}/g" src/python_lint_hooks/rules/_template.py > "$rule_file"
+    sed "s/MLxxx/${code}/g; s/mlxxx/${lower}/g" tests/rules/_template.py > "$test_file"
+    echo "Created: $rule_file"
+    echo "Created: $test_file"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Edit $rule_file — fill in code/category/summary/suggestion and implement enter_*/leave_* hooks"
+    echo "  2. Edit $test_file  — replace TODO stubs with real test cases"
+    echo "  3. Run: just precommit"
+    echo "  4. Run: just docs-rules  (updates README.md rules table)"
 
 # [private] Ensure justfile recipes don't use && chains (which suppress set -e)
 _lint-justfile:
