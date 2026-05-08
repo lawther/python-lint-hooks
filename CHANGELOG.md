@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.6.0](https://github.com/lawther/python-lint-hooks/compare/v0.5.0...v0.6.0) (2026-05-08)
+
+
+### Features
+
+* add per-file branch coverage breakdown to just test output ([417afcb](https://github.com/lawther/python-lint-hooks/commit/417afcb6cf887829873298e98616219c86a9c55e))
+* introduce RuleCode StrEnum for type-safe rule codes ([f72ecd6](https://github.com/lawther/python-lint-hooks/commit/f72ecd64c007a41086815a189c985b99b9acc2ef))
+
+
+### Bug Fixes
+
+* handle ast.Starred in _get_names so starred unpack variables are tainted ([46be6e0](https://github.com/lawther/python-lint-hooks/commit/46be6e0115087cad9626c41c50eefa626e77aef9))
+* isolate comprehension variable taint with per-comprehension scope ([a0731f7](https://github.com/lawther/python-lint-hooks/commit/a0731f75d6846ce2cfcebd2eb7f68c77014cee3a))
+* unconditionally update loop-variable taint in enter_For ([e49073d](https://github.com/lawther/python-lint-hooks/commit/e49073dfeda9ad114ce2ad128600868d28970b52))
+* use gen.iter as source_node in comprehension taint propagation ([54750ac](https://github.com/lawther/python-lint-hooks/commit/54750ac60d46f24636baa107f88658c8572d5579))
+
 ## [0.5.0](https://github.com/lawther/python-lint-hooks/compare/v0.4.0...v0.5.0) (2026-05-08)
 
 
