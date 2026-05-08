@@ -22,6 +22,13 @@ def test_str_return_ok(tmp_path: Path) -> None:
     assert violations == []
 
 
+def test_dict_wrong_arity_flagged(tmp_path: Path) -> None:
+    # dict[str] supplies only one type argument instead of the required two.
+    # The analyser treats malformed parameterisation as equivalent to a bare dict (ML100).
+    violations = check("def foo() -> dict[str]: ...\n", tmp_path)
+    assert codes(violations) == ["ML100"]
+
+
 def test_noqa_ml100_suppresses(tmp_path: Path) -> None:
     violations = check("def foo() -> dict: ...  # noqa: ML100\n", tmp_path)
     assert violations == []
