@@ -107,3 +107,10 @@ def test_noqa_wrong_code_does_not_suppress(tmp_path: Path) -> None:
 def test_bare_noqa_does_not_suppress(tmp_path: Path) -> None:
     violations = check("def foo() -> dict[str, str]: ...  # noqa\n", tmp_path)
     assert codes(violations) == ["ML102"]
+
+
+def test_typing_any_value_flagged(tmp_path: Path) -> None:
+    # typing.Any is listed in _PRIMITIVE_NAMES, so dict[str, typing.Any] should be ML102.
+    # This exercises _is_primitive() for an ast.Attribute node (qualified name).
+    violations = check("import typing\ndef foo() -> dict[str, typing.Any]: ...\n", tmp_path)
+    assert codes(violations) == ["ML102"]
