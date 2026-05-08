@@ -261,27 +261,6 @@ class _Checker(ast.NodeVisitor):
 
     def _visit_function(self, node: _FuncNode) -> None:
         self._taint_stack.append({})
-        if self._function_depth == 0 and node.returns is not None:
-            analyzer = _ReturnAnalyzer(node.name)
-            analyzer.analyze(node.returns)
-
-            for code, message, line, col in analyzer.violations:
-                noqa_lines = [line]
-                # If it's a multi-line return annotation, check all relevant lines
-                if node.returns.end_lineno is not None and node.returns.end_lineno != line:
-                    noqa_lines.extend(range(line, node.returns.end_lineno + 1))
-
-                if not _has_noqa(self._source_lines, noqa_lines, code):
-                    self.violations.append(
-                        Violation(
-                            code=code,
-                            message=message,
-                            path=self._path,
-                            line=line,
-                            col=col,
-                        )
-                    )
-
         self._function_depth += 1
         self.generic_visit(node)
         self._function_depth -= 1
