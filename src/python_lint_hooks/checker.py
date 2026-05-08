@@ -1,15 +1,16 @@
-"""AST-based checks for return types, classes defined inside functions, and non-frozen dataclasses."""
+"""AST-based checks for return types, classes, dataclasses, and unvalidated external data."""
 
 from __future__ import annotations
 
 import ast
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypeAlias
+from typing import TypeAlias, cast
 
 _DICT_NAMES: frozenset[str] = frozenset({"dict", "Dict"})
 _TUPLE_NAMES: frozenset[str] = frozenset({"tuple", "Tuple"})
 _PRIMITIVE_NAMES: frozenset[str] = frozenset({"str", "int", "float", "bool", "bytes", "Any", "None"})
+_UNTRUSTED_FUNCS: frozenset[str] = frozenset({"loads", "load", "safe_load", "full_load", "literal_eval"})
 
 _FuncNode: TypeAlias = ast.FunctionDef | ast.AsyncFunctionDef
 
@@ -198,14 +199,94 @@ class _ReturnAnalyzer:
         return False
 
 
+@dataclass(frozen=True)
+class TaintInfo:
+    is_tainted: bool
+    source_node: ast.AST | None = None
+
+
 class _Checker(ast.NodeVisitor):
     def __init__(self, path: Path, source_lines: list[str]) -> None:
         self._path = path
         self._source_lines = source_lines
         self._function_depth = 0
         self.violations: list[Violation] = []
+        self._taint_stack: list[dict[str, TaintInfo]] = [{}]
+        self._flagged_sources: set[ast.AST] = set()
+
+    def _is_tainted(self, name: str) -> bool:
+        """Check if a name is tainted in the current scope or any parent scope."""
+        for scope in reversed(self._taint_stack):
+            if name in scope:
+                return scope[name].is_tainted
+        return False
+
+    def _get_taint_info(self, name: str) -> TaintInfo:
+        for scope in reversed(self._taint_stack):
+            if name in scope:
+                return scope[name]
+        return TaintInfo(False)
+
+    def _set_taint(self, name: str, is_tainted: bool, source_node: ast.AST | None = None) -> None:
+        """Set the taint status for a name in the current (topmost) scope."""
+        self._taint_stack[-1][name] = TaintInfo(is_tainted, source_node)
+
+    def _is_untrusted_source(self, node: ast.AST | None) -> bool:
+        if not isinstance(node, ast.Call):
+            return False
+        func = node.func
+        if isinstance(func, ast.Attribute) and (func.attr in _UNTRUSTED_FUNCS or func.attr == "json"):
+            return True
+        return bool(isinstance(func, ast.Name) and func.id in _UNTRUSTED_FUNCS)
+
+    def _get_names(self, node: ast.AST) -> list[str]:
+        if isinstance(node, ast.Name):
+            return [node.id]
+        if isinstance(node, (ast.Tuple, ast.List)):
+            names = []
+            for elt in node.elts:
+                names.extend(self._get_names(elt))
+            return names
+        return []
+
+    def _report_ml400(self, name: str, usage_node: ast.AST) -> None:
+        info = self._get_taint_info(name)
+        if not info.is_tainted:
+            return
+
+        # If we have a source node, flag that. Otherwise flag the usage site.
+        report_node = info.source_node if info.source_node else usage_node
+        if report_node in self._flagged_sources:
+            return
+
+        # Type safety: most nodes have lineno/col_offset but ast.AST doesn't guarantee it
+        if not hasattr(usage_node, "lineno") or not hasattr(report_node, "lineno"):
+            return
+
+        usage_lineno = cast(int, usage_node.lineno)
+        report_lineno = cast(int, report_node.lineno)
+        report_col = cast(int, getattr(report_node, "col_offset", 0))
+
+        if not _has_noqa(self._source_lines, [usage_lineno], "ML400") and not _has_noqa(
+            self._source_lines, [report_lineno], "ML400"
+        ):
+            self._flagged_sources.add(report_node)
+            msg = f"Untrusted data in '{name}' used without Pydantic validation"
+            if info.source_node:
+                msg = f"Variable '{name}' assigned unvalidated data and used here; validate with Pydantic"
+
+            self.violations.append(
+                Violation(
+                    code="ML400",
+                    message=msg,
+                    path=self._path,
+                    line=report_lineno,
+                    col=report_col + 1,
+                )
+            )
 
     def _visit_function(self, node: _FuncNode) -> None:
+        self._taint_stack.append({})
         if self._function_depth == 0 and node.returns is not None:
             analyzer = _ReturnAnalyzer(node.name)
             analyzer.analyze(node.returns)
@@ -230,6 +311,7 @@ class _Checker(ast.NodeVisitor):
         self._function_depth += 1
         self.generic_visit(node)
         self._function_depth -= 1
+        self._taint_stack.pop()
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._visit_function(node)
@@ -237,7 +319,92 @@ class _Checker(ast.NodeVisitor):
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         self._visit_function(node)
 
+    def visit_Assign(self, node: ast.Assign) -> None:
+        is_untrusted = self._is_untrusted_source(node.value)
+        source_node = node if is_untrusted else None
+
+        # If the value is a name, inherit its source node
+        if not is_untrusted and isinstance(node.value, ast.Name):
+            info = self._get_taint_info(node.value.id)
+            if info.is_tainted:
+                is_untrusted = True
+                source_node = info.source_node
+
+        for target in node.targets:
+            for name in self._get_names(target):
+                self._set_taint(name, is_untrusted, source_node)
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        if node.value:
+            is_untrusted = self._is_untrusted_source(node.value)
+            source_node = node if is_untrusted else None
+
+            if not is_untrusted and isinstance(node.value, ast.Name):
+                info = self._get_taint_info(node.value.id)
+                if info.is_tainted:
+                    is_untrusted = True
+                    source_node = info.source_node
+
+            for name in self._get_names(node.target):
+                self._set_taint(name, is_untrusted, source_node)
+        self.generic_visit(node)
+
+    def visit_For(self, node: ast.For) -> None:
+        is_tainted = self._is_untrusted_source(node.iter)
+        source_node = node if is_tainted else None
+
+        if not is_tainted and isinstance(node.iter, ast.Name):
+            info = self._get_taint_info(node.iter.id)
+            if info.is_tainted:
+                is_tainted = True
+                source_node = info.source_node
+
+        if is_tainted:
+            for name in self._get_names(node.target):
+                self._set_taint(name, True, source_node)
+        self.generic_visit(node)
+
+    def visit_ListComp(self, node: ast.ListComp) -> None:
+        self._handle_comprehension(node.generators)
+        self.generic_visit(node)
+
+    def visit_SetComp(self, node: ast.SetComp) -> None:
+        self._handle_comprehension(node.generators)
+        self.generic_visit(node)
+
+    def visit_DictComp(self, node: ast.DictComp) -> None:
+        self._handle_comprehension(node.generators)
+        self.generic_visit(node)
+
+    def visit_GeneratorExp(self, node: ast.GeneratorExp) -> None:
+        self._handle_comprehension(node.generators)
+        self.generic_visit(node)
+
+    def _handle_comprehension(self, generators: list[ast.comprehension]) -> None:
+        for gen in generators:
+            is_tainted = self._is_untrusted_source(gen.iter)
+            source_node = gen if is_tainted else None
+
+            if not is_tainted and isinstance(gen.iter, ast.Name):
+                info = self._get_taint_info(gen.iter.id)
+                if info.is_tainted:
+                    is_tainted = True
+                    source_node = info.source_node
+
+            if is_tainted:
+                for name in self._get_names(gen.target):
+                    self._set_taint(name, True, source_node)
+
+    def visit_Subscript(self, node: ast.Subscript) -> None:
+        if isinstance(node.value, ast.Name):
+            self._report_ml400(node.value.id, node)
+        self.generic_visit(node)
+
     def visit_Call(self, node: ast.Call) -> None:
+        # ML400: Untrusted data accessed via .get()
+        if isinstance(node.func, ast.Attribute) and node.func.attr == "get" and isinstance(node.func.value, ast.Name):
+            self._report_ml400(node.func.value.id, node)
         # GEMINI.md: "I want to add a rule that will catch a sneaky attempt like this where they try to define a NewType
         # that would fail one of the existing lint checks."
         # ML105: NewType wrapping forbidden types
