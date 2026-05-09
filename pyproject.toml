@@ -53,13 +53,13 @@ select = [
     "LOG",
 ]
 ignore = [
-    "D100",
-    "D104",
-    "D103",
-    "D107",
-    "D102",
-    "D101",
-    "D105",
+    "D100",  # missing docstring in public module
+    "D101",  # missing docstring in public class
+    "D102",  # missing docstring in public method
+    "D103",  # missing docstring in public function
+    "D104",  # missing docstring in public package
+    "D105",  # missing docstring in magic method
+    "D107",  # missing docstring in __init__
 ]
 
 [tool.ruff.lint.pydocstyle]
