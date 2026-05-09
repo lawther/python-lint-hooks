@@ -31,41 +31,32 @@ class _Report(BaseModel):
     files: dict[str, _FileData]
 
 
-def _fully_covered(s: _FileSummary | _Totals) -> int:
-    return s.covered_branches - s.num_partial_branches
-
-
 def _pct(s: _FileSummary | _Totals) -> float:
     if s.num_branches == 0:
         return 100.0
-    return _fully_covered(s) / s.num_branches * 100
+    return s.covered_branches / s.num_branches * 100
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
+    expected_args = 2
+    if len(sys.argv) != expected_args:
         sys.exit("Usage: branch_summary.py <coverage.json>")
 
     report = _Report.model_validate_json(Path(sys.argv[1]).read_bytes())
 
-    rows = [
-        (name, f.summary)
-        for name, f in sorted(report.files.items())
-        if f.summary.num_branches > 0
-    ]
+    rows = [(name, f.summary) for name, f in sorted(report.files.items()) if f.summary.num_branches > 0]
 
     name_width = max((len(name) for name, _ in rows), default=4)
     name_width = max(name_width, len("File"))
 
-    header = (
-        f"{'File':<{name_width}}  {'Branches':>8}  {'Covered':>7}  {'Partial':>7}  {'Missed':>6}  {'Cover':>6}"
-    )
+    header = f"{'File':<{name_width}}  {'Exits':>8}  {'Hit':>7}  {'Partial':>7}  {'Missed':>6}  {'Cover':>6}"
     separator = "-" * len(header)
     print()
     print(header)
     print(separator)
     for name, s in rows:
         print(
-            f"{name:<{name_width}}  {s.num_branches:>8}  {_fully_covered(s):>7}  "
+            f"{name:<{name_width}}  {s.num_branches:>8}  {s.covered_branches:>7}  "
             f"{s.num_partial_branches:>7}  {s.missing_branches:>6}  "
             f"{_pct(s):>5.0f}%"
         )
@@ -73,7 +64,7 @@ def main() -> None:
     t = report.totals
     print(separator)
     print(
-        f"{'TOTAL':<{name_width}}  {t.num_branches:>8}  {_fully_covered(t):>7}  "
+        f"{'TOTAL':<{name_width}}  {t.num_branches:>8}  {t.covered_branches:>7}  "
         f"{t.num_partial_branches:>7}  {t.missing_branches:>6}  "
         f"{_pct(t):>5.0f}%"
     )
