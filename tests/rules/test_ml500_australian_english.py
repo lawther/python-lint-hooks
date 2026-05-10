@@ -66,6 +66,43 @@ def test_ml500_ignored_in_keyword_argument(tmp_path: Path) -> None:
     assert ml500_violations == []
 
 
+def test_ml500_flagged_in_docstring(tmp_path: Path) -> None:
+    code = textwrap.dedent("""\
+        def resolve():
+            \"\"\"Normalize this.\"\"\"
+            pass
+    """)
+    violations = check(code, tmp_path)
+    assert "ML500" in codes(violations)
+
+
+def test_ml500_multiline_docstring(tmp_path: Path) -> None:
+    code = textwrap.dedent("""\
+        \"\"\"
+        This module has a color.
+        And another color here.
+        \"\"\"
+        def foo():
+            \"\"\"
+            Function with color.
+            \"\"\"
+            pass
+    """)
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert len(ml500_violations) == 3
+    lines = sorted([v.line for v in ml500_violations])
+    assert lines == [2, 3, 7]
+
+
+def test_ml500_multiple_per_line(tmp_path: Path) -> None:
+    code = "# color color color\ndef color_color(): pass"
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    # 3 in comment, 2 in function name = 5
+    assert len(ml500_violations) == 5
+
+
 def test_noqa_ml500_suppresses(tmp_path: Path) -> None:
     code = textwrap.dedent("""\
         my_color = 'red'  # noqa: ML500

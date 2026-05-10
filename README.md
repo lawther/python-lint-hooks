@@ -26,7 +26,7 @@ Custom Python linting rules, distributed as a pip-installable CLI tool.
 
 **The `NewType` Exception:** `ML102` and `ML107` only flag dictionaries/mappings where both the key and value are standard Python primitives (`str`, `int`, `float`, etc.). If you use a custom type (e.g. via `NewType`), the dictionary/mapping is permitted as a valid mapping.
 
-Functions and classes defined inside other functions are exempt from ML100-ML107 and ML300 — inner definitions are implementation details and are not part of a public interface.
+Functions and classes defined inside other functions are exempt from ML100-ML107 — inner definitions are implementation details and are not part of a public interface. Note that defining a class inside a function is itself a violation of ML300.
 
 
 ## Installation

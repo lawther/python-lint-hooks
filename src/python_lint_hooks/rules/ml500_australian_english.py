@@ -24,7 +24,7 @@ class ML500(Rule):
     To avoid false positives with external APIs, it ignores:
     - Attribute access (e.g., `obj.color`)
     - Keyword arguments in calls (e.g., `func(color="red")`)
-    - String literals (e.g., `"color"`)
+    - String literals (e.g., `"color"`) that are not docstrings.
     """
 
     code: ClassVar[RuleCode] = RuleCode.ML500
@@ -55,19 +55,23 @@ class ML500(Rule):
 
     def _check_text(self, text: str, line: int, col: int) -> None:
         """Check a block of text (like a comment or identifier) for US spellings."""
-        # Use a regex to find whole words to avoid partial matches (e.g. 'colorize' vs 'color')
-        # though our map already contains some inflected forms.
-        # For simplicity, we split and check each word.
-        words = re.findall(r"[a-zA-Z]+", text)
-        for word in words:
+        # Find all words and check them against the spelling map
+        for match in re.finditer(r"\b[a-zA-Z]+\b", text):
+            word = match.group()
             lower_word = word.lower()
             if lower_word in self.spelling_map:
-                # Find the column offset of this word within the text
-                match = re.search(r"\b" + re.escape(word) + r"\b", text)
-                word_col = col + (match.start() if match else 0)
+                # Calculate line and column for multi-line support
+                prefix = text[: match.start()]
+                line_offset = prefix.count("\n")
+                if line_offset == 0:
+                    current_col = col + match.start()
+                else:
+                    last_newline = prefix.rfind("\n")
+                    current_col = match.start() - last_newline - 1
+
                 self.report(
-                    line,
-                    word_col + 1,
+                    line + line_offset,
+                    current_col + 1,
                     f"Use Australian English: '{self.spelling_map[lower_word]}' instead of '{word}'",
                 )
 
@@ -87,8 +91,29 @@ class ML500(Rule):
                     f"Use Australian English: '{self.spelling_map[lower_part]}' instead of '{part}'",
                 )
 
+    def _check_docstring(self, node: ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> None:
+        """Check if a node has a docstring and validate its spelling."""
+        if not node.body:
+            return
+        first = node.body[0]
+        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
+            doc_node = first.value
+            value = doc_node.value
+            # Explicit narrowing for the type checker
+            if not isinstance(value, str):
+                return
+
+            # Determine the offset to skip quotes/prefixes (r, f, u, b)
+            line_text = self._context.source_lines[doc_node.lineno - 1]
+            token_prefix = line_text[doc_node.col_offset :]
+            match = re.match(r'^[rfub]*("{3}|\'{3}|"|\')', token_prefix, re.IGNORECASE)
+            offset = len(match.group(0)) if match else 0
+
+            self._check_text(value, doc_node.lineno, doc_node.col_offset + offset)
+
     def enter_Module(self, node: ast.Module) -> None:
-        """Scan comments in the entire file."""
+        """Scan comments in the entire file and check module docstring."""
+        self._check_docstring(node)
         for i, line_text in enumerate(self._context.source_lines, 1):
             if "#" in line_text:
                 comment_part = line_text.split("#", 1)[1]
@@ -100,12 +125,14 @@ class ML500(Rule):
         self._check_name(node.id, node.lineno, node.col_offset)
 
     def enter_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        """Check function names."""
+        """Check function names and docstrings."""
         self._check_name(node.name, node.lineno, node.col_offset)
+        self._check_docstring(node)
 
     def enter_ClassDef(self, node: ast.ClassDef) -> None:
-        """Check class names."""
+        """Check class names and docstrings."""
         self._check_name(node.name, node.lineno, node.col_offset)
+        self._check_docstring(node)
 
     def enter_arg(self, node: ast.arg) -> None:
         """Check function argument names."""
