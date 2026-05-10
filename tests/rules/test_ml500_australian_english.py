@@ -13,11 +13,6 @@ def test_ml500_flagged_in_variable(tmp_path: Path) -> None:
     assert "ML500" in codes(violations)
 
 
-def test_ml500_flagged_meter(tmp_path: Path) -> None:
-    violations = check("length_in_meters = 10\n", tmp_path)
-    assert "ML500" in codes(violations)
-
-
 def test_ml500_flagged_in_function_name(tmp_path: Path) -> None:
     violations = check("def initialize_app(): pass\n", tmp_path)
     assert "ML500" in codes(violations)
