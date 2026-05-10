@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.3](https://github.com/lawther/python-lint-hooks/compare/v0.7.2...v0.7.3) (2026-05-10)
+
+
+### Bug Fixes
+
+* **rules:** implement case-preserving and aggregated suggestions for ML500 ([c0a96b1](https://github.com/lawther/python-lint-hooks/commit/c0a96b17f0c1cad3474c42c35edbf68fb706e9d5))
+
+
+### Documentation
+
+* remove mention of inner class exemptions from README ([9d566d6](https://github.com/lawther/python-lint-hooks/commit/9d566d670818aa9fc550a46d2e005bfe8aa04969))
+
 ## [0.7.2](https://github.com/lawther/python-lint-hooks/compare/v0.7.1...v0.7.2) (2026-05-10)
 
 
