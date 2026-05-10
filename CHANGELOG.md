@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/lawther/python-lint-hooks/compare/v0.7.1...v0.7.2) (2026-05-10)
+
+
+### Bug Fixes
+
+* **rules:** flag American English in docstrings (ML500) ([5f083f5](https://github.com/lawther/python-lint-hooks/commit/5f083f5ba2e8241d71434591832a06e31df4d57d))
+
 ## [0.7.1](https://github.com/lawther/python-lint-hooks/compare/v0.7.0...v0.7.1) (2026-05-10)
 
 
