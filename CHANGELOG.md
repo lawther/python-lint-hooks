@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/lawther/python-lint-hooks/compare/v0.7.0...v0.7.1) (2026-05-10)
+
+
+### Bug Fixes
+
+* removed erroneous words ([352f682](https://github.com/lawther/python-lint-hooks/commit/352f682996a0454cd2fbd048dc42c8ebcd93ed56))
+
 ## [0.7.0](https://github.com/lawther/python-lint-hooks/compare/v0.6.1...v0.7.0) (2026-05-10)
 
 
