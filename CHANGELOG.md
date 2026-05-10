@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.7.0](https://github.com/lawther/python-lint-hooks/compare/v0.6.1...v0.7.0) (2026-05-10)
+
+
+### Features
+
+* **rules:** add ML106 and ML107 to detect forbidden Mapping types ([8db371c](https://github.com/lawther/python-lint-hooks/commit/8db371c91460ea58084d43233ca60754788c33ac))
+* **rules:** add ML500 to enforce Australian English spelling ([8041781](https://github.com/lawther/python-lint-hooks/commit/80417816f564cbbc44636a1cd1c5f89e1ef62c1a))
+
+
+### Bug Fixes
+
+* **cli:** implement Ruff-style path exclusion logic ([d0686f3](https://github.com/lawther/python-lint-hooks/commit/d0686f3a4c106ad3accf632e574ef72b44535249)), closes [#15](https://github.com/lawther/python-lint-hooks/issues/15)
+
+
+### Documentation
+
+* implement rationale and examples for all lint rules ([7aa5d7e](https://github.com/lawther/python-lint-hooks/commit/7aa5d7e9c91288c15a8e4570bc2b9f17875218c3))
+* update legacy rule references in README ([4af4329](https://github.com/lawther/python-lint-hooks/commit/4af43290f1af49baf89fd336ca88f458e752dabd))
+
 ## [0.6.1](https://github.com/lawther/python-lint-hooks/compare/v0.6.0...v0.6.1) (2026-05-08)
 
 
