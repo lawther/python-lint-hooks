@@ -36,6 +36,16 @@ def test_newtype_wrapping_ok_type_allowed(tmp_path: Path) -> None:
     assert violations == []
 
 
+def test_newtype_wrapping_mapping_of_primitives_flagged(tmp_path: Path) -> None:
+    code = textwrap.dedent("""\
+        from typing import Mapping, NewType
+        HeaderMap = NewType("HeaderMap", Mapping[str, str])
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML105"]
+    assert "NewType 'HeaderMap' wraps a forbidden type" in violations[0].message
+
+
 def test_nonstring_name_falls_back_to_unknown(tmp_path: Path) -> None:
     # When the first argument is not a string literal (here an integer), the rule
     # cannot extract a name and falls back to "unknown". The forbidden-type finding

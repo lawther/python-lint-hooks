@@ -13,13 +13,15 @@ Custom Python linting rules, distributed as a pip-installable CLI tool.
 | `ML103` | Function returns a fixed-length `tuple` | Use a NamedTuple instead |
 | `ML104` | Function returns a variable-length `tuple` | Use `list[T]` or a custom collection instead |
 | `ML105` | `NewType` wraps a forbidden type | Use a dataclass or NamedTuple instead |
+| `ML106` | Function returns a bare `Mapping` | Use a dataclass instead |
+| `ML107` | Function returns a `Mapping` of primitives | Use a dataclass or `NewType` for keys/values |
 | `ML200` | Dataclass is not frozen | Use `@dataclass(frozen=True)` |
 | `ML201` | Class contains only forbidden types | Use a proper abstraction with well-typed fields |
 | `ML300` | Class defined inside a function | Move it to module level |
 | `ML400` | Unvalidated external data used without Pydantic validation | Validate with a Pydantic model before use |
 <!-- rules-table-end -->
 
-**ML100 - ML104** catch violations related to return types. Unlike standard linting, these rules are **recursive** and will catch bare or primitive dicts/tuples even when nested inside other types like `list[...]` or `Optional[...]`.
+**ML100 - ML107** catch violations related to return types. Unlike standard linting, these rules are **recursive** and will catch bare or primitive dicts/tuples even when nested inside other types like `list[...]` or `Optional[...]`.
 
 **The `NewType` Exception:** `ML102` only flags dictionaries where both the key and value are standard Python primitives (`str`, `int`, `float`, etc.). If you use a custom type (e.g. via `NewType`), the dictionary is permitted as a valid mapping.
 
@@ -174,6 +176,15 @@ just precommit
 ## Ruff integration
 
 If you use ruff with the `RUF100` rule (unused noqa directives), tell ruff that `ML` codes belong to an external tool so it does not flag your suppression comments:
+
+```toml
+[tool.ruff.lint]
+external = ["ML"]
+```
+lint]
+external = ["ML"]
+```
+, tell ruff that `ML` codes belong to an external tool so it does not flag your suppression comments:
 
 ```toml
 [tool.ruff.lint]

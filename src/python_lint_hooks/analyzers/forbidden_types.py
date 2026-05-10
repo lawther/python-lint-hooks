@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from python_lint_hooks.violation import RuleCode
 
 _DICT_NAMES: frozenset[str] = frozenset({"dict", "Dict"})
+_MAPPING_NAMES: frozenset[str] = frozenset({"Mapping", "MutableMapping"})
 _TUPLE_NAMES: frozenset[str] = frozenset({"tuple", "Tuple"})
 _PRIMITIVE_NAMES: frozenset[str] = frozenset({"str", "int", "float", "bool", "bytes", "Any", "None"})
 
@@ -54,12 +55,16 @@ class ForbiddenTypeAnalyzer:
     def _check_name(self, node: ast.Name) -> None:
         if node.id in _DICT_NAMES:
             self.findings.append(ForbiddenTypeFinding(RuleCode.ML100, node.lineno, node.col_offset + 1))
+        elif node.id in _MAPPING_NAMES:
+            self.findings.append(ForbiddenTypeFinding(RuleCode.ML106, node.lineno, node.col_offset + 1))
         elif node.id in _TUPLE_NAMES:
             self.findings.append(ForbiddenTypeFinding(RuleCode.ML101, node.lineno, node.col_offset + 1))
 
     def _check_attribute(self, node: ast.Attribute) -> None:
         if node.attr in _DICT_NAMES:
             self.findings.append(ForbiddenTypeFinding(RuleCode.ML100, node.lineno, node.col_offset + 1))
+        elif node.attr in _MAPPING_NAMES:
+            self.findings.append(ForbiddenTypeFinding(RuleCode.ML106, node.lineno, node.col_offset + 1))
         elif node.attr in _TUPLE_NAMES:
             self.findings.append(ForbiddenTypeFinding(RuleCode.ML101, node.lineno, node.col_offset + 1))
 
@@ -73,6 +78,8 @@ class ForbiddenTypeAnalyzer:
 
         if head_name in _DICT_NAMES:
             self._check_dict_subscript(node)
+        elif head_name in _MAPPING_NAMES:
+            self._check_mapping_subscript(node)
         elif head_name in _TUPLE_NAMES:
             self._check_tuple_subscript(node)
         elif isinstance(node.slice, ast.Tuple):
@@ -89,6 +96,18 @@ class ForbiddenTypeAnalyzer:
         k, v = node.slice.elts
         if _is_primitive(k) and _is_primitive(v):
             self.findings.append(ForbiddenTypeFinding(RuleCode.ML102, node.lineno, node.col_offset + 1))
+
+        self.analyze(k)
+        self.analyze(v)
+
+    def _check_mapping_subscript(self, node: ast.Subscript) -> None:
+        if not isinstance(node.slice, ast.Tuple) or len(node.slice.elts) != 2:  # noqa: PLR2004
+            self.findings.append(ForbiddenTypeFinding(RuleCode.ML106, node.lineno, node.col_offset + 1))
+            return
+
+        k, v = node.slice.elts
+        if _is_primitive(k) and _is_primitive(v):
+            self.findings.append(ForbiddenTypeFinding(RuleCode.ML107, node.lineno, node.col_offset + 1))
 
         self.analyze(k)
         self.analyze(v)

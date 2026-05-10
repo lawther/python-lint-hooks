@@ -29,6 +29,16 @@ def test_class_wrapping_only_forbidden_flagged(tmp_path: Path) -> None:
     assert codes(violations) == ["ML201"]
 
 
+def test_class_wrapping_mapping_of_primitives_flagged(tmp_path: Path) -> None:
+    code = textwrap.dedent("""\
+        from typing import Mapping
+        class Wrapper:
+            data: Mapping[str, str]
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML201"]
+
+
 def test_class_with_multiple_forbidden_flagged(tmp_path: Path) -> None:
     code = textwrap.dedent("""\
         class MultiWrapper:
