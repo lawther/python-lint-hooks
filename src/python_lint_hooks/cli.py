@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pathspec
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from python_lint_hooks.rules import all_rules
 from python_lint_hooks.runner import check_file
@@ -45,6 +45,8 @@ RUFF_DEFAULT_EXCLUDE = [
 
 
 class _HooksConfig(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     exclude: list[str] = Field(default_factory=lambda: RUFF_DEFAULT_EXCLUDE)
     extend_exclude: list[str] = Field(default_factory=list, alias="extend-exclude")
     respect_gitignore: bool = Field(default=True, alias="respect-gitignore")
@@ -53,9 +55,6 @@ class _HooksConfig(BaseModel):
     extend_select: list[str] = Field(default_factory=list, alias="extend-select")
     ignore: list[str] = Field(default_factory=list)
     extend_ignore: list[str] = Field(default_factory=list, alias="extend-ignore")
-
-    class Config:
-        populate_by_name = True
 
 
 @dataclass(frozen=True)
