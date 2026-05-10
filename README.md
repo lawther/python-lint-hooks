@@ -23,9 +23,10 @@ Custom Python linting rules, distributed as a pip-installable CLI tool.
 
 **ML100 - ML107** catch violations related to return types. Unlike standard linting, these rules are **recursive** and will catch bare or primitive dicts/tuples even when nested inside other types like `list[...]` or `Optional[...]`.
 
-**The `NewType` Exception:** `ML102` only flags dictionaries where both the key and value are standard Python primitives (`str`, `int`, `float`, etc.). If you use a custom type (e.g. via `NewType`), the dictionary is permitted as a valid mapping.
+**The `NewType` Exception:** `ML102` and `ML107` only flag dictionaries/mappings where both the key and value are standard Python primitives (`str`, `int`, `float`, etc.). If you use a custom type (e.g. via `NewType`), the dictionary/mapping is permitted as a valid mapping.
 
-Functions defined inside other functions are exempt from ML001/ML002 — inner functions are implementation details and are not part of a public interface.
+Functions and classes defined inside other functions are exempt from ML100-ML107 and ML300 — inner definitions are implementation details and are not part of a public interface.
+
 
 ## Installation
 
