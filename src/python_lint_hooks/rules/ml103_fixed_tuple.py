@@ -1,9 +1,3 @@
-"""ML103 — function returns a fixed-length typed tuple.
-
-`tuple[str, int]` carries no semantic meaning for its positions. Use a NamedTuple so
-callers can access fields by name rather than by index.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -15,6 +9,14 @@ from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, 
 
 @register
 class ML103(Rule):
+    """Function returns a fixed-length tuple.
+
+    Returning fixed-length tuples like `tuple[int, int]` is often used for simple
+    pairs or triples, but it lacks semantic meaning. Callers must remember whether
+    `result[0]` is the width or the height, which leads to bugs. Using a `NamedTuple`
+    gives each field a meaningful name and makes the API self-documenting.
+    """
+
     code: ClassVar[RuleCode] = RuleCode.ML103
     category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES
     summary: ClassVar[str] = "Function returns a fixed-length `tuple`"
@@ -47,3 +49,23 @@ class ML103(Rule):
                 f"Function '{func_name}' returns fixed-length tuple; use a NamedTuple instead",
                 noqa_lines=annotation_noqa_lines(returns),
             )
+
+    # -------------------------------------------------------------------------
+    # Examples
+    # -------------------------------------------------------------------------
+
+    bad_example: ClassVar[str] = """
+def get_dimensions() -> tuple[int, int]:
+    ...
+"""
+
+    good_examples: ClassVar[list[str]] = [
+        """
+class Dimensions(NamedTuple):
+    width: int
+    height: int
+
+def get_dimensions() -> Dimensions:
+    ...
+"""
+    ]

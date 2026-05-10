@@ -7,18 +7,18 @@ Custom Python linting rules, distributed as a pip-installable CLI tool.
 <!-- rules-table-start -->
 | Code | Description | Suggestion |
 |------|-------------|------------|
-| `ML100` | Function returns a bare `dict` | Use a dataclass instead |
-| `ML101` | Function returns a bare `tuple` | Use a NamedTuple instead |
-| `ML102` | Function returns a `dict` of primitives | Use a dataclass or `NewType` for keys/values |
-| `ML103` | Function returns a fixed-length `tuple` | Use a NamedTuple instead |
-| `ML104` | Function returns a variable-length `tuple` | Use `list[T]` or a custom collection instead |
-| `ML105` | `NewType` wraps a forbidden type | Use a dataclass or NamedTuple instead |
-| `ML106` | Function returns a bare `Mapping` | Use a dataclass instead |
-| `ML107` | Function returns a `Mapping` of primitives | Use a dataclass or `NewType` for keys/values |
-| `ML200` | Dataclass is not frozen | Use `@dataclass(frozen=True)` |
-| `ML201` | Class contains only forbidden types | Use a proper abstraction with well-typed fields |
-| `ML300` | Class defined inside a function | Move it to module level |
-| `ML400` | Unvalidated external data used without Pydantic validation | Validate with a Pydantic model before use |
+| [`ML100`](docs/rules/ML100.md) | Function returns a bare `dict` | Use a dataclass instead |
+| [`ML101`](docs/rules/ML101.md) | Function returns a bare `tuple` | Use a NamedTuple instead |
+| [`ML102`](docs/rules/ML102.md) | Function returns a `dict` of primitives | Use a dataclass or `NewType` for keys/values |
+| [`ML103`](docs/rules/ML103.md) | Function returns a fixed-length `tuple` | Use a NamedTuple instead |
+| [`ML104`](docs/rules/ML104.md) | Function returns a variable-length `tuple` | Use `list[T]` or a custom collection instead |
+| [`ML105`](docs/rules/ML105.md) | `NewType` wraps a forbidden type | Use a dataclass or NamedTuple instead |
+| [`ML106`](docs/rules/ML106.md) | Function returns a bare `Mapping` | Use a dataclass instead |
+| [`ML107`](docs/rules/ML107.md) | Function returns a `Mapping` of primitives | Use a dataclass or `NewType` for keys/values |
+| [`ML200`](docs/rules/ML200.md) | Dataclass is not frozen | Use `@dataclass(frozen=True)` |
+| [`ML201`](docs/rules/ML201.md) | Class contains only forbidden types | Use a proper abstraction with well-typed fields |
+| [`ML300`](docs/rules/ML300.md) | Class defined inside a function | Move it to module level |
+| [`ML400`](docs/rules/ML400.md) | Unvalidated external data used without Pydantic validation | Validate with a Pydantic model before use |
 <!-- rules-table-end -->
 
 **ML100 - ML107** catch violations related to return types. Unlike standard linting, these rules are **recursive** and will catch bare or primitive dicts/tuples even when nested inside other types like `list[...]` or `Optional[...]`.

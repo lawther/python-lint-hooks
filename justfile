@@ -64,6 +64,7 @@ precommit:
         just docs-rules
         xargs -r -0 git add < "$staged_list"
         git add README.md
+        if [ -d "docs" ]; then git add docs; fi
         just test
     ) > "$tmpfile" 2>&1
     status=$?
@@ -73,13 +74,15 @@ precommit:
     fi
     echo "{{success}}All pre-commit checks passed{{reset}}"
 
-# Regenerate the rules table in README.md from registered rule metadata
+# Regenerate the rules table in README.md and individual rule docs
 docs-rules:
     @uv run python scripts/generate_rules_table.py
+    @uv run python scripts/generate_rule_docs.py
 
-# [private] Fail if README.md rules table is out of date (used in precommit)
+# [private] Fail if rule documentation is out of date (used in precommit)
 check-rules-docs:
     @uv run python scripts/generate_rules_table.py --check
+    @uv run python scripts/generate_rule_docs.py --check
 
 # Scaffold a new rule. Usage: just new-rule ML150
 new-rule code:

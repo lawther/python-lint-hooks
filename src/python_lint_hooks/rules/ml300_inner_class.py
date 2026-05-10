@@ -1,9 +1,3 @@
-"""ML300 — class defined inside a function.
-
-Classes at function scope are implementation details that cannot be reused or tested
-independently. Move them to module level.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -14,6 +8,14 @@ from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, 
 
 @register
 class ML300(Rule):
+    """Class defined inside a function.
+
+    Classes defined at function scope are implementation details that cannot be
+    reused or tested independently. They also make the containing function harder
+    to read and reason about. Move the class to the module level or a separate
+    submodule.
+    """
+
     code: ClassVar[RuleCode] = RuleCode.ML300
     category: ClassVar[RuleCategory] = RuleCategory.SCOPE
     summary: ClassVar[str] = "Class defined inside a function"
@@ -39,3 +41,24 @@ class ML300(Rule):
                 node.col_offset + 1,
                 f"Class '{node.name}' defined inside a function",
             )
+
+    # -------------------------------------------------------------------------
+    # Examples
+    # -------------------------------------------------------------------------
+
+    bad_example: ClassVar[str] = """
+def process_data():
+    class LocalHelper:
+        ...
+    ...
+"""
+
+    good_examples: ClassVar[list[str]] = [
+        """
+class GlobalHelper:
+    ...
+
+def process_data():
+    ...
+"""
+    ]

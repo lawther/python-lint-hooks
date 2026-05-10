@@ -1,9 +1,3 @@
-"""ML101 — function returns a bare (unparameterised) tuple.
-
-`tuple` with no type parameters gives callers no information about its contents or length.
-Use a NamedTuple to give the return value a name and typed fields.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -15,6 +9,14 @@ from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, 
 
 @register
 class ML101(Rule):
+    """Function returns a bare (unparameterised) tuple.
+
+    A `tuple` with no type parameters gives callers no information about what the
+    tuple contains or its expected length. This makes the code harder to reason
+    about and prevents type checkers from verifying how the return value is used.
+    Use a `NamedTuple` to provide a named type with explicitly typed fields.
+    """
+
     code: ClassVar[RuleCode] = RuleCode.ML101
     category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES
     summary: ClassVar[str] = "Function returns a bare `tuple`"
@@ -47,3 +49,23 @@ class ML101(Rule):
                 f"Function '{func_name}' returns bare tuple; use a NamedTuple instead",
                 noqa_lines=annotation_noqa_lines(returns),
             )
+
+    # -------------------------------------------------------------------------
+    # Examples
+    # -------------------------------------------------------------------------
+
+    bad_example: ClassVar[str] = """
+def get_point() -> tuple:
+    ...
+"""
+
+    good_examples: ClassVar[list[str]] = [
+        """
+class Point(NamedTuple):
+    x: int
+    y: int
+
+def get_point() -> Point:
+    ...
+"""
+    ]

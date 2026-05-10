@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import sys
+import textwrap
 import tomllib
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from python_lint_hooks.rules import all_rules
 from python_lint_hooks.runner import check_file
-from python_lint_hooks.violation import Violation
+from python_lint_hooks.violation import RuleCode, Violation
 
 # Ruff's default exclusion list
 RUFF_DEFAULT_EXCLUDE = [
@@ -264,7 +267,15 @@ def main() -> None:
         dest="extend_ignore",
         help="Like --ignore, but adds additional rule codes on top of those already ignored",
     )
+    parser.add_argument(
+        "--explain",
+        help="Print rationale and examples for a specific rule code (e.g., ML102)",
+    )
     args = parser.parse_args()
+
+    if args.explain:
+        _explain_rule(args.explain)
+        return
 
     hooks_config = _load_hooks_config(Path(args.config))
     run_config = _RunConfig.from_args(args, hooks_config)
@@ -286,4 +297,45 @@ def main() -> None:
     for violation in sorted(all_violations, key=lambda v: (str(v.path), v.line, v.col)):
         print(violation.format())
 
+    if all_violations:
+        counts = Counter(v.code for v in all_violations)
+        most_common, _ = counts.most_common(1)[0]
+        print(f"\n💡 Tip: For more information and examples, run 'ml-lint --explain {most_common}'")
+
     sys.exit(1 if all_violations else 0)
+
+
+def _explain_rule(code: str) -> None:
+    """Print rationale and examples for a specific rule code."""
+    code = code.upper()
+    rules = {cls.code: cls for cls in all_rules()}
+    if code not in rules:
+        print(f"Error: Unknown rule code '{code}'", file=sys.stderr)
+        sys.exit(1)
+
+    cls = rules[RuleCode(code)]
+    docstring = inspect.getdoc(cls) or "No rationale provided."
+
+    print(f"{cls.code}: {cls.summary}")
+    print("=" * (len(cls.code) + len(cls.summary) + 2))
+    print(f"\nSuggestion: {cls.suggestion}")
+    print(f"Rationale:\n{docstring}")
+
+    try:
+        if cls.bad_example:
+            print("\nBad Example:")
+            print("-" * 12)
+            print(textwrap.dedent(cls.bad_example).strip())
+    except AttributeError:
+        print(f"\nError: Rule {cls.code} is missing mandatory 'bad_example' field.", file=sys.stderr)
+
+    try:
+        if cls.good_examples:
+            header = "Good Example" if len(cls.good_examples) == 1 else "Good Examples"
+            print(f"\n{header}:")
+            print("-" * (len(header) + 1))
+            for ex in cls.good_examples:
+                print(textwrap.dedent(ex).strip())
+                print()
+    except AttributeError:
+        print(f"Error: Rule {cls.code} is missing mandatory 'good_examples' field.", file=sys.stderr)

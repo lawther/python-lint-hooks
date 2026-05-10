@@ -1,9 +1,3 @@
-"""ML106 — function returns a bare (unparameterised) Mapping.
-
-`Mapping` with no type parameters gives callers no information about what the mapping
-contains. Use a dataclass to give the return value a name and typed fields.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -15,6 +9,14 @@ from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, 
 
 @register
 class ML106(Rule):
+    """Function returns a bare (unparameterised) Mapping.
+
+    A `Mapping` or `MutableMapping` with no type parameters gives callers no
+    information about what it contains. This makes the code harder to reason
+    about and prevents type checkers from verifying how the return value is used.
+    Use a dataclass to provide a named type with explicitly typed fields.
+    """
+
     code: ClassVar[RuleCode] = RuleCode.ML106
     category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES
     summary: ClassVar[str] = "Function returns a bare `Mapping`"
@@ -47,3 +49,24 @@ class ML106(Rule):
                 f"Function '{func_name}' returns bare Mapping; use a dataclass instead",
                 noqa_lines=annotation_noqa_lines(returns),
             )
+
+    # -------------------------------------------------------------------------
+    # Examples
+    # -------------------------------------------------------------------------
+
+    bad_example: ClassVar[str] = """
+def get_config() -> Mapping:
+    ...
+"""
+
+    good_examples: ClassVar[list[str]] = [
+        """
+@dataclass(frozen=True)
+class Config:
+    timeout: int
+    retries: int
+
+def get_config() -> Config:
+    ...
+"""
+    ]

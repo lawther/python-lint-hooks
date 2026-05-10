@@ -1,9 +1,3 @@
-"""ML102 — function returns a dict of primitive types.
-
-`dict[str, str]` and similar all-primitive mappings carry no semantic meaning.
-Use a dataclass for structured data, or `NewType` to give key/value types meaningful names.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -15,6 +9,14 @@ from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, 
 
 @register
 class ML102(Rule):
+    """Function returns a dictionary of primitive types.
+
+    Returning a dictionary like `dict[str, str]` is semantically "thin". It gives
+    the caller no information about what the keys represent (e.g., is it a Username?
+    An ID?) or what the values are. This encourages "primitive obsession", where
+    domain logic is scattered instead of being encapsulated in a proper type.
+    """
+
     code: ClassVar[RuleCode] = RuleCode.ML102
     category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES
     summary: ClassVar[str] = "Function returns a `dict` of primitives"
@@ -47,3 +49,30 @@ class ML102(Rule):
                 f"Function '{func_name}' returns dict of primitives; use NewType for keys/values or use a dataclass",
                 noqa_lines=annotation_noqa_lines(returns),
             )
+
+    # -------------------------------------------------------------------------
+    # Examples
+    # -------------------------------------------------------------------------
+
+    bad_example: ClassVar[str] = """
+def get_user_scores() -> dict[str, int]:
+    ...
+"""
+
+    good_examples: ClassVar[list[str]] = [
+        """
+UserId = NewType('UserId', str)
+Score = NewType('Score', int)
+def get_user_scores() -> dict[UserId, Score]:
+    ...
+""",
+        """
+@dataclass(frozen=True)
+class UserScore:
+    user_id: str
+    score: int
+
+def get_user_scores() -> list[UserScore]:
+    ...
+""",
+    ]

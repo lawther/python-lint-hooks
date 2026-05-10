@@ -1,11 +1,3 @@
-"""ML400 — unvalidated external data used without Pydantic validation.
-
-Data loaded from external sources (json.loads, yaml.safe_load, etc.) is untrusted.
-It must be validated against a Pydantic model before use. Accessing untrusted data
-via indexing or .get() without first validating it risks shape mismatches and
-unexpected runtime errors.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -28,6 +20,15 @@ class _Tainted:
 
 @register
 class ML400(Rule):
+    """Unvalidated external data used without Pydantic validation.
+
+    Data loaded from external sources (json.loads, yaml.safe_load, etc.) is
+    untrusted and has an unknown shape. Accessing this data via indexing or
+    `.get()` without first validating it risks `KeyError`, `AttributeError`,
+    and unexpected runtime failures. Use a Pydantic model to validate the
+    data shape at the boundary.
+    """
+
     code: ClassVar[RuleCode] = RuleCode.ML400
     category: ClassVar[RuleCategory] = RuleCategory.DATA_TRUST
     summary: ClassVar[str] = "Unvalidated external data used without Pydantic validation"
@@ -161,6 +162,29 @@ class ML400(Rule):
         if isinstance(func, ast.Attribute) and (func.attr in _UNTRUSTED_FUNCS or func.attr == "json"):
             return True
         return bool(isinstance(func, ast.Name) and func.id in _UNTRUSTED_FUNCS)
+
+    # -------------------------------------------------------------------------
+    # Examples
+    # -------------------------------------------------------------------------
+
+    bad_example: ClassVar[str] = """
+def get_config_timeout(path: Path):
+    with open(path) as f:
+        data = json.load(f)
+    return data["timeout"]
+"""
+
+    good_examples: ClassVar[list[str]] = [
+        """
+class Config(BaseModel):
+    timeout: int
+
+def get_config_timeout(path: Path):
+    with open(path) as f:
+        config = Config.model_validate(json.load(f))
+    return config.timeout
+"""
+    ]
 
 
 def _get_names(node: ast.AST) -> list[str]:

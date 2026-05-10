@@ -1,9 +1,3 @@
-"""ML200 — dataclass is not frozen.
-
-Mutable dataclasses can be accidentally modified after construction. Use
-@dataclass(frozen=True) to make instances immutable and hashable.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -31,6 +25,14 @@ def _is_frozen(decorator: ast.Call) -> bool:
 
 @register
 class ML200(Rule):
+    """Dataclass is not frozen.
+
+    Mutable dataclasses can be accidentally modified after construction, which
+    makes them harder to reason about and prevents them from being used in sets
+    or as dictionary keys. Use `@dataclass(frozen=True)` to make instances
+    immutable and hashable.
+    """
+
     code: ClassVar[RuleCode] = RuleCode.ML200
     category: ClassVar[RuleCategory] = RuleCategory.CLASS_SHAPE
     summary: ClassVar[str] = "Dataclass is not frozen"
@@ -51,3 +53,23 @@ class ML200(Rule):
                     f"Dataclass '{node.name}' is not frozen; use @dataclass(frozen=True)",
                 )
             break
+
+    # -------------------------------------------------------------------------
+    # Examples
+    # -------------------------------------------------------------------------
+
+    bad_example: ClassVar[str] = """
+@dataclass
+class User:
+    id: int
+    name: str
+"""
+
+    good_examples: ClassVar[list[str]] = [
+        """
+@dataclass(frozen=True)
+class User:
+    id: int
+    name: str
+"""
+    ]

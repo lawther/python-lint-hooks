@@ -1,10 +1,3 @@
-"""ML201 — class contains only forbidden types.
-
-A class where every annotated field is itself a forbidden type (bare dict, tuple, etc.)
-offers no real abstraction — it just wraps the forbidden pattern. Replace the fields with
-properly-typed attributes or refactor the class.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -26,6 +19,17 @@ def _is_classvar(annotation: ast.expr) -> bool:
 
 @register
 class ML201(Rule):
+    """Class contains only forbidden types.
+
+    A class where every annotated field is itself a forbidden type (like a bare
+    `dict` or `tuple`) offers no real abstraction—it just wraps a "thin" data
+    structure in a class name. This is often an attempt to bypass return-type
+    lints without actually improving the code's semantics.
+
+    The fix is to refactor the class to provide a proper abstraction with
+    well-defined, named attributes.
+    """
+
     code: ClassVar[RuleCode] = RuleCode.ML201
     category: ClassVar[RuleCategory] = RuleCategory.CLASS_SHAPE
     summary: ClassVar[str] = "Class contains only forbidden types"
@@ -52,3 +56,24 @@ class ML201(Rule):
             node.col_offset + 1,
             f"Class '{node.name}' only contains forbidden types; use a proper abstraction",
         )
+
+    # -------------------------------------------------------------------------
+    # Examples
+    # -------------------------------------------------------------------------
+
+    bad_example: ClassVar[str] = """
+class UserUpdateResponse:
+    # This just wraps a forbidden dict of primitives
+    data: dict[str, str]
+"""
+
+    good_examples: ClassVar[list[str]] = [
+        """
+@dataclass(frozen=True)
+class UserUpdateResponse:
+    # Provides a proper abstraction with named fields
+    username: str
+    email: str
+    status: str
+"""
+    ]

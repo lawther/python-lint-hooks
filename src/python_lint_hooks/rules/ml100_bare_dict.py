@@ -1,9 +1,3 @@
-"""ML100 — function returns a bare (unparameterised) dict.
-
-`dict` with no type parameters gives callers no information about what the dictionary
-contains. Use a dataclass to give the return value a name and typed fields.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -15,6 +9,14 @@ from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, 
 
 @register
 class ML100(Rule):
+    """Function returns a bare (unparameterised) dictionary.
+
+    A `dict` with no type parameters gives callers no information about what the
+    dictionary contains. This makes the code harder to reason about and prevents
+    type checkers from catching errors. Using a dataclass provides a named type
+    with explicitly typed fields, making the API self-documenting.
+    """
+
     code: ClassVar[RuleCode] = RuleCode.ML100
     category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES
     summary: ClassVar[str] = "Function returns a bare `dict`"
@@ -47,3 +49,24 @@ class ML100(Rule):
                 f"Function '{func_name}' returns bare dict; use a dataclass instead",
                 noqa_lines=annotation_noqa_lines(returns),
             )
+
+    # -------------------------------------------------------------------------
+    # Examples
+    # -------------------------------------------------------------------------
+
+    bad_example: ClassVar[str] = """
+def get_user_data() -> dict:
+    ...
+"""
+
+    good_examples: ClassVar[list[str]] = [
+        """
+@dataclass(frozen=True)
+class UserData:
+    id: int
+    name: str
+
+def get_user_data() -> UserData:
+    ...
+"""
+    ]

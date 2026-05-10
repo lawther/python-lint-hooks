@@ -1,10 +1,3 @@
-"""ML105 — NewType wraps a forbidden type.
-
-`NewType("Foo", dict[str, str])` looks like a distinct type but it is really just a
-bare dict at runtime. Wrapping a forbidden type in a NewType does not make it acceptable;
-use a dataclass or NamedTuple instead.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -23,6 +16,14 @@ def _is_newtype_call(node: ast.Call) -> bool:
 
 @register
 class ML105(Rule):
+    """`NewType` wraps a forbidden type.
+
+    Wrapping a forbidden type (like a bare `dict` or `tuple`) in a `NewType` looks
+    like it creates a distinct type, but at runtime it is still just the underlying
+    forbidden type. This "cheat" bypasses the semantic benefits of using a proper
+    abstraction. Use a `dataclass` or `NamedTuple` instead.
+    """
+
     code: ClassVar[RuleCode] = RuleCode.ML105
     category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES
     summary: ClassVar[str] = "`NewType` wraps a forbidden type"
@@ -50,3 +51,22 @@ class ML105(Rule):
             node.col_offset + 1,
             f"NewType '{newtype_name}' wraps a forbidden type; use a dataclass or NamedTuple instead",
         )
+
+    # -------------------------------------------------------------------------
+    # Examples
+    # -------------------------------------------------------------------------
+
+    bad_example: ClassVar[str] = """
+UserIdMap = NewType("UserIdMap", dict[str, int])
+"""
+
+    good_examples: ClassVar[list[str]] = [
+        """
+@dataclass(frozen=True)
+class UserStats:
+    # Proper abstraction with multiple fields
+    user_id: str
+    login_count: int
+    last_login: datetime
+"""
+    ]

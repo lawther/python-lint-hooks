@@ -1,9 +1,3 @@
-"""ML107 — function returns a Mapping of primitive types.
-
-`Mapping[str, str]` and similar all-primitive mappings carry no semantic meaning.
-Use a dataclass for structured data, or `NewType` to give key/value types meaningful names.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -15,6 +9,14 @@ from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, 
 
 @register
 class ML107(Rule):
+    """Function returns a Mapping of primitive types.
+
+    Returning a `Mapping[str, str]` or similar all-primitive mapping is
+    semantically "thin". It gives the caller no information about what the
+    keys or values represent. This encourages "primitive obsession". Use a
+    dataclass for structured data, or `NewType` to give keys/values meaningful names.
+    """
+
     code: ClassVar[RuleCode] = RuleCode.ML107
     category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES
     summary: ClassVar[str] = "Function returns a `Mapping` of primitives"
@@ -47,3 +49,21 @@ class ML107(Rule):
                 f"Function '{func_name}' returns Mapping of primitives; use NewType for keys/values or use a dataclass",
                 noqa_lines=annotation_noqa_lines(returns),
             )
+
+    # -------------------------------------------------------------------------
+    # Examples
+    # -------------------------------------------------------------------------
+
+    bad_example: ClassVar[str] = """
+def get_headers() -> Mapping[str, str]:
+    ...
+"""
+
+    good_examples: ClassVar[list[str]] = [
+        """
+HeaderName = NewType("HeaderName", str)
+HeaderValue = NewType("HeaderValue", str)
+def get_headers() -> Mapping[HeaderName, HeaderValue]:
+    ...
+"""
+    ]

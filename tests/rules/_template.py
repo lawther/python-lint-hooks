@@ -39,8 +39,7 @@ def test_mlxxx_ok(tmp_path: Path) -> None:
 
 def test_noqa_mlxxx_suppresses(tmp_path: Path) -> None:
     code = textwrap.dedent("""\
-        # TODO: replace with a suppressed snippet
-        pass  # noqa: MLxxx
+        def f() -> dict: ...  # noqa: MLxxx
     """)
     violations = check(code, tmp_path)
     assert "MLxxx" not in codes(violations)

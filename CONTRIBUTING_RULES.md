@@ -40,16 +40,30 @@ Every rule file must:
 
 1. Live at `src/python_lint_hooks/rules/<code>.py` (e.g. `ml150.py`).
 2. Define exactly one class decorated with `@register`.
-3. Declare these four `ClassVar` fields:
+3. Provide a clear rationale in the class docstring. This is used for documentation and CLI help.
+4. Declare these four mandatory metadata fields and two example fields:
 
 ```python
 code: ClassVar[RuleCode] = RuleCode.ML150
 category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES
 summary: ClassVar[str] = "One-line description for the README table"
 suggestion: ClassVar[str] = "What the author should do instead"
+
+# Must trigger at least one violation of this rule
+bad_example: ClassVar[str] = \"\"\"
+def get_data() -> dict: ...
+\"\"\"
+
+# Must trigger zero violations of ANY rule
+good_examples: ClassVar[list[str]] = [
+    \"\"\"
+@dataclass(frozen=True)
+class Data: ...
+\"\"\"
+]
 ```
 
-4. Emit violations **only** via `self.report()` — never by appending to `self.violations` directly (except ML400, which has a special dual-line noqa requirement).
+5. Emit violations **only** via `self.report()` — never by appending to `self.violations` directly.
 5. **Not recurse** inside hook methods — the runner handles tree traversal.
 
 `just new-rule` handles adding `RuleCode.ML150` to the enum in `violation.py` automatically. The file is auto-discovered at import time via `pkgutil.iter_modules`.

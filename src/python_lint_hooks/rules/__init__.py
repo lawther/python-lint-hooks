@@ -53,6 +53,8 @@ class Rule:
     category: ClassVar[RuleCategory]
     summary: ClassVar[str]
     suggestion: ClassVar[str]
+    bad_example: ClassVar[str]
+    good_examples: ClassVar[list[str]]
 
     def __init__(self, context: CheckContext) -> None:
         self._context = context

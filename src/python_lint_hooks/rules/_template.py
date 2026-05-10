@@ -13,6 +13,12 @@ from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, 
 
 @register
 class MLxxx(Rule):
+    """Rationale for rule MLxxx.
+
+    Explain why this rule exists and what it prevents. This docstring is
+    automatically included in generated documentation and CLI help.
+    """
+
     code: ClassVar[RuleCode] = RuleCode.MLxxx  # ty: ignore[unresolved-attribute]  # placeholder replaced by just new-rule
     category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES  # change as appropriate
     summary: ClassVar[str] = "Short description for the README rules table"
@@ -41,3 +47,11 @@ class MLxxx(Rule):
     # Async functions follow the same pattern as sync ones.
     enter_AsyncFunctionDef = enter_FunctionDef
     leave_AsyncFunctionDef = leave_FunctionDef
+
+    # -------------------------------------------------------------------------
+    # Examples
+    # -------------------------------------------------------------------------
+
+    # bad_example: ClassVar[str] = """# TODO: Add a snippet that triggers this rule"""
+
+    # good_examples: ClassVar[list[str]] = ["""# TODO: Add a snippet that does NOT trigger this rule"""]

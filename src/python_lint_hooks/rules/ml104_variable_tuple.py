@@ -1,9 +1,3 @@
-"""ML104 — function returns a variable-length tuple.
-
-`tuple[int, ...]` is an unusual return type; it blurs the line between a sequence and a
-record. Prefer `list[T]` for homogeneous sequences or a custom collection type.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -15,6 +9,14 @@ from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, 
 
 @register
 class ML104(Rule):
+    """Function returns a variable-length tuple.
+
+    Variable-length tuples like `tuple[int, ...]` are immutable, which is often
+    desirable, but Python's `list[T]` is more idiomatic for collections of
+    homogeneous items. If you need immutability, consider a custom frozen
+    collection or a dataclass wrapping a list.
+    """
+
     code: ClassVar[RuleCode] = RuleCode.ML104
     category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES
     summary: ClassVar[str] = "Function returns a variable-length `tuple`"
@@ -47,3 +49,19 @@ class ML104(Rule):
                 f"Function '{func_name}' returns variable-length tuple; use list[T] or custom collection instead",
                 noqa_lines=annotation_noqa_lines(returns),
             )
+
+    # -------------------------------------------------------------------------
+    # Examples
+    # -------------------------------------------------------------------------
+
+    bad_example: ClassVar[str] = """
+def get_scores() -> tuple[int, ...]:
+    ...
+"""
+
+    good_examples: ClassVar[list[str]] = [
+        """
+def get_scores() -> list[int]:
+    ...
+"""
+    ]

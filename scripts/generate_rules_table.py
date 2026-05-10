@@ -31,7 +31,8 @@ def _build_table() -> str:
         "|------|-------------|------------|",
     ]
     for cls in rules:
-        lines.append(f"| `{cls.code}` | {cls.summary} | {cls.suggestion} |")
+        code_link = f"[`{cls.code}`](docs/rules/{cls.code}.md)"
+        lines.append(f"| {code_link} | {cls.summary} | {cls.suggestion} |")
     lines.append(_END)
     return "\n".join(lines)
 
