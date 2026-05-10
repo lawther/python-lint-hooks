@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.4](https://github.com/lawther/python-lint-hooks/compare/v0.7.3...v0.7.4) (2026-05-10)
+
+
+### Bug Fixes
+
+* **rules:** add 'initializer' to ML500 spelling map ([dfdf10a](https://github.com/lawther/python-lint-hooks/commit/dfdf10a98e56f2f79ba26105745f259403e5e573))
+
 ## [0.7.3](https://github.com/lawther/python-lint-hooks/compare/v0.7.2...v0.7.3) (2026-05-10)
 
 
