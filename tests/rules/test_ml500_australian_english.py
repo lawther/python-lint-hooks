@@ -99,8 +99,11 @@ def test_ml500_multiple_per_line(tmp_path: Path) -> None:
     code = "# color color color\ndef color_color(): pass"
     violations = check(code, tmp_path)
     ml500_violations = [v for v in violations if v.code == "ML500"]
-    # 3 in comment, 2 in function name = 5
-    assert len(ml500_violations) == 5
+    # 3 in comment, 1 in function name (aggregated) = 4
+    assert len(ml500_violations) == 4
+    # Check the aggregated function name violation
+    fn_violation = next(v for v in ml500_violations if "color_color" in v.message)
+    assert "Use Australian English: 'colour_colour' instead of 'color_color'" in fn_violation.message
 
 
 def test_noqa_ml500_suppresses(tmp_path: Path) -> None:
@@ -109,3 +112,38 @@ def test_noqa_ml500_suppresses(tmp_path: Path) -> None:
     """)
     violations = check(code, tmp_path)
     assert "ML500" not in codes(violations)
+
+
+def test_ml500_preserves_case(tmp_path: Path) -> None:
+    # Title Case
+    code = "# Neighborhood window\n"
+    violations = check(code, tmp_path)
+    assert "Use Australian English: 'Neighbourhood' instead of 'Neighborhood'" in violations[0].message
+
+    # ALL CAPS
+    code = "# USE COLOR HERE\n"
+    violations = check(code, tmp_path)
+    assert "Use Australian English: 'COLOUR' instead of 'COLOR'" in violations[0].message
+
+    # camelCase part - should be aggregated
+    code = "def initializeColor(): pass\n"
+    violations = check(code, tmp_path)
+    messages = [v.message for v in violations if v.code == "ML500"]
+    assert len(messages) == 1
+    assert "Use Australian English: 'initialiseColour' instead of 'initializeColor'" in messages[0]
+
+
+def test_ml500_snake_case_aggregated(tmp_path: Path) -> None:
+    code = "fix_my_initialized_thing = 1\n"
+    violations = check(code, tmp_path)
+    assert (
+        "Use Australian English: 'fix_my_initialised_thing' instead of 'fix_my_initialized_thing'"
+        in violations[0].message
+    )
+
+
+def test_ml500_kebab_case_in_comment(tmp_path: Path) -> None:
+    # kebab-case in comments should still report individual words (via _check_text)
+    code = "# my-color-is-red\n"
+    violations = check(code, tmp_path)
+    assert "Use Australian English: 'colour' instead of 'color'" in violations[0].message

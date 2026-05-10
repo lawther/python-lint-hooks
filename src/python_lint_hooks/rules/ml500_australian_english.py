@@ -35,9 +35,9 @@ class ML500(Rule):
     # Lazy-loaded spelling map from JSON
     _SPELLING_MAP: ClassVar[dict[str, str] | None] = None
 
-    # Regex to split identifiers into words (handles camelCase and snake_case)
-    # This splits on transitions from lower to upper, or digits/underscores.
-    WORDS_RE = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|$)")
+    # Regex to split identifiers into words (handles camelCase, snake_case, and kebab-case)
+    # This splits on transitions from lower to upper, or digits/underscores/hyphens.
+    WORDS_RE = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|$)|[0-9]+|_|-")
 
     def __init__(self, context: CheckContext) -> None:
         super().__init__(context)
@@ -52,6 +52,19 @@ class ML500(Rule):
     @property
     def spelling_map(self) -> dict[str, str]:
         return self._SPELLING_MAP or {}
+
+    def _match_case(self, original: str, replacement: str) -> str:
+        """Matches the case of replacement to original.
+
+        - ALL CAPS -> ALL CAPS
+        - Title Case -> Title Case
+        - lower case -> lower case
+        """
+        if original.isupper():
+            return replacement.upper()
+        if original and original[0].isupper():
+            return replacement.capitalize()
+        return replacement.lower()
 
     def _check_text(self, text: str, line: int, col: int) -> None:
         """Check a block of text (like a comment or identifier) for US spellings."""
@@ -69,27 +82,35 @@ class ML500(Rule):
                     last_newline = prefix.rfind("\n")
                     current_col = match.start() - last_newline - 1
 
+                suggestion = self._match_case(word, self.spelling_map[lower_word])
                 self.report(
                     line + line_offset,
                     current_col + 1,
-                    f"Use Australian English: '{self.spelling_map[lower_word]}' instead of '{word}'",
+                    f"Use Australian English: '{suggestion}' instead of '{word}'",
                 )
 
     def _check_name(self, name: str, line: int, col: int) -> None:
         """Check an identifier for US spellings by splitting it into words."""
-        # Split camelCase or snake_case
-        parts = self.WORDS_RE.findall(name)
-        for part in parts:
+        found_any = False
+
+        def _replace(match: re.Match) -> str:
+            nonlocal found_any
+            part = match.group()
             lower_part = part.lower()
             if lower_part in self.spelling_map:
-                # Calculate column offset of this part
-                match = re.search(re.escape(part), name)
-                part_col = col + (match.start() if match else 0)
-                self.report(
-                    line,
-                    part_col + 1,
-                    f"Use Australian English: '{self.spelling_map[lower_part]}' instead of '{part}'",
-                )
+                found_any = True
+                return self._match_case(part, self.spelling_map[lower_part])
+            return part
+
+        # Reconstruct the name with all parts replaced
+        suggested_name = self.WORDS_RE.sub(_replace, name)
+
+        if found_any:
+            self.report(
+                line,
+                col + 1,
+                f"Use Australian English: '{suggested_name}' instead of '{name}'",
+            )
 
     def _check_docstring(self, node: ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> None:
         """Check if a node has a docstring and validate its spelling."""
