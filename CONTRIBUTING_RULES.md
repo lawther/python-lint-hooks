@@ -29,6 +29,7 @@ just precommit   # lint, type-check, tests, README update
 | ML2xx | Class / dataclass shape | `RuleCategory.CLASS_SHAPE` |
 | ML3xx | Scope violations | `RuleCategory.SCOPE` |
 | ML4xx | Data trust / external data | `RuleCategory.DATA_TRUST` |
+| ML5xx | Localisation / Spelling | `RuleCategory.LOCALISATION` |
 
 Pick the next unused code in the appropriate range.
 

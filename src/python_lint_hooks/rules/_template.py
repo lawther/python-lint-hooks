@@ -54,4 +54,6 @@ class MLxxx(Rule):
 
     # bad_example: ClassVar[str] = """# TODO: Add a snippet that triggers this rule"""
 
-    # good_examples: ClassVar[list[str]] = ["""# TODO: Add a snippet that does NOT trigger this rule"""]
+    # good_examples: ClassVar[list[str]] = [
+    #     """# TODO: Add a snippet that shows how to re-write the bad example to NOT trigger this rule""",
+    # ]

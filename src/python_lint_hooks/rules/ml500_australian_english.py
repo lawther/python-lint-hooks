@@ -1,0 +1,135 @@
+"""ML500 — American English spelling detected.
+
+The project requires Australian English spelling in all code and comments.
+"""
+
+from __future__ import annotations
+
+import ast
+import json
+import re
+from pathlib import Path
+from typing import ClassVar
+
+from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, register
+
+
+@register
+class ML500(Rule):
+    """Detects American English spelling in code and comments.
+
+    This rule enforces the project mandate to use Australian English (e.g., 'colour'
+    instead of 'color', 'initialise' instead of 'initialize').
+
+    To avoid false positives with external APIs, it ignores:
+    - Attribute access (e.g., `obj.color`)
+    - Keyword arguments in calls (e.g., `func(color="red")`)
+    - String literals (e.g., `"color"`)
+    """
+
+    code: ClassVar[RuleCode] = RuleCode.ML500
+    category: ClassVar[RuleCategory] = RuleCategory.LOCALISATION
+    summary: ClassVar[str] = "American English spelling detected"
+    suggestion: ClassVar[str] = "Use Australian English spelling instead"
+
+    # Lazy-loaded spelling map from JSON
+    _SPELLING_MAP: ClassVar[dict[str, str] | None] = None
+
+    # Regex to split identifiers into words (handles camelCase and snake_case)
+    # This splits on transitions from lower to upper, or digits/underscores.
+    WORDS_RE = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|$)")
+
+    def __init__(self, context: CheckContext) -> None:
+        super().__init__(context)
+        if self._SPELLING_MAP is None:
+            map_path = Path(__file__).parent / "spelling_map.json"
+            if map_path.exists():
+                with map_path.open("r", encoding="utf-8") as f:
+                    ML500._SPELLING_MAP = json.load(f)
+            else:
+                ML500._SPELLING_MAP = {}
+
+    @property
+    def spelling_map(self) -> dict[str, str]:
+        return self._SPELLING_MAP or {}
+
+    def _check_text(self, text: str, line: int, col: int) -> None:
+        """Check a block of text (like a comment or identifier) for US spellings."""
+        # Use a regex to find whole words to avoid partial matches (e.g. 'colorize' vs 'color')
+        # though our map already contains some inflected forms.
+        # For simplicity, we split and check each word.
+        words = re.findall(r"[a-zA-Z]+", text)
+        for word in words:
+            lower_word = word.lower()
+            if lower_word in self.spelling_map:
+                # Find the column offset of this word within the text
+                match = re.search(r"\b" + re.escape(word) + r"\b", text)
+                word_col = col + (match.start() if match else 0)
+                self.report(
+                    line,
+                    word_col + 1,
+                    f"Use Australian English: '{self.spelling_map[lower_word]}' instead of '{word}'",
+                )
+
+    def _check_name(self, name: str, line: int, col: int) -> None:
+        """Check an identifier for US spellings by splitting it into words."""
+        # Split camelCase or snake_case
+        parts = self.WORDS_RE.findall(name)
+        for part in parts:
+            lower_part = part.lower()
+            if lower_part in self.spelling_map:
+                # Calculate column offset of this part
+                match = re.search(re.escape(part), name)
+                part_col = col + (match.start() if match else 0)
+                self.report(
+                    line,
+                    part_col + 1,
+                    f"Use Australian English: '{self.spelling_map[lower_part]}' instead of '{part}'",
+                )
+
+    def enter_Module(self, node: ast.Module) -> None:
+        """Scan comments in the entire file."""
+        for i, line_text in enumerate(self._context.source_lines, 1):
+            if "#" in line_text:
+                comment_part = line_text.split("#", 1)[1]
+                comment_col = line_text.find("#") + 1
+                self._check_text(comment_part, i, comment_col)
+
+    def enter_Name(self, node: ast.Name) -> None:
+        """Check variable names."""
+        self._check_name(node.id, node.lineno, node.col_offset)
+
+    def enter_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        """Check function names."""
+        self._check_name(node.name, node.lineno, node.col_offset)
+
+    def enter_ClassDef(self, node: ast.ClassDef) -> None:
+        """Check class names."""
+        self._check_name(node.name, node.lineno, node.col_offset)
+
+    def enter_arg(self, node: ast.arg) -> None:
+        """Check function argument names."""
+        self._check_name(node.arg, node.lineno, node.col_offset)
+
+    # Note: enter_AsyncFunctionDef is aliased below
+    enter_AsyncFunctionDef = enter_FunctionDef
+
+    # -------------------------------------------------------------------------
+    # Examples
+    # -------------------------------------------------------------------------
+
+    bad_example: ClassVar[str] = """
+def initialize_color():
+    my_favorite_color = "red"  # string literals are ignored, but variable names aren't
+    # This color is nice
+    ...
+"""
+
+    good_examples: ClassVar[list[str]] = [
+        """
+def initialise_colour():
+    _my_favourite_colour = "red"
+    # This colour is nice
+    ...
+""",
+    ]

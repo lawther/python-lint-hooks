@@ -19,6 +19,7 @@ Custom Python linting rules, distributed as a pip-installable CLI tool.
 | [`ML201`](docs/rules/ML201.md) | Class contains only forbidden types | Use a proper abstraction with well-typed fields |
 | [`ML300`](docs/rules/ML300.md) | Class defined inside a function | Move it to module level |
 | [`ML400`](docs/rules/ML400.md) | Unvalidated external data used without Pydantic validation | Validate with a Pydantic model before use |
+| [`ML500`](docs/rules/ML500.md) | American English spelling detected | Use Australian English spelling instead |
 <!-- rules-table-end -->
 
 **ML100 - ML107** catch violations related to return types. Unlike standard linting, these rules are **recursive** and will catch bare or primitive dicts/tuples even when nested inside other types like `list[...]` or `Optional[...]`.

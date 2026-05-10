@@ -25,6 +25,7 @@ class RuleCategory(Enum):
     CLASS_SHAPE = "class-shape"
     SCOPE = "scope"
     DATA_TRUST = "data-trust"
+    LOCALISATION = "localisation"
 
 
 class CheckContext:
