@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.6](https://github.com/lawther/python-lint-hooks/compare/v0.7.5...v0.7.6) (2026-05-15)
+
+
+### Bug Fixes
+
+* **rules:** allow noqa on closing docstring line to suppress ML500 ([f91548a](https://github.com/lawther/python-lint-hooks/commit/f91548acacbaa9e0dd348ec6255baa53f546160e))
+* **rules:** exempt imported names from ML500 spelling checks ([48945fa](https://github.com/lawther/python-lint-hooks/commit/48945fa6cb60026370ceaf7d180f32db6d343db4))
+
+
+### Documentation
+
+* **rules:** document ML500 automatic exemptions in README ([6ff1a3a](https://github.com/lawther/python-lint-hooks/commit/6ff1a3a22131d2164dbcd944a07bcbaa6b27d7f1))
+
 ## [0.7.5](https://github.com/lawther/python-lint-hooks/compare/v0.7.4...v0.7.5) (2026-05-15)
 
 
