@@ -5,20 +5,28 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from python_lint_hooks.analyzers.newtype_index import NewTypeIndex
 from python_lint_hooks.rules import CheckContext, Rule, all_rules
 from python_lint_hooks.violation import RuleCode, Violation
 
 
-def check_file(path: Path, enabled_codes: frozenset[RuleCode] | None = None) -> list[Violation]:
+def check_file(
+    path: Path,
+    enabled_codes: frozenset[RuleCode] | None = None,
+    project_index: NewTypeIndex | None = None,
+) -> list[Violation]:
     """Parse path and return violations from all enabled rules.
 
     When enabled_codes is None every registered rule runs. The CLI computes the enabled
     set from --select / --ignore and passes it in so disabled rules are never instantiated.
+
+    project_index is an optional pre-built cross-file index. Rules that need cross-module
+    type resolution (ML108, ML109) consume it; without one, they stay silent.
     """
     source = path.read_text(encoding="utf-8")
     source_lines = tuple(source.splitlines())
     tree = ast.parse(source, filename=str(path))
-    context = CheckContext(path, source_lines)
+    context = CheckContext(path, source_lines, project_index=project_index)
 
     rules: list[Rule] = []
     for cls in all_rules():
@@ -29,6 +37,33 @@ def check_file(path: Path, enabled_codes: frozenset[RuleCode] | None = None) -> 
         _walk(tree, rules)
 
     return [v for rule in rules for v in rule.violations]
+
+
+def check_paths(paths: list[Path], enabled_codes: frozenset[RuleCode] | None = None) -> list[Violation]:
+    """Check multiple files with a shared project-wide NewType index.
+
+    Performs a pre-pass to build a cross-file index of NewType definitions, class
+    field annotations, and function return annotations. Then runs the per-file
+    rule pass with that index available in CheckContext.
+
+    Files that fail to parse during the pre-pass are silently skipped from the
+    index; check_file will surface the parse error when the per-file pass tries
+    to re-parse them.
+    """
+    index = NewTypeIndex()
+    for path in paths:
+        try:
+            source = path.read_text(encoding="utf-8")
+            tree = ast.parse(source, filename=str(path))
+        except (OSError, SyntaxError, UnicodeDecodeError):
+            continue
+        index.ingest(str(path.resolve()), tree)
+    index.finalise()
+
+    violations: list[Violation] = []
+    for path in paths:
+        violations.extend(check_file(path, enabled_codes, project_index=index))
+    return violations
 
 
 def _walk(node: ast.AST, rules: list[Rule]) -> None:

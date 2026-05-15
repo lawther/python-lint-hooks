@@ -15,7 +15,7 @@ import pathspec
 from pydantic import BaseModel, ConfigDict, Field
 
 from python_lint_hooks.rules import all_rules
-from python_lint_hooks.runner import check_file
+from python_lint_hooks.runner import check_paths
 from python_lint_hooks.violation import RuleCode, Violation
 
 # Ruff's default exclusion list
@@ -333,9 +333,7 @@ def main() -> None:
         and not any(cls.code.startswith(i) for i in run_config.ignore)
     )
 
-    all_violations: list[Violation] = []
-    for file in files:
-        all_violations.extend(check_file(file, enabled_codes))
+    all_violations: list[Violation] = check_paths(files, enabled_codes)
 
     for violation in sorted(all_violations, key=lambda v: (str(v.path), v.line, v.col)):
         print(violation.format())

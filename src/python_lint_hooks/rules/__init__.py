@@ -19,6 +19,8 @@ from python_lint_hooks.violation import RuleCode, Violation
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from python_lint_hooks.analyzers.newtype_index import NewTypeIndex
+
 
 class RuleCategory(Enum):
     RETURN_TYPES = "return-types"
@@ -26,16 +28,28 @@ class RuleCategory(Enum):
     SCOPE = "scope"
     DATA_TRUST = "data-trust"
     LOCALISATION = "localisation"
+    TYPE_HYGIENE = "type-hygiene"
 
 
 class CheckContext:
-    """Immutable per-file context passed to every rule."""
+    """Immutable per-file context passed to every rule.
 
-    __slots__ = ("path", "source_lines")
+    project_index is the optional cross-file NewType / annotation index built by the
+    project-wide pre-pass. Rules that need cross-module type resolution (ML108, ML109)
+    consume it; single-file rules ignore it.
+    """
 
-    def __init__(self, path: Path, source_lines: tuple[str, ...]) -> None:
+    __slots__ = ("path", "project_index", "source_lines")
+
+    def __init__(
+        self,
+        path: Path,
+        source_lines: tuple[str, ...],
+        project_index: NewTypeIndex | None = None,
+    ) -> None:
         self.path = path
         self.source_lines = source_lines
+        self.project_index = project_index
 
 
 class Rule:

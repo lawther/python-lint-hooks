@@ -17,6 +17,8 @@ class RuleCode(StrEnum):
     ML105 = "ML105"
     ML106 = "ML106"
     ML107 = "ML107"
+    ML108 = "ML108"
+    ML109 = "ML109"
     ML200 = "ML200"
     ML201 = "ML201"
     ML300 = "ML300"
