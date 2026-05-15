@@ -67,7 +67,7 @@ class ML500(Rule):
             return replacement.capitalize()
         return replacement.lower()
 
-    def _check_text(self, text: str, line: int, col: int) -> None:
+    def _check_text(self, text: str, line: int, col: int, extra_noqa_lines: list[int] | None = None) -> None:
         """Check a block of text (like a comment or identifier) for US spellings."""
         # Find all words and check them against the spelling map
         for match in re.finditer(r"\b[a-zA-Z]+\b", text):
@@ -83,11 +83,14 @@ class ML500(Rule):
                     last_newline = prefix.rfind("\n")
                     current_col = match.start() - last_newline - 1
 
+                violation_line = line + line_offset
+                noqa_lines = [violation_line, *(extra_noqa_lines or [])]
                 suggestion = self._match_case(word, self.spelling_map[lower_word])
                 self.report(
-                    line + line_offset,
+                    violation_line,
                     current_col + 1,
                     f"Use Australian English: '{suggestion}' instead of '{word}'",
+                    noqa_lines=noqa_lines,
                 )
 
     def _check_name(self, name: str, line: int, col: int) -> None:
@@ -131,7 +134,8 @@ class ML500(Rule):
             match = re.match(r'^[rfub]*("{3}|\'{3}|"|\')', token_prefix, re.IGNORECASE)
             offset = len(match.group(0)) if match else 0
 
-            self._check_text(value, doc_node.lineno, doc_node.col_offset + offset)
+            closing_line = [doc_node.end_lineno] if doc_node.end_lineno is not None else None
+            self._check_text(value, doc_node.lineno, doc_node.col_offset + offset, extra_noqa_lines=closing_line)
 
     def enter_Module(self, node: ast.Module) -> None:
         """Scan comments in the entire file and check module docstring."""

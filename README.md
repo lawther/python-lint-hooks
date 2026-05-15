@@ -153,6 +153,18 @@ def build_index(
     ...
 ```
 
+For **ML500 docstring violations**, place the `# noqa: ML500` comment on the closing `"""` line — it suppresses all ML500 violations within that entire docstring. Per-line suppression inside docstring text is not possible (there is no `#` character on those lines). The canonical use case is referencing a name that is locked in by an external standard, such as the HTTP `Authorization` header:
+
+```python
+def authenticated_uid(credentials: ...) -> str:
+    """Firebase Auth verification dependency for FastAPI.
+
+    Extracts and verifies the Firebase ID token from the Authorization header,
+    returning the authenticated user's UID.
+    """  # noqa: ML500
+    ...
+```
+
 ## Integration with justfile and pre-commit
 
 The recommended setup keeps the justfile as the single source of truth, with the pre-commit hook and CI both calling `just`.

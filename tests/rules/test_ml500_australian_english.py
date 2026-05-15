@@ -169,6 +169,40 @@ def test_ml500_ignored_imported_name_in_annotation(tmp_path: Path) -> None:
     assert ml500_violations == []
 
 
+def test_ml500_noqa_on_closing_docstring_line_suppresses_whole_docstring(tmp_path: Path) -> None:
+    # A noqa on the closing """ line suppresses all ML500 violations within the docstring.
+    # This is the right place because per-line noqa inside docstring text is impractical
+    # (no # character, line-length concerns). Canonical use case: HTTP header names like
+    # 'Authorization' which are locked in by RFC and cannot be changed.
+    code = textwrap.dedent("""\
+        def fn():
+            \"\"\"Extracts the Authorization header.
+
+            This mirrors the color of the sky.
+            \"\"\"  # noqa: ML500
+            pass
+    """)
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert ml500_violations == []
+
+
+def test_ml500_noqa_on_closing_line_does_not_suppress_outside_docstring(tmp_path: Path) -> None:
+    # The noqa on the closing """ only covers that docstring — violations elsewhere are still caught.
+    code = textwrap.dedent("""\
+        my_color = 1
+
+        def fn():
+            \"\"\"Authorization header.
+            \"\"\"  # noqa: ML500
+            pass
+    """)
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert len(ml500_violations) == 1
+    assert "color" in ml500_violations[0].message
+
+
 def test_ml500_imported_alias_also_exempt(tmp_path: Path) -> None:
     # An aliased import is tracked under its local alias, so usage of the alias is exempt.
     code = textwrap.dedent("""\
