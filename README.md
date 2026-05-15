@@ -31,9 +31,11 @@ Functions defined inside other functions are exempt from ML100-ML107 — inner d
 **ML500** checks identifiers, function and class names, argument names, comments, and docstrings for American English spelling. Several categories are automatically exempt to avoid false positives with external APIs and third-party libraries:
 
 - **Imported names** — names brought in via `import` or `from … import` are never flagged at the usage site. The correct place to flag a misspelling is the definition; fixing it there cascades to all usages via normal refactoring. This means using a third-party class like `HTTPAuthorizationCredentials` in a type annotation will not trigger ML500.
-- **Attribute access** — `obj.color` is ignored; you do not control the attribute name.
+- **Attribute access** — `obj.color` is ignored in code; you do not control the attribute name.
+- **Inline dotted names in text** — any `name.attr` token in a comment or docstring (e.g. `colors.get`, `api.get_color`) is ignored in its entirety; both sides of the dot are external API names the developer cannot rename.
 - **Keyword arguments** — `func(color="red")` is ignored; you do not control the parameter name.
 - **Non-docstring string literals** — `"color"` is ignored to avoid false positives with JSON keys, API payloads, and similar.
+- **URLs** — anything following `http://` or `https://` is ignored; URL path segments are outside the developer's control.
 
 
 ## Installation

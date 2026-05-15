@@ -69,8 +69,16 @@ class ML500(Rule):
 
     def _check_text(self, text: str, line: int, col: int, extra_noqa_lines: list[int] | None = None) -> None:
         """Check a block of text (like a comment or identifier) for US spellings."""
-        # Find all words and check them against the spelling map
+        url_spans = [(m.start(), m.end()) for m in re.finditer(r"https?://\S+", text)]
+        # Any dotted name (e.g. colors.get, api.get_color) is treated as an inline
+        # attribute/method reference — both sides of the dot are an external API name
+        # the developer cannot rename.
+        dotted_spans = [(m.start(), m.end()) for m in re.finditer(r"\b[a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)+", text)]
         for match in re.finditer(r"\b[a-zA-Z]+\b", text):
+            if any(start <= match.start() < end for start, end in url_spans):
+                continue
+            if any(start <= match.start() < end for start, end in dotted_spans):
+                continue
             word = match.group()
             lower_word = word.lower()
             if lower_word in self.spelling_map:

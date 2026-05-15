@@ -169,6 +169,39 @@ def test_ml500_ignored_imported_name_in_annotation(tmp_path: Path) -> None:
     assert ml500_violations == []
 
 
+def test_ml500_ignored_inline_attribute_reference(tmp_path: Path) -> None:
+    # Both sides of a dotted name in free text are exempt — the entire token is an external
+    # API reference the developer cannot rename. This covers obj.color (color after the dot)
+    # and colors.get (color before the dot) and api.get_color (color inside the method name).
+    # Sentence boundaries are not affected: "colors. Next sentence" is still flagged.
+    code = textwrap.dedent("""\
+        \"\"\"Official reference for colors.get, obj.color, and api.get_color.
+        \"\"\"
+    """)
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert ml500_violations == []
+
+
+def test_ml500_sentence_boundary_still_flagged(tmp_path: Path) -> None:
+    # A period followed by a space (sentence boundary) does not exempt the preceding word.
+    code = "# I like colors. Get the value.\n"
+    violations = check(code, tmp_path)
+    assert "ML500" in codes(violations)
+
+
+def test_ml500_ignored_in_url(tmp_path: Path) -> None:
+    # URLs are outside the developer's control and must never be flagged, even when they
+    # contain American-spelled path segments (e.g. /colors/get in the Google Calendar API).
+    code = textwrap.dedent("""\
+        \"\"\"See https://developers.google.com/calendar/api/v3/reference/colors/get for details.
+        \"\"\"
+    """)
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert ml500_violations == []
+
+
 def test_ml500_noqa_on_closing_docstring_line_suppresses_whole_docstring(tmp_path: Path) -> None:
     # A noqa on the closing """ line suppresses all ML500 violations within the docstring.
     # This is the right place because per-line noqa inside docstring text is impractical
