@@ -35,6 +35,15 @@ def generate_doc(cls: type[python_lint_hooks.rules.Rule], out_dir: Path, check: 
         "",
     ]
 
+    exemptions = getattr(cls, "exemptions", None)
+    if exemptions:
+        md_lines.extend([
+            "## Automatic Exemptions",
+            "",
+            exemptions,
+            "",
+        ])
+
     try:
         bad_example = cls.bad_example
         if bad_example:

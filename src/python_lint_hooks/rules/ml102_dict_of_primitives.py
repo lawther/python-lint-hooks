@@ -6,6 +6,8 @@ from typing import ClassVar
 from python_lint_hooks.analyzers.forbidden_types import ForbiddenTypeAnalyzer
 from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, annotation_noqa_lines, register
 
+_SERIALISATION_METHOD_NAMES: frozenset[str] = frozenset({"to_dict", "as_dict"})
+
 
 @register
 class ML102(Rule):
@@ -27,7 +29,7 @@ class ML102(Rule):
         self._function_depth: int = 0
 
     def enter_FunctionDef(self, node: ast.FunctionDef) -> None:
-        if self._function_depth == 0 and node.returns is not None:
+        if self._function_depth == 0 and node.returns is not None and node.name not in _SERIALISATION_METHOD_NAMES:
             self._check_return(node.name, node.returns)
         self._function_depth += 1
 
@@ -53,6 +55,13 @@ class ML102(Rule):
     # -------------------------------------------------------------------------
     # Examples
     # -------------------------------------------------------------------------
+
+    exemptions: ClassVar[str] = (
+        "Methods named `to_dict` or `as_dict` are exempt. These are serialisation methods"
+        " whose purpose is to produce a plain dict for an external consumer (an API, a logging"
+        " framework, etc.). The semantic richness lives in the enclosing class, so flagging"
+        " them is a false positive."
+    )
 
     bad_example: ClassVar[str] = """
 def get_user_scores() -> dict[str, int]:

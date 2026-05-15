@@ -56,6 +56,7 @@ class Rule:
     suggestion: ClassVar[str]
     bad_example: ClassVar[str]
     good_examples: ClassVar[list[str]]
+    exemptions: ClassVar[str]  # optional prose; rendered as "## Automatic Exemptions" in docs
 
     def __init__(self, context: CheckContext) -> None:
         self._context = context

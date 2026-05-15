@@ -129,3 +129,21 @@ def test_none_constant_key_is_primitive_flagged(tmp_path: Path) -> None:
     # be ML102 because None is a primitive type per the rule.
     violations = check("def foo() -> dict[None, str]: ...\n", tmp_path)
     assert codes(violations) == ["ML102"]
+
+
+def test_to_dict_method_exempt(tmp_path: Path) -> None:
+    # Serialisation methods named to_dict exist to produce plain dicts for external consumers;
+    # the semantic richness lives in the enclosing class, so flagging them is a false positive.
+    violations = check("def to_dict(self) -> dict[str, Any]: ...\n", tmp_path)
+    assert violations == []
+
+
+def test_as_dict_method_exempt(tmp_path: Path) -> None:
+    violations = check("def as_dict(self) -> dict[str, Any]: ...\n", tmp_path)
+    assert violations == []
+
+
+def test_non_serialisation_method_still_flagged(tmp_path: Path) -> None:
+    # Only the known serialisation names are exempt; arbitrary methods are still flagged.
+    violations = check("def to_payload(self) -> dict[str, str]: ...\n", tmp_path)
+    assert codes(violations) == ["ML102"]
