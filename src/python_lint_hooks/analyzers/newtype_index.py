@@ -234,26 +234,34 @@ class NewTypeIndex:
 
     def lookup_class_field(self, class_module: str, class_name: str, field_name: str) -> NewTypeId | None:
         """Return the NewType identity of `ClassName.field` defined in `class_module`."""
-        info = self._modules.get(class_module)
-        if info is None:
-            return None
-        fields = info.class_field_annotations.get(class_name)
-        if fields is None:
-            return None
-        annotation = fields.get(field_name)
+        annotation = self.get_class_field_annotation(class_module, class_name, field_name)
         if annotation is None:
             return None
         return self.resolve_annotation(class_module, annotation)
 
     def lookup_function_return(self, module: str, function_name: str) -> NewTypeId | None:
         """Return the NewType identity of `function_name`'s return annotation."""
-        info = self._modules.get(module)
-        if info is None:
-            return None
-        annotation = info.function_returns.get(function_name)
+        annotation = self.get_function_return_annotation(module, function_name)
         if annotation is None:
             return None
         return self.resolve_annotation(module, annotation)
+
+    def get_class_field_annotation(self, class_module: str, class_name: str, field_name: str) -> ast.expr | None:
+        """Return the raw annotation expression of `ClassName.field` defined in `class_module`."""
+        info = self._modules.get(class_module)
+        if info is None:
+            return None
+        fields = info.class_field_annotations.get(class_name)
+        if fields is None:
+            return None
+        return fields.get(field_name)
+
+    def get_function_return_annotation(self, module: str, function_name: str) -> ast.expr | None:
+        """Return the raw return-annotation expression of `function_name` in `module`."""
+        info = self._modules.get(module)
+        if info is None:
+            return None
+        return info.function_returns.get(function_name)
 
     def find_class_module(self, calling_module: str, class_name: str) -> tuple[str, str] | None:
         """Resolve `class_name` in `calling_module` to (defining_module, original_name).

@@ -165,6 +165,40 @@ def test_cross_cast_via_attribute_flagged(tmp_path: Path) -> None:
     assert ml109[0].path.name == "app.py"
 
 
+def test_cross_cast_in_for_loop_flagged(tmp_path: Path) -> None:
+    # for x in iter: bound x to the element NewType; cross-casting it should fire.
+    files = {
+        "pkg/app.py": textwrap.dedent("""\
+            from typing import NewType
+
+            GoogleEventId = NewType("GoogleEventId", str)
+            GCalEventId = NewType("GCalEventId", str)
+
+            def process(events: list[GoogleEventId]) -> None:
+                for eid in events:
+                    _ = GCalEventId(eid)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    assert codes(violations) == ["ML109"]
+
+
+def test_cross_cast_in_comprehension_flagged(tmp_path: Path) -> None:
+    files = {
+        "pkg/app.py": textwrap.dedent("""\
+            from typing import NewType
+
+            GoogleEventId = NewType("GoogleEventId", str)
+            GCalEventId = NewType("GCalEventId", str)
+
+            def collect(events: list[GoogleEventId]) -> list[GCalEventId]:
+                return [GCalEventId(eid) for eid in events]
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    assert codes(violations) == ["ML109"]
+
+
 def test_noqa_suppresses(tmp_path: Path) -> None:
     files = {
         "pkg/app.py": textwrap.dedent("""\

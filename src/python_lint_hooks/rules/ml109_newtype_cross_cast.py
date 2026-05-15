@@ -9,15 +9,15 @@ in different modules; the fix is to unify them.
 
 from __future__ import annotations
 
-import ast
 from typing import ClassVar
 
-from python_lint_hooks.analyzers.newtype_casts import CastKind, NewTypeCastAnalyzer
-from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, register
+from python_lint_hooks.analyzers.newtype_casts import CastFinding, CastKind
+from python_lint_hooks.rules import RuleCategory, RuleCode, register
+from python_lint_hooks.rules._newtype_cast_base import NewTypeCastRuleBase
 
 
 @register
-class ML109(Rule):
+class ML109(NewTypeCastRuleBase):
     """Cross-`NewType` cast: `T(x)` where `x` is `U`, and `T` and `U` share a base.
 
     Both NewTypes are runtime-equal to their base, so the cast does nothing at
@@ -35,32 +35,8 @@ class ML109(Rule):
     summary: ClassVar[str] = "Cast between two `NewType`s of the same base"
     suggestion: ClassVar[str] = "Unify the two NewTypes — they model the same concept"
 
-    def __init__(self, context: CheckContext) -> None:
-        super().__init__(context)
-        self._analyzer: NewTypeCastAnalyzer | None = None
-        if context.project_index is not None:
-            self._analyzer = NewTypeCastAnalyzer(str(context.path.resolve()), context.project_index)
-
-    def enter_FunctionDef(self, node: ast.FunctionDef) -> None:
-        if self._analyzer is not None:
-            self._analyzer.enter_function(node)
-
-    def leave_FunctionDef(self, node: ast.FunctionDef) -> None:
-        if self._analyzer is not None:
-            self._analyzer.leave_function(node)
-
-    enter_AsyncFunctionDef = enter_FunctionDef  # type: ignore[assignment]
-    leave_AsyncFunctionDef = leave_FunctionDef  # type: ignore[assignment]
-
-    def enter_AnnAssign(self, node: ast.AnnAssign) -> None:
-        if self._analyzer is not None:
-            self._analyzer.record_ann_assign(node)
-
-    def enter_Call(self, node: ast.Call) -> None:
-        if self._analyzer is None:
-            return
-        finding = self._analyzer.classify_call(node)
-        if finding is None or finding.kind is not CastKind.CROSS_SAME_BASE:
+    def _handle_finding(self, finding: CastFinding) -> None:
+        if finding.kind is not CastKind.CROSS_SAME_BASE:
             return
         self.report(
             finding.line,

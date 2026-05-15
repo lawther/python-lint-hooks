@@ -1,9 +1,18 @@
 """Shared analyzer for NewType cast hygiene rules (ML108, ML109).
 
-Tracks the static NewType (and class) identity of names visible at a call site
-and decides whether `T(x)` is a redundant cast. The analyzer is intentionally
-conservative: when the static type of the argument cannot be resolved, the
-call is left alone and the consuming rule emits no violation.
+Tracks the static type of names visible at a call site and decides whether
+`T(x)` is a redundant cast. The analyzer is intentionally conservative:
+when the static type of the argument cannot be resolved, the call is left
+alone and the consuming rule emits no violation.
+
+Internally, the analyzer keeps a stack of scopes (one per function or
+comprehension layer). Each scope maps a local name to a `ResolvedType`
+that records what the name statically refers to: a NewType identity, a
+project class identity, an iterable whose elements are one of those, or
+nothing recognised. Resolution happens eagerly when a name is bound — at
+that moment we know which module's namespace the annotation belongs to.
+Looking the name up later is then a simple scope walk with no further
+namespace bookkeeping.
 """
 
 from __future__ import annotations
@@ -21,6 +30,44 @@ if TYPE_CHECKING:
 
 
 _WIDENING_BUILTINS = frozenset({"str", "int", "float", "bool", "bytes", "bytearray", "complex"})
+
+# Containers whose generic single parameter is the iteration element.
+_SINGLE_PARAM_ITERABLES = frozenset(
+    {
+        "list",
+        "List",
+        "set",
+        "Set",
+        "frozenset",
+        "FrozenSet",
+        "Iterable",
+        "Iterator",
+        "AsyncIterable",
+        "AsyncIterator",
+        "Sequence",
+        "MutableSequence",
+        "Collection",
+        "Reversible",
+        "Container",
+    }
+)
+
+# Containers whose first generic parameter is the iteration element (mappings).
+_MAPPING_ITERABLES = frozenset({"dict", "Dict", "Mapping", "MutableMapping"})
+
+# Containers requiring tuple[T, ...] form (homogeneous variadic tuple).
+_TUPLE_NAMES = frozenset({"tuple", "Tuple"})
+
+
+def _extract_homogeneous_tuple_element(slice_expr: ast.expr) -> ast.expr | None:
+    """Return T from a `tuple[T, ...]` slice expression; None for fixed-arity tuples."""
+    min_homogeneous_tuple_arity = 2
+    if not isinstance(slice_expr, ast.Tuple) or len(slice_expr.elts) != min_homogeneous_tuple_arity:
+        return None
+    second = slice_expr.elts[1]
+    if isinstance(second, ast.Constant) and second.value is Ellipsis:
+        return slice_expr.elts[0]
+    return None
 
 
 class CastKind(Enum):
@@ -41,56 +88,90 @@ class CastFinding:
     col: int
 
 
-class NewTypeCastAnalyzer:
-    """Scope-aware classifier for NewType cast calls within a single file.
+@dataclass(frozen=True)
+class ResolvedType:
+    """A name's statically-known type, resolved in the namespace it was bound under.
 
-    A rule instantiates one of these and forwards its enter_/leave_ hooks. When
-    the rule's enter_Call hook fires, it calls classify_call() to get a CastFinding
-    (or None) and decides whether to report.
-
-    The analyzer maintains two parallel scope stacks:
-      * NewType scopes: name → NewTypeId, for variables whose annotation is a NewType.
-      * Class scopes: name → (defining_module, class_name), for variables whose
-        annotation resolves to a known project class. Used to resolve `obj.attr`
-        attribute accesses.
+    Exactly one of the four fields is populated when the resolution succeeded;
+    the all-None instance represents an unresolved type (which the analyzer
+    treats as "we don't know — don't flag anything").
     """
+
+    newtype: NewTypeId | None = None
+    class_id: tuple[str, str] | None = None
+    iter_elem_newtype: NewTypeId | None = None
+    iter_elem_class: tuple[str, str] | None = None
+
+    @property
+    def is_empty(self) -> bool:
+        return (
+            self.newtype is None
+            and self.class_id is None
+            and self.iter_elem_newtype is None
+            and self.iter_elem_class is None
+        )
+
+
+_EMPTY = ResolvedType()
+
+
+class NewTypeCastAnalyzer:
+    """Scope-aware classifier for NewType cast calls within a single file."""
 
     def __init__(self, module_path: str, index: NewTypeIndex) -> None:
         self._module = module_path
         self._index = index
-        self._newtype_scopes: list[dict[str, NewTypeId]] = [{}]
-        self._class_scopes: list[dict[str, tuple[str, str]]] = [{}]
+        # Stack of {name: ResolvedType}. Bottom layer is module scope.
+        self._scopes: list[dict[str, ResolvedType]] = [{}]
 
     # ------------------------------------------------------------------
     # Scope tracking — driven by the rule's AST hooks
     # ------------------------------------------------------------------
 
     def enter_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        nt_scope: dict[str, NewTypeId] = {}
-        cls_scope: dict[str, tuple[str, str]] = {}
+        scope: dict[str, ResolvedType] = {}
         all_args = itertools.chain(
             node.args.posonlyargs,
             node.args.args,
             node.args.kwonlyargs,
         )
         for arg in all_args:
-            self._record_arg_annotation(arg, nt_scope, cls_scope)
+            self._bind_arg(arg, scope)
         if node.args.vararg is not None:
-            self._record_arg_annotation(node.args.vararg, nt_scope, cls_scope)
+            self._bind_arg(node.args.vararg, scope)
         if node.args.kwarg is not None:
-            self._record_arg_annotation(node.args.kwarg, nt_scope, cls_scope)
-        self._newtype_scopes.append(nt_scope)
-        self._class_scopes.append(cls_scope)
+            self._bind_arg(node.args.kwarg, scope)
+        self._scopes.append(scope)
 
     def leave_function(self, _node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        self._newtype_scopes.pop()
-        self._class_scopes.pop()
+        self._scopes.pop()
 
     def record_ann_assign(self, node: ast.AnnAssign) -> None:
-        """Record `name: T = ...` annotations into the current scope."""
         if not isinstance(node.target, ast.Name):
             return
-        self._record_name_annotation(node.target.id, node.annotation)
+        resolved = self._resolve_in_module(self._module, node.annotation)
+        if not resolved.is_empty:
+            self._scopes[-1][node.target.id] = resolved
+
+    def enter_for(self, node: ast.For | ast.AsyncFor) -> None:
+        scope: dict[str, ResolvedType] = {}
+        self._bind_iterable_target(node.iter, node.target, scope)
+        self._scopes.append(scope)
+
+    def leave_for(self, _node: ast.For | ast.AsyncFor) -> None:
+        self._scopes.pop()
+
+    def enter_comprehension(self, node: ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp) -> None:
+        scope: dict[str, ResolvedType] = {}
+        for gen in node.generators:
+            self._bind_iterable_target(gen.iter, gen.target, scope)
+        self._scopes.append(scope)
+
+    def leave_comprehension(
+        self,
+        _node: ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp,
+    ) -> None:
+        self._scopes.pop()
 
     # ------------------------------------------------------------------
     # Call classification
@@ -103,7 +184,7 @@ class NewTypeCastAnalyzer:
           - the callee is not a known NewType,
           - the call uses keyword args or doesn't have exactly one positional arg,
           - the argument is a plain literal or an explicit widening call,
-          - the argument's static type cannot be statically determined,
+          - the argument's static type cannot be determined,
           - the constructor and argument NewTypes have different bases.
         """
         constructor = self._resolve_call_target(node)
@@ -112,7 +193,8 @@ class NewTypeCastAnalyzer:
         arg = node.args[0]
         if self._is_literal(arg) or self._is_widening_call(arg):
             return None
-        arg_identity = self._resolve_expression_type(arg)
+        arg_resolved = self._resolve_expression(arg)
+        arg_identity = arg_resolved.newtype
         if arg_identity is None:
             return None
 
@@ -127,39 +209,72 @@ class NewTypeCastAnalyzer:
         return CastFinding(kind, constructor, arg_identity, node.lineno, node.col_offset + 1)
 
     # ------------------------------------------------------------------
-    # Internal resolution helpers
+    # Binding helpers
     # ------------------------------------------------------------------
 
-    def _record_arg_annotation(
-        self,
-        arg: ast.arg,
-        nt_scope: dict[str, NewTypeId],
-        cls_scope: dict[str, tuple[str, str]],
-    ) -> None:
+    def _bind_arg(self, arg: ast.arg, scope: dict[str, ResolvedType]) -> None:
         if arg.annotation is None:
             return
-        nt = self._index.resolve_annotation(self._module, arg.annotation)
-        if nt is not None:
-            nt_scope[arg.arg] = nt
-            return
-        cls = self._resolve_class_annotation(arg.annotation)
-        if cls is not None:
-            cls_scope[arg.arg] = cls
+        resolved = self._resolve_in_module(self._module, arg.annotation)
+        if not resolved.is_empty:
+            scope[arg.arg] = resolved
 
-    def _record_name_annotation(self, name: str, annotation: ast.expr) -> None:
-        nt = self._index.resolve_annotation(self._module, annotation)
-        if nt is not None:
-            self._newtype_scopes[-1][name] = nt
+    def _bind_iterable_target(
+        self,
+        iter_expr: ast.expr,
+        target: ast.expr,
+        scope: dict[str, ResolvedType],
+    ) -> None:
+        if not isinstance(target, ast.Name):
             return
-        cls = self._resolve_class_annotation(annotation)
-        if cls is not None:
-            self._class_scopes[-1][name] = cls
+        container = self._resolve_expression(iter_expr)
+        element = ResolvedType(
+            newtype=container.iter_elem_newtype,
+            class_id=container.iter_elem_class,
+        )
+        if not element.is_empty:
+            scope[target.id] = element
 
-    def _resolve_class_annotation(self, annotation: ast.expr) -> tuple[str, str] | None:
-        """If `annotation` is a Name referring to a known project class, return its (module, original_name)."""
-        if not isinstance(annotation, ast.Name):
-            return None
-        return self._index.find_class_module(self._module, annotation.id)
+    # ------------------------------------------------------------------
+    # Resolution: expression → ResolvedType
+    # ------------------------------------------------------------------
+
+    def _resolve_expression(self, expr: ast.expr) -> ResolvedType:
+        if isinstance(expr, ast.Name):
+            return self._lookup_name(expr.id)
+        if isinstance(expr, ast.Attribute):
+            return self._resolve_attribute(expr)
+        if isinstance(expr, ast.Call):
+            return self._resolve_call(expr)
+        return _EMPTY
+
+    def _lookup_name(self, name: str) -> ResolvedType:
+        for scope in reversed(self._scopes):
+            if name in scope:
+                return scope[name]
+        return _EMPTY
+
+    def _resolve_attribute(self, node: ast.Attribute) -> ResolvedType:
+        owner = self._resolve_expression(node.value)
+        if owner.class_id is None:
+            return _EMPTY
+        class_module, class_name = owner.class_id
+        annotation = self._index.get_class_field_annotation(class_module, class_name, node.attr)
+        if annotation is None:
+            return _EMPTY
+        return self._resolve_in_module(class_module, annotation)
+
+    def _resolve_call(self, node: ast.Call) -> ResolvedType:
+        if not isinstance(node.func, ast.Name):
+            return _EMPTY
+        target = self._index.find_function_module(self._module, node.func.id)
+        if target is None:
+            return _EMPTY
+        defining_module, original_name = target
+        annotation = self._index.get_function_return_annotation(defining_module, original_name)
+        if annotation is None:
+            return _EMPTY
+        return self._resolve_in_module(defining_module, annotation)
 
     def _resolve_call_target(self, node: ast.Call) -> NewTypeId | None:
         func = node.func
@@ -167,49 +282,62 @@ class NewTypeCastAnalyzer:
             return self._index.resolve_local_name(self._module, func.id)
         return None
 
-    def _resolve_expression_type(self, expr: ast.expr) -> NewTypeId | None:
-        if isinstance(expr, ast.Name):
-            return self._lookup_name(expr.id)
-        if isinstance(expr, ast.Attribute):
-            return self._resolve_attribute(expr)
-        if isinstance(expr, ast.Call):
-            return self._resolve_call_return(expr)
+    # ------------------------------------------------------------------
+    # Resolution: annotation expression in some module's namespace
+    # ------------------------------------------------------------------
+
+    def _resolve_in_module(self, namespace_module: str, annotation: ast.expr) -> ResolvedType:
+        """Resolve an annotation expression in the namespace of `namespace_module`.
+
+        Recognises three forms:
+          * a bare Name that is a project NewType,
+          * a bare Name that is a project class,
+          * a Subscript over a recognised iterable container whose element is one of
+            the two above.
+        """
+        if isinstance(annotation, ast.Name):
+            return self._resolve_name_in_module(namespace_module, annotation.id)
+        if isinstance(annotation, ast.Subscript):
+            element_annotation = self._extract_element_annotation(annotation)
+            if element_annotation is None:
+                return _EMPTY
+            inner = self._resolve_in_module(namespace_module, element_annotation)
+            if inner.newtype is not None:
+                return ResolvedType(iter_elem_newtype=inner.newtype)
+            if inner.class_id is not None:
+                return ResolvedType(iter_elem_class=inner.class_id)
+            return _EMPTY
+        return _EMPTY
+
+    def _resolve_name_in_module(self, namespace_module: str, name: str) -> ResolvedType:
+        newtype = self._index.resolve_local_name(namespace_module, name)
+        if newtype is not None:
+            return ResolvedType(newtype=newtype)
+        class_id = self._index.find_class_module(namespace_module, name)
+        if class_id is not None:
+            return ResolvedType(class_id=class_id)
+        return _EMPTY
+
+    @staticmethod
+    def _extract_element_annotation(annotation: ast.Subscript) -> ast.expr | None:
+        if not isinstance(annotation.value, ast.Name):
+            return None
+        container = annotation.value.id
+        slice_expr = annotation.slice
+        if container in _SINGLE_PARAM_ITERABLES:
+            return slice_expr
+        if container in _MAPPING_ITERABLES:
+            return slice_expr.elts[0] if isinstance(slice_expr, ast.Tuple) and slice_expr.elts else None
+        if container in _TUPLE_NAMES:
+            return _extract_homogeneous_tuple_element(slice_expr)
         return None
 
-    def _lookup_name(self, name: str) -> NewTypeId | None:
-        for scope in reversed(self._newtype_scopes):
-            if name in scope:
-                return scope[name]
-        return None
-
-    def _resolve_attribute(self, node: ast.Attribute) -> NewTypeId | None:
-        if not isinstance(node.value, ast.Name):
-            return None
-        owner_class = self._lookup_class_for_name(node.value.id)
-        if owner_class is None:
-            return None
-        class_module, class_name = owner_class
-        return self._index.lookup_class_field(class_module, class_name, node.attr)
-
-    def _lookup_class_for_name(self, name: str) -> tuple[str, str] | None:
-        for scope in reversed(self._class_scopes):
-            if name in scope:
-                return scope[name]
-        return None
-
-    def _resolve_call_return(self, node: ast.Call) -> NewTypeId | None:
-        if not isinstance(node.func, ast.Name):
-            return None
-        target = self._index.find_function_module(self._module, node.func.id)
-        if target is None:
-            return None
-        defining_module, original_name = target
-        return self._index.lookup_function_return(defining_module, original_name)
-
-    def _is_literal(self, expr: ast.expr) -> bool:
+    @staticmethod
+    def _is_literal(expr: ast.expr) -> bool:
         return isinstance(expr, ast.Constant)
 
-    def _is_widening_call(self, expr: ast.expr) -> bool:
+    @staticmethod
+    def _is_widening_call(expr: ast.expr) -> bool:
         if not isinstance(expr, ast.Call):
             return False
         func = expr.func
