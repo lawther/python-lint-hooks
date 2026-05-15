@@ -256,7 +256,11 @@ def main() -> None:
     parser.add_argument(
         "--exclude",
         nargs="+",
-        help="List of paths, used to omit files and/or directories from analysis",
+        help=(
+            "List of paths to omit from analysis. "
+            "WARNING: This completely overrides default exclusions (like .venv, .git, etc.). "
+            "Use --extend-exclude to preserve defaults and add new ones."
+        ),
     )
     parser.add_argument(
         "--extend-exclude",
@@ -279,7 +283,11 @@ def main() -> None:
     parser.add_argument(
         "--select",
         nargs="+",
-        help="List of rule codes to enable (e.g., ML001)",
+        help=(
+            "List of rule codes to enable (e.g., ML001). "
+            "WARNING: This overrides the default selected rules. "
+            "Use --extend-select to preserve defaults and add new ones."
+        ),
     )
     parser.add_argument(
         "--extend-select",
@@ -290,7 +298,11 @@ def main() -> None:
     parser.add_argument(
         "--ignore",
         nargs="+",
-        help="List of rule codes to ignore (e.g., ML200)",
+        help=(
+            "List of rule codes to ignore (e.g., ML200). "
+            "WARNING: This overrides the default ignored rules. "
+            "Use --extend-ignore to preserve defaults and add new ones."
+        ),
     )
     parser.add_argument(
         "--extend-ignore",
