@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.5](https://github.com/lawther/python-lint-hooks/compare/v0.7.4...v0.7.5) (2026-05-15)
+
+
+### Documentation
+
+* **cli:** clarify override behavior of exclude, select, and ignore flags ([801ad84](https://github.com/lawther/python-lint-hooks/commit/801ad84ce4fdc3767661571be933382d96ee0c88))
+
 ## [0.7.4](https://github.com/lawther/python-lint-hooks/compare/v0.7.3...v0.7.4) (2026-05-10)
 
 
