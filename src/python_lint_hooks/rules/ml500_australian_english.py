@@ -9,7 +9,7 @@ import ast
 import json
 import re
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, cast
 
 from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, register
 
@@ -131,10 +131,7 @@ class ML500(Rule):
         first = node.body[0]
         if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
             doc_node = first.value
-            value = doc_node.value
-            # Explicit narrowing for the type checker
-            if not isinstance(value, str):
-                return
+            value = cast(str, doc_node.value)  # narrowed by isinstance above; ast.Constant.value is typed broadly
 
             # Determine the offset to skip quotes/prefixes (r, f, u, b)
             line_text = self._context.source_lines[doc_node.lineno - 1]

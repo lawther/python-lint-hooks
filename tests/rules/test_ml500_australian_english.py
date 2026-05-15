@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import pathlib
 import textwrap
 from pathlib import Path
 
+import pytest
+
+from python_lint_hooks.rules.ml500_australian_english import ML500
 from tests.conftest import check, codes
 
 
@@ -234,6 +238,24 @@ def test_ml500_noqa_on_closing_line_does_not_suppress_outside_docstring(tmp_path
     ml500_violations = [v for v in violations if v.code == "ML500"]
     assert len(ml500_violations) == 1
     assert "color" in ml500_violations[0].message
+
+
+def test_ml500_missing_spelling_map_disables_checks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Simulates a partial installation where spelling_map.json was not bundled
+    # (e.g., stripped by a Docker layer or incorrectly vendored). The rule must
+    # fall back to an empty map — no violations and no crash — rather than
+    # raising FileNotFoundError.
+    original_exists = pathlib.Path.exists
+    monkeypatch.setattr(ML500, "_SPELLING_MAP", None)
+    monkeypatch.setattr(
+        pathlib.Path,
+        "exists",
+        lambda self: False if self.name == "spelling_map.json" else original_exists(self),
+    )
+
+    violations = check("my_color = 'red'\n", tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert ml500_violations == []
 
 
 def test_ml500_imported_alias_also_exempt(tmp_path: Path) -> None:
