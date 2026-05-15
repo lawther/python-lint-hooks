@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.7](https://github.com/lawther/python-lint-hooks/compare/v0.7.6...v0.7.7) (2026-05-15)
+
+
+### Bug Fixes
+
+* **rules:** exempt to_dict and as_dict from ML102 ([5eb8939](https://github.com/lawther/python-lint-hooks/commit/5eb8939543f41078c5c9d56e1c731a5174776605))
+* **rules:** exempt URLs and dotted names from ML500 spelling checks ([d12f659](https://github.com/lawther/python-lint-hooks/commit/d12f659f68698ce1f27f9f07cc737d5b88051e87))
+
 ## [0.7.6](https://github.com/lawther/python-lint-hooks/compare/v0.7.5...v0.7.6) (2026-05-15)
 
 
