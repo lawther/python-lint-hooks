@@ -28,6 +28,13 @@ Custom Python linting rules, distributed as a pip-installable CLI tool.
 
 Functions defined inside other functions are exempt from ML100-ML107 — inner definitions are implementation details and are not part of a public interface.
 
+**ML500** checks identifiers, function and class names, argument names, comments, and docstrings for American English spelling. Several categories are automatically exempt to avoid false positives with external APIs and third-party libraries:
+
+- **Imported names** — names brought in via `import` or `from … import` are never flagged at the usage site. The correct place to flag a misspelling is the definition; fixing it there cascades to all usages via normal refactoring. This means using a third-party class like `HTTPAuthorizationCredentials` in a type annotation will not trigger ML500.
+- **Attribute access** — `obj.color` is ignored; you do not control the attribute name.
+- **Keyword arguments** — `func(color="red")` is ignored; you do not control the parameter name.
+- **Non-docstring string literals** — `"color"` is ignored to avoid false positives with JSON keys, API payloads, and similar.
+
 
 ## Installation
 
