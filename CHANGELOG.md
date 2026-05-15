@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0](https://github.com/lawther/python-lint-hooks/compare/v0.7.7...v0.8.0) (2026-05-15)
+
+
+### Features
+
+* **rules:** add ML108 and ML109 for redundant NewType casts ([ecfffd9](https://github.com/lawther/python-lint-hooks/commit/ecfffd9bd59091367d80113fc30564b454c74b01))
+* **rules:** catch redundant NewType casts on for-loop and comprehension targets ([6ac09b6](https://github.com/lawther/python-lint-hooks/commit/6ac09b69229f3431df207df17692c8f247333555))
+
+
+### Bug Fixes
+
+* **rules:** make ML108 and ML109 messages name a concrete fix ([6ab3aee](https://github.com/lawther/python-lint-hooks/commit/6ab3aee797a6d1465cc924017bcf69b4798e461b))
+
 ## [0.7.7](https://github.com/lawther/python-lint-hooks/compare/v0.7.6...v0.7.7) (2026-05-15)
 
 
