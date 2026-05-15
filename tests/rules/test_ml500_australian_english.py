@@ -147,3 +147,34 @@ def test_ml500_kebab_case_in_comment(tmp_path: Path) -> None:
     code = "# my-color-is-red\n"
     violations = check(code, tmp_path)
     assert "Use Australian English: 'colour' instead of 'color'" in violations[0].message
+
+
+def test_ml500_ignored_imported_name_in_annotation(tmp_path: Path) -> None:
+    # Imported names used in annotations must not be flagged — the developer has no control
+    # over the spelling of a third-party class name. The correct flag site is the definition;
+    # fixing it there cascades to all usages via normal refactoring.
+    code = textwrap.dedent("""\
+        from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+        from typing import Annotated
+
+        _bearer = HTTPBearer()
+
+        def authenticated_uid(
+            credentials: Annotated[HTTPAuthorizationCredentials, ...],
+        ) -> str:
+            return credentials.credentials
+    """)
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert ml500_violations == []
+
+
+def test_ml500_imported_alias_also_exempt(tmp_path: Path) -> None:
+    # An aliased import is tracked under its local alias, so usage of the alias is exempt.
+    code = textwrap.dedent("""\
+        from some_lib import ColorManager as CM
+        x = CM()
+    """)
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert ml500_violations == []

@@ -48,6 +48,7 @@ class ML500(Rule):
                     ML500._SPELLING_MAP = json.load(f)
             else:
                 ML500._SPELLING_MAP = {}
+        self._imported_names: set[str] = set()
 
     @property
     def spelling_map(self) -> dict[str, str]:
@@ -141,9 +142,22 @@ class ML500(Rule):
                 comment_col = line_text.find("#") + 1
                 self._check_text(comment_part, i, comment_col)
 
+    def enter_Import(self, node: ast.Import) -> None:
+        """Track imported names so they are exempt from spelling checks."""
+        for alias in node.names:
+            local_name = alias.asname if alias.asname is not None else alias.name.split(".")[0]
+            self._imported_names.add(local_name)
+
+    def enter_ImportFrom(self, node: ast.ImportFrom) -> None:
+        """Track imported names so they are exempt from spelling checks."""
+        for alias in node.names:
+            local_name = alias.asname if alias.asname is not None else alias.name
+            self._imported_names.add(local_name)
+
     def enter_Name(self, node: ast.Name) -> None:
-        """Check variable names."""
-        self._check_name(node.id, node.lineno, node.col_offset)
+        """Check variable names, skipping imported names."""
+        if node.id not in self._imported_names:
+            self._check_name(node.id, node.lineno, node.col_offset)
 
     def enter_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         """Check function names and docstrings."""
