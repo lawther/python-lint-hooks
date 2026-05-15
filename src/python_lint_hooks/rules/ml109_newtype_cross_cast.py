@@ -43,7 +43,8 @@ class ML109(NewTypeCastRuleBase):
             finding.col,
             (
                 f"Cast between NewTypes '{finding.arg_newtype.name}' and "
-                f"'{finding.constructor.name}' sharing the same base; unify them"
+                f"'{finding.constructor.name}' over the same base; consider unifying them "
+                f"into a single NewType"
             ),
         )
 

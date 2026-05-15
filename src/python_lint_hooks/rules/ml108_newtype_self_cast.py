@@ -42,7 +42,10 @@ class ML108(NewTypeCastRuleBase):
         self.report(
             finding.line,
             finding.col,
-            f"No-op NewType cast: '{finding.constructor.name}' wraps a value already of that type",
+            (
+                f"No-op NewType cast: '{finding.constructor.name}' wraps a value already of "
+                f"that type; drop the wrapping call"
+            ),
         )
 
     bad_example: ClassVar[str] = """
