@@ -10,10 +10,19 @@ from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, 
 class ML300(Rule):
     """Class defined inside a function.
 
-    Classes defined at function scope are implementation details that cannot be
-    reused or tested independently. They also make the containing function harder
-    to read and reason about. Move the class to the module level or a separate
-    submodule.
+    A common motivation is to signal that the class is a private implementation
+    detail of the enclosing function — "it will never escape here". However,
+    Python does not enforce this: the function can return the class directly,
+    and any caller holding an instance can recover the class via ``type()``.
+    The inner placement is a social contract, not a visibility guarantee.
+
+    The ``_`` prefix convention already provides the same signal at module
+    level with no ambiguity, and without the cost of nesting a class definition
+    inside a function body (which interrupts the reader's flow through the
+    function's logic).
+
+    Move the class to module level and prefix it with ``_`` if it is not part
+    of the public API.
     """
 
     code: ClassVar[RuleCode] = RuleCode.ML300
@@ -47,18 +56,26 @@ class ML300(Rule):
     # -------------------------------------------------------------------------
 
     bad_example: ClassVar[str] = """
-def process_data():
-    class LocalHelper:
-        ...
+# Placing the class inside the function looks like it limits visibility,
+# but Python does not enforce this — the class can still escape via a
+# return value, or be recovered from any instance via type().
+# Use the _ prefix at module level instead.
+def parse_config(raw: str) -> None:
+    class _RawConfig:
+        host: str = ""
+        port: int = 0
     ...
 """
 
     good_examples: ClassVar[list[str]] = [
         """
-class GlobalHelper:
-    ...
+# _ signals that this is a private implementation detail,
+# with no readability cost inside parse_config.
+class _RawConfig:
+    host: str = ""
+    port: int = 0
 
-def process_data():
+def parse_config(raw: str) -> None:
     ...
 """
     ]
