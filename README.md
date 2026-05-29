@@ -207,12 +207,3 @@ If you use ruff with the `RUF100` rule (unused noqa directives), tell ruff that 
 [tool.ruff.lint]
 external = ["ML"]
 ```
-lint]
-external = ["ML"]
-```
-, tell ruff that `ML` codes belong to an external tool so it does not flag your suppression comments:
-
-```toml
-[tool.ruff.lint]
-external = ["ML"]
-```
