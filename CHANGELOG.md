@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.0](https://github.com/lawther/python-lint-hooks/compare/v0.8.0...v0.9.0) (2026-05-29)
+
+
+### Features
+
+* **rules:** add ML501 to detect hacky pluralisation in strings ([ace61d7](https://github.com/lawther/python-lint-hooks/commit/ace61d756c79274e6661d3b618ce9b2b07a97c48))
+
+
+### Documentation
+
+* **rules:** improve ML300 rationale to explain Python's scoping illusion ([4d85cea](https://github.com/lawther/python-lint-hooks/commit/4d85ceac35717a88f6ea43e7e3e7dfb364ebed45))
+
 ## [0.8.0](https://github.com/lawther/python-lint-hooks/compare/v0.7.7...v0.8.0) (2026-05-15)
 
 
