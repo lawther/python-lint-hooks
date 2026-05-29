@@ -22,6 +22,7 @@ Custom Python linting rules, distributed as a pip-installable CLI tool.
 | [`ML300`](docs/rules/ML300.md) | Class defined inside a function | Move it to module level |
 | [`ML400`](docs/rules/ML400.md) | Unvalidated external data used without Pydantic validation | Validate with a Pydantic model before use |
 | [`ML500`](docs/rules/ML500.md) | American English spelling detected | Use Australian English spelling instead |
+| [`ML501`](docs/rules/ML501.md) | Hacky pluralisation in string literal | Avoid hacky parenthetical or bracketed plurals like '(s)'. Use proper pluralisation or rephrase the sentence. Remember to also check and update verb agreements (e.g. 'is/are', 'need/needs', 'has/have') in surrounding text. |
 <!-- rules-table-end -->
 
 **ML100 - ML107** catch violations related to return types. Unlike standard linting, these rules are **recursive** and will catch bare or primitive dicts/tuples even when nested inside other types like `list[...]` or `Optional[...]`.
