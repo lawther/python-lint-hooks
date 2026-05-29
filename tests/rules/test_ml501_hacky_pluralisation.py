@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import ast
 import textwrap
 from pathlib import Path
 
+from python_lint_hooks.rules import CheckContext
+from python_lint_hooks.rules.ml501_hacky_pluralisation import ML501
 from tests.conftest import check, codes
 
 # ---------------------------------------------------------------------------
@@ -67,6 +70,19 @@ def test_ml501_multiline_string_offsets(tmp_path: Path) -> None:
     assert ml501_violations[0].line == 3
 
 
+def test_ml501_source_lines_index_error() -> None:
+    """Ensure that we handle IndexError if the node's lineno is out of range for source_lines."""
+    context = CheckContext(Path("sample.py"), source_lines=("a", "b"))
+    rule = ML501(context)
+    node = ast.Constant(value="version(s)")
+    node.lineno = 10
+    node.col_offset = 0
+    rule.enter_Constant(node)
+    assert len(rule.violations) == 1
+    assert rule.violations[0].line == 10
+    assert rule.violations[0].col == 1
+
+
 # ---------------------------------------------------------------------------
 # Negative tests — the rule MUST NOT fire
 # ---------------------------------------------------------------------------
@@ -104,6 +120,19 @@ def test_ml501_no_false_positives_lookahead(tmp_path: Path) -> None:
     violations = check("x = 'version(s)omething'\n", tmp_path)
     ml501_violations = [v for v in violations if v.code == "ML501"]
     assert ml501_violations == []
+
+
+def test_ml501_no_lineno_or_col_offset() -> None:
+    """Ensure that we safely return if lineno or col_offset is missing on a string constant."""
+    context = CheckContext(Path("sample.py"), source_lines=())
+    rule = ML501(context)
+    node = ast.Constant(value="version(s)")
+    if hasattr(node, "lineno"):
+        del node.lineno
+    if hasattr(node, "col_offset"):
+        del node.col_offset
+    rule.enter_Constant(node)
+    assert not rule.violations
 
 
 # ---------------------------------------------------------------------------
