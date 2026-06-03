@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.1](https://github.com/lawther/python-lint-hooks/compare/v0.10.0...v0.10.1) (2026-06-03)
+
+
+### Bug Fixes
+
+* remove American-to-British spelling mappings for practice variants ([804caf1](https://github.com/lawther/python-lint-hooks/commit/804caf10aa6b772ed3c87f6aa542c40563e28448))
+* remove incorrect spelling mapping for ankle ([483a58b](https://github.com/lawther/python-lint-hooks/commit/483a58b3bac71b9f862e25669a203311553ff648))
+
 ## [0.10.0](https://github.com/lawther/python-lint-hooks/compare/v0.9.0...v0.10.0) (2026-06-03)
 
 
