@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.10.0](https://github.com/lawther/python-lint-hooks/compare/v0.9.0...v0.10.0) (2026-06-03)
+
+
+### Features
+
+* **ml500:** exempt override methods from Australian English check ([eb4a7b3](https://github.com/lawther/python-lint-hooks/commit/eb4a7b39f69bad45f248bd70cedc96abb594dfa7))
+
+
+### Bug Fixes
+
+* **ml500:** resolve base-class chains longer than two levels ([5a67b40](https://github.com/lawther/python-lint-hooks/commit/5a67b40eac20115fc741df445829336e3ff42634))
+
+
+### Documentation
+
+* remove bad merge from README ([b8f1cb1](https://github.com/lawther/python-lint-hooks/commit/b8f1cb18b1857908a71e6a7d00ce0ebd5b7ef92d))
+* update ML500 rule documentation and test examples to exclude overridden methods ([57ed9e0](https://github.com/lawther/python-lint-hooks/commit/57ed9e026aa9ca28a332f4f9b344208a27af9a39))
+
 ## [0.9.0](https://github.com/lawther/python-lint-hooks/compare/v0.8.0...v0.9.0) (2026-05-29)
 
 
