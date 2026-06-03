@@ -276,7 +276,9 @@ def test_ml500_imported_alias_also_exempt(tmp_path: Path) -> None:
 
 def test_ml500_override_via_dotted_base_not_flagged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # 'initialize' is a real method on the base class — it cannot be renamed.
-    monkeypatch.setattr(ML500, "_BASE_METHODS_CACHE", {("some_framework.core", "Base"): frozenset(["initialize"])})
+    monkeypatch.setattr(
+        ML500, "_BASE_METHODS_CACHE", {("some_framework.core", None, ("Base",)): frozenset(["initialize"])}
+    )
     code = textwrap.dedent("""\
         import some_framework.core as fw
 
@@ -290,7 +292,9 @@ def test_ml500_override_via_dotted_base_not_flagged(tmp_path: Path, monkeypatch:
 
 def test_ml500_new_method_in_subclass_still_flagged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # 'save_color' is NOT on the base class, so the developer named it and must fix it.
-    monkeypatch.setattr(ML500, "_BASE_METHODS_CACHE", {("some_framework.core", "Base"): frozenset(["initialize"])})
+    monkeypatch.setattr(
+        ML500, "_BASE_METHODS_CACHE", {("some_framework.core", None, ("Base",)): frozenset(["initialize"])}
+    )
     code = textwrap.dedent("""\
         import some_framework.core as fw
 
@@ -325,11 +329,8 @@ def test_ml500_free_function_still_checked(tmp_path: Path) -> None:
 def test_ml500_importable_base_only_skips_real_overrides(tmp_path: Path) -> None:
     # When the base module CAN be imported, precision matters: only methods that genuinely
     # exist on the base class are exempt. A new method with American spelling must still
-    # be caught. This exercises the importlib + dir() happy path (lines 186-187).
+    # be caught. This exercises the importlib + dir() happy path.
     # 'initialize' is not a method of collections.abc.Mapping, so it must be flagged.
-    # Note: 'import collections.abc as abc_mod' is required — bare 'import collections.abc'
-    # produces a doubly-nested Attribute AST node (collections.abc.Mapping = a.b.C) that
-    # the resolver cannot yet handle, so it conservatively treats the base as local.
     code = textwrap.dedent("""\
         import collections.abc as abc_mod
 
@@ -341,9 +342,45 @@ def test_ml500_importable_base_only_skips_real_overrides(tmp_path: Path) -> None
     assert any("initialize" in v.message for v in ml500_violations)
 
 
+def test_ml500_3_level_chain_resolved(tmp_path: Path) -> None:
+    # bare 'import a.b' produces a 3-part chain (a.b.C = Attribute(Attribute(Name), attr))
+    # that was previously not handled and conservatively treated as local.  The resolver
+    # now walks the full chain and correctly resolves the class.
+    # 'initialize' is not a method of collections.abc.Mapping, so it must be flagged.
+    code = textwrap.dedent("""\
+        import collections.abc
+
+        class MyMapping(collections.abc.Mapping):
+            def initialize(self) -> None: ...
+    """)
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert any("initialize" in v.message for v in ml500_violations)
+
+
+def test_ml500_3_level_chain_exempts_overrides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # When a 3-level base (a.b.C) is resolved, methods inherited from that class are exempt.
+    # `import some_framework.core` -> local root "some_framework" maps to module "some_framework.core";
+    # "core" is baked into the module path so the cache key resolves to ("some_framework.core", None, ("Base",)).
+    monkeypatch.setattr(
+        ML500, "_BASE_METHODS_CACHE", {("some_framework.core", None, ("Base",)): frozenset(["initialize"])}
+    )
+    code = textwrap.dedent("""\
+        import some_framework.core
+
+        class MyComponent(some_framework.core.Base):
+            def initialize(self) -> None: ...
+    """)
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert ml500_violations == []
+
+
 def test_ml500_override_from_importfrom(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Same resolution works when the base class comes from a 'from X import Y' statement.
-    monkeypatch.setattr(ML500, "_BASE_METHODS_CACHE", {("some_framework.core", "Base"): frozenset(["initialize"])})
+    monkeypatch.setattr(
+        ML500, "_BASE_METHODS_CACHE", {("some_framework.core", "Base", ("Base",)): frozenset(["initialize"])}
+    )
     code = textwrap.dedent("""\
         from some_framework.core import Base
 
@@ -353,3 +390,35 @@ def test_ml500_override_from_importfrom(tmp_path: Path, monkeypatch: pytest.Monk
     violations = check(code, tmp_path)
     ml500_violations = [v for v in violations if v.code == "ML500"]
     assert ml500_violations == []
+
+
+def test_ml500_relative_import_base_methods_are_checked(tmp_path: Path) -> None:
+    # Relative imports cannot be resolved to an absolute module path, so the name is
+    # added to _imported_names (suppressing the variable-name check) but NOT to
+    # _import_map.  Consequently, methods in subclasses of relatively-imported bases
+    # are checked normally rather than conservatively exempted.
+    code = textwrap.dedent("""\
+        from . import Base
+
+        class Child(Base):
+            def initialize(self) -> None: ...
+    """)
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert any("initialize" in v.message for v in ml500_violations)
+
+
+def test_ml500_complex_base_expression_methods_are_checked(tmp_path: Path) -> None:
+    # A base class expression that is not a simple dotted name (here: a function call)
+    # cannot be statically resolved — _extract_attr_chain returns [].  The rule conservatively
+    # treats all method names in the subclass as developer-controlled and checks them, because
+    # it cannot know what the base class exposes.
+    code = textwrap.dedent("""\
+        import some_lib
+
+        class Foo(some_lib.get_base()):
+            def initialize(self) -> None: ...
+    """)
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert any("initialize" in v.message for v in ml500_violations)

@@ -36,10 +36,10 @@ class ML500(Rule):
     # Lazy-loaded spelling map from JSON
     _SPELLING_MAP: ClassVar[dict[str, str] | None] = None
 
-    # Cross-file cache: (module_path, attr_name) -> frozenset of method names, or None if
-    # the module could not be imported. Shared across instances to avoid re-importing the
-    # same library for every file in a multi-file run.
-    _BASE_METHODS_CACHE: ClassVar[dict[tuple[str, str | None], frozenset[str] | None]] = {}
+    # Cross-file cache: (module_path, import_attr, getattr_chain) -> frozenset of method
+    # names, or None if the module could not be imported.  Shared across instances to avoid
+    # re-importing the same library for every file in a multi-file run.
+    _BASE_METHODS_CACHE: ClassVar[dict[tuple[str, str | None, tuple[str, ...]], frozenset[str] | None]] = {}
 
     # Regex to split identifiers into words (handles camelCase, snake_case, and kebab-case)
     # This splits on transitions from lower to upper, or digits/underscores/hyphens.
@@ -155,6 +155,25 @@ class ML500(Rule):
             closing_line = [doc_node.end_lineno] if doc_node.end_lineno is not None else None
             self._check_text(value, doc_node.lineno, doc_node.col_offset + offset, extra_noqa_lines=closing_line)
 
+    @staticmethod
+    def _extract_attr_chain(node: ast.expr) -> list[str]:
+        """Walk an AST attribute/name chain and return the dotted parts, root first.
+
+        Returns [] for nodes that are not a simple chain of Name and Attribute nodes
+        (e.g. subscripts or calls), signalling that the base cannot be statically resolved.
+        """
+        parts: list[str] = []
+        current: ast.expr = node
+        while isinstance(current, ast.Attribute):
+            parts.append(current.attr)
+            current = current.value
+        if isinstance(current, ast.Name):
+            parts.append(current.id)
+        else:
+            return []
+        parts.reverse()
+        return parts
+
     def _resolve_base_methods(self, base: ast.expr) -> frozenset[str] | None:
         """Return the method set of a base class expression, or None if unresolvable.
 
@@ -163,28 +182,39 @@ class ML500(Rule):
                callers should conservatively skip all method-name checks.
         Empty frozenset — the base is local (not from an import); proceed normally.
         """
-        if isinstance(base, ast.Attribute) and isinstance(base.value, ast.Name):
-            local_name = base.value.id
-            attr_name: str | None = base.attr
-            if local_name not in self._import_map:
-                return frozenset()
-            module_path, _ = self._import_map[local_name]
-        elif isinstance(base, ast.Name):
-            local_name = base.id
-            if local_name not in self._import_map:
-                return frozenset()
-            module_path, attr_name = self._import_map[local_name]
-        else:
+        parts = self._extract_attr_chain(base)
+        if not parts:
             return frozenset()
 
-        cache_key = (module_path, attr_name)
+        root = parts[0]
+        if root not in self._import_map:
+            return frozenset()
+
+        module_path, import_attr = self._import_map[root]
+        chain_after_root = parts[1:]
+
+        # For non-aliased imports like `import a.b.c`, the local root name "a" is the
+        # first component of module_path.  The remaining module-path components ["b", "c"]
+        # are implicit in the imported module object and must NOT be traversed again via
+        # getattr — they are already "baked in".
+        module_components = module_path.split(".")
+        baked_count = len(module_components) - 1 if module_components[0] == root else 0
+
+        # Build the getattr chain from the non-baked tail, prepending any attr from the
+        # import map (e.g. `from a import B` -> import_attr="B" must be getattr'd first).
+        getattr_chain = list(chain_after_root[baked_count:])
+        if import_attr is not None:
+            getattr_chain = [import_attr, *getattr_chain]
+
+        cache_key = (module_path, import_attr, tuple(getattr_chain))
         if cache_key in self._BASE_METHODS_CACHE:
             return self._BASE_METHODS_CACHE[cache_key]
 
         try:
-            module = importlib.import_module(module_path)
-            cls = getattr(module, attr_name) if attr_name is not None else module
-            result: frozenset[str] | None = frozenset(dir(cls))
+            obj: object = importlib.import_module(module_path)
+            for attr in getattr_chain:
+                obj = getattr(obj, attr)
+            result: frozenset[str] | None = frozenset(dir(obj))
         except Exception:
             result = None
 
