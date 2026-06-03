@@ -313,10 +313,10 @@ def initialise_colour():
     ...
 """,
         """
+# Override methods from base classes are exempted
 import appdaemon.plugins.hass.hassapi as hass
 
-
-class ShoeCupboard(hass.Hass):
+class MyAutomation(hass.Hass):
     def initialize(self) -> None: ...
 """,
     ]
