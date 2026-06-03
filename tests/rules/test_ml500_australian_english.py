@@ -267,3 +267,89 @@ def test_ml500_imported_alias_also_exempt(tmp_path: Path) -> None:
     violations = check(code, tmp_path)
     ml500_violations = [v for v in violations if v.code == "ML500"]
     assert ml500_violations == []
+
+
+# ---------------------------------------------------------------------------
+# Override detection
+# ---------------------------------------------------------------------------
+
+
+def test_ml500_override_via_dotted_base_not_flagged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # 'initialize' is a real method on the base class — it cannot be renamed.
+    monkeypatch.setattr(ML500, "_BASE_METHODS_CACHE", {("some_framework.core", "Base"): frozenset(["initialize"])})
+    code = textwrap.dedent("""\
+        import some_framework.core as fw
+
+        class MyComponent(fw.Base):
+            def initialize(self) -> None: ...
+    """)
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert ml500_violations == []
+
+
+def test_ml500_new_method_in_subclass_still_flagged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # 'save_color' is NOT on the base class, so the developer named it and must fix it.
+    monkeypatch.setattr(ML500, "_BASE_METHODS_CACHE", {("some_framework.core", "Base"): frozenset(["initialize"])})
+    code = textwrap.dedent("""\
+        import some_framework.core as fw
+
+        class MyComponent(fw.Base):
+            def save_color(self) -> None: ...
+    """)
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert any("save_color" in v.message for v in ml500_violations)
+
+
+def test_ml500_unresolvable_base_skips_all_method_names(tmp_path: Path) -> None:
+    # When the base module is not installed, all method names are conservatively exempt.
+    # (module 'appdaemon.plugins.hass.hassapi' is not in the test environment)
+    code = textwrap.dedent("""\
+        import appdaemon.plugins.hass.hassapi as hass
+
+        class ShoeCupboard(hass.Hass):
+            def initialize(self) -> None: ...
+    """)
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert ml500_violations == []
+
+
+def test_ml500_free_function_still_checked(tmp_path: Path) -> None:
+    # A top-level function is never an override — it must always be checked.
+    violations = check("def initialize() -> None: ...\n", tmp_path)
+    assert "ML500" in [v.code for v in violations]
+
+
+def test_ml500_importable_base_only_skips_real_overrides(tmp_path: Path) -> None:
+    # When the base module CAN be imported, precision matters: only methods that genuinely
+    # exist on the base class are exempt. A new method with American spelling must still
+    # be caught. This exercises the importlib + dir() happy path (lines 186-187).
+    # 'initialize' is not a method of collections.abc.Mapping, so it must be flagged.
+    # Note: 'import collections.abc as abc_mod' is required — bare 'import collections.abc'
+    # produces a doubly-nested Attribute AST node (collections.abc.Mapping = a.b.C) that
+    # the resolver cannot yet handle, so it conservatively treats the base as local.
+    code = textwrap.dedent("""\
+        import collections.abc as abc_mod
+
+        class MyMapping(abc_mod.Mapping):
+            def initialize(self) -> None: ...
+    """)
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert any("initialize" in v.message for v in ml500_violations)
+
+
+def test_ml500_override_from_importfrom(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Same resolution works when the base class comes from a 'from X import Y' statement.
+    monkeypatch.setattr(ML500, "_BASE_METHODS_CACHE", {("some_framework.core", "Base"): frozenset(["initialize"])})
+    code = textwrap.dedent("""\
+        from some_framework.core import Base
+
+        class MyComponent(Base):
+            def initialize(self) -> None: ...
+    """)
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert ml500_violations == []
