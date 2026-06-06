@@ -24,7 +24,7 @@ dev = [
     "pytest-cov>=7.1.0",
     "pytest-randomly>=4.1.0",
     "ruff>=0.11",
-    "ty>=0.0.1a14",
+    "ty>=0.0.44",
 ]
 
 [tool.ruff]

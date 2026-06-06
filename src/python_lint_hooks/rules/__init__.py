@@ -11,7 +11,7 @@ import ast
 import importlib
 import pkgutil
 from enum import Enum
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, TypeVar
 
 from python_lint_hooks.noqa import has_noqa
 from python_lint_hooks.violation import RuleCode, Violation
@@ -110,8 +110,10 @@ def annotation_noqa_lines(returns: ast.expr) -> list[int]:
 
 _REGISTRY: list[type[Rule]] = []
 
+_RuleT = TypeVar("_RuleT", bound=Rule)
 
-def register(cls: type[Rule]) -> type[Rule]:
+
+def register(cls: type[_RuleT]) -> type[_RuleT]:
     """Register a Rule subclass so the runner can discover it."""
     _REGISTRY.append(cls)
     return cls
