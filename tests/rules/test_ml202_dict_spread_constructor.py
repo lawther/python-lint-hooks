@@ -80,6 +80,27 @@ def test_dict_literal_with_vars_spread_flagged(tmp_path: Path) -> None:
     assert codes(violations) == ["ML202"]
 
 
+def test_instance_spread_after_plain_variable_spread_flagged(tmp_path: Path) -> None:
+    # Cls(**d, **obj.__dict__) — a plain dict variable spread precedes the instance spread.
+    # The outer keyword loop hits a value that is neither an instance spread nor a dict
+    # literal (the elif on line 65 is False), then must continue to the next keyword.
+    # A premature break or return after the elif would silently miss this violation.
+    violations = check(
+        textwrap.dedent("""\
+            import dataclasses
+            @dataclasses.dataclass(frozen=True)
+            class Point:
+                x: int
+                y: int
+            p = Point(1, 2)
+            d = {"z": 3}
+            q = Point(**d, **p.__dict__)
+        """),
+        tmp_path,
+    )
+    assert codes(violations) == ["ML202"]
+
+
 # ---------------------------------------------------------------------------
 # Negative tests — the rule MUST NOT fire
 # ---------------------------------------------------------------------------
