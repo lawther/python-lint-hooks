@@ -72,3 +72,8 @@ convention = "google"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ty.rules]
+possibly-missing-submodule = "error"
+unused-type-ignore-comment = "error"
+
