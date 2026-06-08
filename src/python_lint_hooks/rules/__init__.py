@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 class RuleCategory(Enum):
     RETURN_TYPES = "return-types"
+    PARAMETER_TYPES = "parameter-types"
     CLASS_SHAPE = "class-shape"
     SCOPE = "scope"
     DATA_TRUST = "data-trust"

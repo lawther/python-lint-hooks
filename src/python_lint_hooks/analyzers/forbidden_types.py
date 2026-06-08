@@ -3,6 +3,7 @@
 Consumers use findings differently:
 - ML100-104: each rule reports findings matching its own code.
 - ML105, ML201: use `bool(findings)` as a yes/no signal that an annotation is forbidden.
+- ML110: filters for ML104 findings in parameter annotations.
 """
 
 from __future__ import annotations

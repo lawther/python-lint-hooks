@@ -17,6 +17,7 @@ Custom Python linting rules, distributed as a pip-installable CLI tool.
 | [`ML107`](docs/rules/ML107.md) | Function returns a `Mapping` of primitives | Use a dataclass or `NewType` for keys/values |
 | [`ML108`](docs/rules/ML108.md) | No-op `NewType` cast (value already of that type) | Drop the redundant cast |
 | [`ML109`](docs/rules/ML109.md) | Cast between two `NewType`s of the same base | Unify the two NewTypes — they model the same concept |
+| [`ML110`](docs/rules/ML110.md) | Function parameter has variable-length `tuple` annotation | Use `list[T]`, `Sequence[T]`, or a NamedTuple instead |
 | [`ML200`](docs/rules/ML200.md) | Dataclass is not frozen | Use `@dataclass(frozen=True)` |
 | [`ML201`](docs/rules/ML201.md) | Class contains only forbidden types | Use a proper abstraction with well-typed fields |
 | [`ML202`](docs/rules/ML202.md) | Constructor called by spreading `.__dict__` or `vars()` | Use `dataclasses.replace(obj, field=value)` instead |
