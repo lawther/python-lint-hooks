@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.11.0](https://github.com/lawther/python-lint-hooks/compare/v0.10.1...v0.11.0) (2026-06-08)
+
+
+### Features
+
+* **rules:** add ML110 to detect variable-length tuple parameter annotations ([863896f](https://github.com/lawther/python-lint-hooks/commit/863896fd8a87a45033856412c96ce81cdcd16425))
+* **rules:** add ML202 to detect __dict__/vars() spread into constructors ([348ef41](https://github.com/lawther/python-lint-hooks/commit/348ef418039a73da70c28bc1e326de7eedf03a61))
+
+
+### Bug Fixes
+
+* make register decorator generic to preserve subclass types ([3032f66](https://github.com/lawther/python-lint-hooks/commit/3032f661524db2a08622b64d7968ea4c14c399cb))
+
 ## [0.10.1](https://github.com/lawther/python-lint-hooks/compare/v0.10.0...v0.10.1) (2026-06-03)
 
 
