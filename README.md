@@ -19,6 +19,7 @@ Custom Python linting rules, distributed as a pip-installable CLI tool.
 | [`ML109`](docs/rules/ML109.md) | Cast between two `NewType`s of the same base | Unify the two NewTypes — they model the same concept |
 | [`ML200`](docs/rules/ML200.md) | Dataclass is not frozen | Use `@dataclass(frozen=True)` |
 | [`ML201`](docs/rules/ML201.md) | Class contains only forbidden types | Use a proper abstraction with well-typed fields |
+| [`ML202`](docs/rules/ML202.md) | Constructor called by spreading `.__dict__` or `vars()` | Use `dataclasses.replace(obj, field=value)` instead |
 | [`ML300`](docs/rules/ML300.md) | Class defined inside a function | Move it to module level |
 | [`ML400`](docs/rules/ML400.md) | Unvalidated external data used without Pydantic validation | Validate with a Pydantic model before use |
 | [`ML500`](docs/rules/ML500.md) | American English spelling detected | Use Australian English spelling instead |

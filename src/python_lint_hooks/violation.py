@@ -21,6 +21,7 @@ class RuleCode(StrEnum):
     ML109 = "ML109"
     ML200 = "ML200"
     ML201 = "ML201"
+    ML202 = "ML202"
     ML300 = "ML300"
     ML400 = "ML400"
     ML500 = "ML500"
