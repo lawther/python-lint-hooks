@@ -210,9 +210,9 @@ class _EffectiveSpecs(NamedTuple):
 
 def _collect_out_of_root_files(path: Path) -> list[Path]:
     if path.is_file() and path.suffix == ".py":
-        return [path]
+        return [path.resolve()]
     if path.is_dir():
-        return sorted(path.rglob("*.py"))
+        return [p.resolve() for p in sorted(path.rglob("*.py"))]
     return []
 
 
