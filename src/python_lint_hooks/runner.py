@@ -39,7 +39,10 @@ def check_file(
     return [v for rule in rules for v in rule.violations]
 
 
-def check_paths(paths: list[Path], enabled_codes: frozenset[RuleCode] | None = None) -> list[Violation]:
+def check_paths(
+    paths: list[Path],
+    enabled_codes: frozenset[RuleCode] | dict[Path, frozenset[RuleCode]] | None = None,
+) -> list[Violation]:
     """Check multiple files with a shared project-wide NewType index.
 
     Performs a pre-pass to build a cross-file index of NewType definitions, class
@@ -62,7 +65,13 @@ def check_paths(paths: list[Path], enabled_codes: frozenset[RuleCode] | None = N
 
     violations: list[Violation] = []
     for path in paths:
-        violations.extend(check_file(path, enabled_codes, project_index=index))
+        if isinstance(enabled_codes, dict):
+            codes = enabled_codes.get(path)
+        elif isinstance(enabled_codes, frozenset):
+            codes = enabled_codes
+        else:
+            codes = None
+        violations.extend(check_file(path, codes, project_index=index))
     return violations
 
 

@@ -139,3 +139,41 @@ def test_config_extend_select(temp_project: Path) -> None:
     result_cli = run_lint(temp_project, ".", "--select", "NONE")
     assert "ML102" not in result_cli.stdout
     assert "ML200" in result_cli.stdout
+
+
+def test_lint_outside_cwd_uses_target_repo_pyproject_config(tmp_path: Path) -> None:
+    # Issue #32 regression test:
+    # When ml-lint is run against a path outside CWD (e.g. ../sibling_repo),
+    # configuration in pyproject.toml should be loaded from the target repository's pyproject.toml
+    # unless --config is explicitly overridden on CLI.
+    invoking_dir = tmp_path / "invoking_repo"
+    invoking_dir.mkdir()
+    (invoking_dir / "pyproject.toml").write_text(
+        textwrap.dedent("""\
+        [tool.python-lint-hooks]
+        select = ["ML100"]
+    """)
+    )
+
+    sibling_dir = tmp_path / "sibling_repo"
+    sibling_dir.mkdir()
+    (sibling_dir / "pyproject.toml").write_text(
+        textwrap.dedent("""\
+        [tool.python-lint-hooks]
+        select = ["ML300"]
+    """)
+    )
+    (sibling_dir / "main.py").write_text("def f():\n    class TargetViolation: pass\n")
+
+    # Without explicit --config, target repo's pyproject.toml (selecting ML300) should be loaded
+    result = run_lint(invoking_dir, "../sibling_repo")
+    assert "TargetViolation" in result.stdout
+
+    # With explicit --config pointing to invoking repo's config, invoking repo's config (selecting ML100) is used
+    result_explicit = run_lint(
+        invoking_dir,
+        "--config",
+        str(invoking_dir / "pyproject.toml"),
+        "../sibling_repo",
+    )
+    assert "TargetViolation" not in result_explicit.stdout

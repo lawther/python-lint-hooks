@@ -262,13 +262,51 @@ def _collect_matching_files(
     return []
 
 
+class _ProjectConfig(NamedTuple):
+    run_config: _RunConfig
+    root: Path
+
+
+class _CollectedFiles(NamedTuple):
+    files: list[Path]
+    file_enabled_codes: dict[Path, frozenset[RuleCode]]
+
+
+def _get_project_config(
+    p: Path,
+    args: argparse.Namespace,
+    config_cache: dict[Path, _ProjectConfig],
+) -> _ProjectConfig:
+    path = (Path.cwd() / p).resolve()
+    root = _find_project_root(path)
+
+    config_path = Path(args.config) if args.config is not None else root / "pyproject.toml"
+
+    config_path_abs = config_path.resolve()
+    if config_path_abs not in config_cache:
+        hooks_config = _load_hooks_config(config_path)
+        run_config = _RunConfig.from_args(args, hooks_config)
+        config_cache[config_path_abs] = _ProjectConfig(run_config=run_config, root=root)
+
+    return config_cache[config_path_abs]
+
+
+def _compute_enabled_codes(run_config: _RunConfig) -> frozenset[RuleCode]:
+    return frozenset(
+        cls.code
+        for cls in all_rules()
+        if any(cls.code.startswith(s) for s in run_config.select)
+        and not any(cls.code.startswith(i) for i in run_config.ignore)
+    )
+
+
 def _collect_files_for_path(
     p: Path,
     config: _RunConfig,
+    root: Path,
     full_spec: pathspec.PathSpec,
 ) -> list[Path]:
     path = (Path.cwd() / p).resolve()
-    root = _find_project_root(path)
 
     gitignore_lines = _load_gitignore_lines(root) if config.respect_gitignore else []
     full_gitignore_spec = pathspec.PathSpec.from_lines("gitwildmatch", gitignore_lines)
@@ -294,26 +332,30 @@ def _collect_files_for_path(
     return _collect_matching_files(path, specs, root)
 
 
-def _deduplicate_paths(paths: list[Path]) -> list[Path]:
-    unique_files: list[Path] = []
-    seen: set[str] = set()
-    for f in paths:
-        f_str = str(f)
-        if f_str not in seen:
-            unique_files.append(f)
-            seen.add(f_str)
-    return unique_files
-
-
-def _collect_files(config: _RunConfig) -> list[Path]:
+def _collect_files(args: argparse.Namespace) -> _CollectedFiles:
     files: list[Path] = []
-    all_exclude_patterns = config.exclude + config.extend_exclude
-    full_spec = pathspec.PathSpec.from_lines("gitwildmatch", all_exclude_patterns)
+    file_enabled_codes: dict[Path, frozenset[RuleCode]] = {}
+    seen: set[str] = set()
 
-    for p in config.paths:
-        files.extend(_collect_files_for_path(p, config, full_spec))
+    config_cache: dict[Path, _ProjectConfig] = {}
 
-    return _deduplicate_paths(files)
+    for path_str in args.paths:
+        p = Path(path_str)
+        proj = _get_project_config(p, args, config_cache)
+        all_exclude_patterns = proj.run_config.exclude + proj.run_config.extend_exclude
+        full_spec = pathspec.PathSpec.from_lines("gitwildmatch", all_exclude_patterns)
+
+        path_files = _collect_files_for_path(p, proj.run_config, proj.root, full_spec)
+        enabled_codes = _compute_enabled_codes(proj.run_config)
+
+        for f in path_files:
+            f_str = str(f)
+            if f_str not in seen:
+                seen.add(f_str)
+                files.append(f)
+                file_enabled_codes[f] = enabled_codes
+
+    return _CollectedFiles(files=files, file_enabled_codes=file_enabled_codes)
 
 
 def main() -> None:
@@ -329,8 +371,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--config",
-        default="pyproject.toml",
-        help="Path to config file (default: pyproject.toml)",
+        default=None,
+        help="Path to config file (default: pyproject.toml in target project root)",
     )
     parser.add_argument(
         "--exclude",
@@ -411,19 +453,8 @@ def main() -> None:
         _explain_rule(args.explain)
         return
 
-    hooks_config = _load_hooks_config(Path(args.config))
-    run_config = _RunConfig.from_args(args, hooks_config)
-
-    files = _collect_files(run_config)
-
-    enabled_codes = frozenset(
-        cls.code
-        for cls in all_rules()
-        if any(cls.code.startswith(s) for s in run_config.select)
-        and not any(cls.code.startswith(i) for i in run_config.ignore)
-    )
-
-    all_violations: list[Violation] = check_paths(files, enabled_codes)
+    collected = _collect_files(args)
+    all_violations: list[Violation] = check_paths(collected.files, collected.file_enabled_codes)
 
     for violation in sorted(all_violations, key=lambda v: (str(v.path), v.line, v.col)):
         print(violation.format())
