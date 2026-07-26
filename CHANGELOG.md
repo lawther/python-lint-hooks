@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.2](https://github.com/lawther/python-lint-hooks/compare/v0.12.1...v0.12.2) (2026-07-26)
+
+
+### Bug Fixes
+
+* remove incorrect spelling mappings ([7b70066](https://github.com/lawther/python-lint-hooks/commit/7b70066489ee7faa12b66e2aa795242e243355a7))
+
 ## [0.12.1](https://github.com/lawther/python-lint-hooks/compare/v0.12.0...v0.12.1) (2026-07-26)
 
 
