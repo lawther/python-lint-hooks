@@ -94,6 +94,33 @@ def test_config_override(temp_project: Path) -> None:
     assert "ML102" not in result_cli.stdout
 
 
+def test_select_comma_separated(temp_project: Path) -> None:
+    result = run_lint(temp_project, ".", "--select", "ML200,ML102")
+    assert "ML200" in result.stdout
+    assert "ML102" in result.stdout
+
+
+def test_select_repeated_flag(temp_project: Path) -> None:
+    result = run_lint(temp_project, ".", "--select", "ML200", "--select", "ML102")
+    assert "ML200" in result.stdout
+    assert "ML102" in result.stdout
+
+
+def test_path_after_select_flag_is_not_swallowed(tmp_path: Path) -> None:
+    # Regression test: --select used nargs="+" for its values, which greedily consumed
+    # a following positional path argument, silently falling back to scanning "." (i.e.
+    # every subdirectory) instead of just the one explicitly named. "a" and "b" each
+    # contain a distinct violation; passing only "b" after --select must exclude "a"'s.
+    (tmp_path / "a").mkdir()
+    (tmp_path / "a" / "mod.py").write_text("def f():\n    class FromA: pass\n")
+    (tmp_path / "b").mkdir()
+    (tmp_path / "b" / "mod.py").write_text("def f():\n    class FromB: pass\n")
+
+    result = run_lint(tmp_path, "--select", "ML300", "b")
+    assert "FromB" in result.stdout
+    assert "FromA" not in result.stdout
+
+
 def test_config_extend_select(temp_project: Path) -> None:
     (temp_project / "pyproject.toml").write_text(
         textwrap.dedent("""\

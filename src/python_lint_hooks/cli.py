@@ -18,6 +18,25 @@ from python_lint_hooks.rules import all_rules
 from python_lint_hooks.runner import check_paths
 from python_lint_hooks.violation import RuleCode, Violation
 
+
+def _split_comma_list(value: str) -> list[str]:
+    """Parse one `--flag value` occurrence into a list of trimmed, non-empty items.
+
+    Used as the `type=` for --select/--ignore/--exclude and their extend- variants,
+    each combined with `action="append"`. A single token per occurrence (rather than
+    `nargs="+"`) avoids an argparse ambiguity where a multi-token option greedily
+    swallows a following `nargs="*"` positional (e.g. the `paths` argument) when the
+    flag is given before it on the command line.
+    """
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _flatten_groups(groups: list[list[str]] | None) -> list[str] | None:
+    if groups is None:
+        return None
+    return [item for group in groups for item in group]
+
+
 # Ruff's default exclusion list
 RUFF_DEFAULT_EXCLUDE = [
     ".bzr",
@@ -70,12 +89,12 @@ class _RunConfig:
     @classmethod
     def from_args(cls, args: argparse.Namespace, hooks_config: _HooksConfig) -> _RunConfig:
         # Exclusion logic (matches Ruff's override/additive behavior)
-        exclude = getattr(args, "exclude", None)
+        exclude = _flatten_groups(getattr(args, "exclude", None))
         if exclude is None:
             exclude = hooks_config.exclude
 
         extend_exclude = hooks_config.extend_exclude
-        cli_extend_exclude = getattr(args, "extend_exclude", None)
+        cli_extend_exclude = _flatten_groups(getattr(args, "extend_exclude", None))
         if cli_extend_exclude:
             extend_exclude = extend_exclude + cli_extend_exclude
 
@@ -89,13 +108,13 @@ class _RunConfig:
             force_exclude = hooks_config.force_exclude
 
         # Selection logic: CLI --select overrides Config select.
-        select = getattr(args, "select", None)
+        select = _flatten_groups(getattr(args, "select", None))
         if select is None:
             select = hooks_config.select
 
         # Selection logic: extend-select is additive across CLI and Config.
         extend_select = hooks_config.extend_select
-        cli_extend_select = getattr(args, "extend_select", None)
+        cli_extend_select = _flatten_groups(getattr(args, "extend_select", None))
         if cli_extend_select:
             extend_select = extend_select + cli_extend_select
 
@@ -105,13 +124,13 @@ class _RunConfig:
             final_select = ["ML"]
 
         # Ignore logic: CLI --ignore overrides Config ignore.
-        ignore = getattr(args, "ignore", None)
+        ignore = _flatten_groups(getattr(args, "ignore", None))
         if ignore is None:
             ignore = hooks_config.ignore
 
         # Ignore logic: extend-ignore is additive across CLI and Config.
         extend_ignore = hooks_config.extend_ignore
-        cli_extend_ignore = getattr(args, "extend_ignore", None)
+        cli_extend_ignore = _flatten_groups(getattr(args, "extend_ignore", None))
         if cli_extend_ignore:
             extend_ignore = extend_ignore + cli_extend_ignore
 
@@ -255,16 +274,20 @@ def main() -> None:
     )
     parser.add_argument(
         "--exclude",
-        nargs="+",
+        type=_split_comma_list,
+        action="append",
+        metavar="PATH[,PATH...]",
         help=(
-            "List of paths to omit from analysis. "
+            "Comma-separated list of paths to omit from analysis (repeatable). "
             "WARNING: This completely overrides default exclusions (like .venv, .git, etc.). "
             "Use --extend-exclude to preserve defaults and add new ones."
         ),
     )
     parser.add_argument(
         "--extend-exclude",
-        nargs="+",
+        type=_split_comma_list,
+        action="append",
+        metavar="PATH[,PATH...]",
         dest="extend_exclude",
         help="Like --exclude, but adds additional files and directories on top of those already excluded",
     )
@@ -282,31 +305,39 @@ def main() -> None:
     )
     parser.add_argument(
         "--select",
-        nargs="+",
+        type=_split_comma_list,
+        action="append",
+        metavar="CODE[,CODE...]",
         help=(
-            "List of rule codes to enable (e.g., ML001). "
+            "Comma-separated list of rule codes to enable (repeatable), e.g. ML001. "
             "WARNING: This overrides the default selected rules. "
             "Use --extend-select to preserve defaults and add new ones."
         ),
     )
     parser.add_argument(
         "--extend-select",
-        nargs="+",
+        type=_split_comma_list,
+        action="append",
+        metavar="CODE[,CODE...]",
         dest="extend_select",
         help="Like --select, but adds additional rule codes on top of those already selected",
     )
     parser.add_argument(
         "--ignore",
-        nargs="+",
+        type=_split_comma_list,
+        action="append",
+        metavar="CODE[,CODE...]",
         help=(
-            "List of rule codes to ignore (e.g., ML200). "
+            "Comma-separated list of rule codes to ignore (repeatable), e.g. ML200. "
             "WARNING: This overrides the default ignored rules. "
             "Use --extend-ignore to preserve defaults and add new ones."
         ),
     )
     parser.add_argument(
         "--extend-ignore",
-        nargs="+",
+        type=_split_comma_list,
+        action="append",
+        metavar="CODE[,CODE...]",
         dest="extend_ignore",
         help="Like --ignore, but adds additional rule codes on top of those already ignored",
     )

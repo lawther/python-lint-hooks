@@ -61,6 +61,26 @@ def test_exclude_override(temp_repo: Path) -> None:
     assert "ignored/trash.py" in result.stdout
 
 
+def test_exclude_comma_separated(temp_repo: Path) -> None:
+    # ignored/trash.py is already hidden by .gitignore; exclude src/main.py explicitly too,
+    # in one comma-separated --exclude value, and confirm both are gone with no other errors.
+    result = run_lint(temp_repo, ".", "--exclude", "src/main.py,ignored/")
+    assert result.returncode == 0
+    assert "src/main.py" not in result.stdout
+    assert "ignored/trash.py" not in result.stdout
+
+
+def test_path_after_exclude_flag_is_not_swallowed(temp_repo: Path) -> None:
+    # Regression test: --extend-exclude used nargs="+" for its values, which greedily
+    # consumed a following positional path argument, silently falling back to the
+    # default "." instead of the path actually given, with no error. An explicit file
+    # bypasses gitignore-based exclusion (see test_force_exclude), so if the path here
+    # were swallowed and defaulting to "." kicked in instead, ignored/trash.py would stay
+    # hidden by .gitignore and never appear in the output.
+    result = run_lint(temp_repo, "--extend-exclude", "nonexistent/", "ignored/trash.py")
+    assert "ignored/trash.py" in result.stdout
+
+
 def test_respect_gitignore_toggle(temp_repo: Path) -> None:
     result_default = run_lint(temp_repo, ".")
     assert "ignored/trash.py" not in result_default.stdout
