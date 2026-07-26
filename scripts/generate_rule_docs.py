@@ -14,11 +14,11 @@ from pathlib import Path
 # Ensure the src layout is on the path when run from the repo root.
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-import python_lint_hooks.rules  # noqa: F401, E402 — triggers auto-import of all rule modules
-from python_lint_hooks.rules import all_rules  # noqa: E402
+import ml_lints.rules  # noqa: F401, E402 — triggers auto-import of all rule modules
+from ml_lints.rules import all_rules  # noqa: E402
 
 
-def generate_doc(cls: type[python_lint_hooks.rules.Rule], out_dir: Path, check: bool = False) -> bool:
+def generate_doc(cls: type[ml_lints.rules.Rule], out_dir: Path, check: bool = False) -> bool:
     docstring = inspect.getdoc(cls)
     if not docstring:
         print(f"ERROR: Rule {cls.code} is missing a rationale (class docstring).", file=sys.stderr)

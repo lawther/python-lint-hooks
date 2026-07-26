@@ -3,8 +3,8 @@ from __future__ import annotations
 import ast
 from typing import ClassVar
 
-from python_lint_hooks.analyzers.forbidden_types import ForbiddenTypeAnalyzer
-from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, register
+from ml_lints.analyzers.forbidden_types import ForbiddenTypeAnalyzer
+from ml_lints.rules import CheckContext, Rule, RuleCategory, RuleCode, register
 
 _NEWTYPE_CALL_MIN_ARGS = 2  # NewType(name, underlying_type)
 

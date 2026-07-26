@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from python_lint_hooks.rules.ml500_australian_english import ML500
+from ml_lints.rules.ml500_australian_english import ML500
 from tests.conftest import check, codes
 
 

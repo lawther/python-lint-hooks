@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from typing import ClassVar
 
-from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, register
+from ml_lints.rules import CheckContext, Rule, RuleCategory, RuleCode, register
 
 
 def _is_dataclass_decorator(decorator: ast.expr) -> bool:

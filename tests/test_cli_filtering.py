@@ -9,7 +9,7 @@ import pytest
 
 def run_lint(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603
-        ["uv", "run", "ml-lint", *args],  # noqa: S607
+        ["uv", "run", "ml-lints", *args],  # noqa: S607
         capture_output=True,
         text=True,
         cwd=cwd,
@@ -143,7 +143,7 @@ def test_config_extend_select(temp_project: Path) -> None:
 
 def test_lint_outside_cwd_uses_target_repo_pyproject_config(tmp_path: Path) -> None:
     # Issue #32 regression test:
-    # When ml-lint is run against a path outside CWD (e.g. ../sibling_repo),
+    # When ml-lints is run against a path outside CWD (e.g. ../sibling_repo),
     # configuration in pyproject.toml should be loaded from the target repository's pyproject.toml
     # unless --config is explicitly overridden on CLI.
     invoking_dir = tmp_path / "invoking_repo"

@@ -15,9 +15,9 @@ from typing import NamedTuple
 import pathspec
 from pydantic import BaseModel, ConfigDict, Field
 
-from python_lint_hooks.rules import all_rules
-from python_lint_hooks.runner import check_paths
-from python_lint_hooks.violation import RuleCode, Violation
+from ml_lints.rules import all_rules
+from ml_lints.runner import check_paths
+from ml_lints.violation import RuleCode, Violation
 
 
 def _split_comma_list(value: str) -> list[str]:
@@ -80,7 +80,12 @@ class _HooksConfig(BaseModel):
 class _ToolTable(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    python_lint_hooks: _HooksConfig = Field(default_factory=_HooksConfig, alias="python-lint-hooks")
+    ml_lints: _HooksConfig | None = Field(default=None, alias="ml-lints")
+    ml_lint: _HooksConfig | None = Field(default=None, alias="ml-lint")
+    python_lint_hooks: _HooksConfig | None = Field(default=None, alias="python-lint-hooks")
+
+    def get_config(self) -> _HooksConfig:
+        return self.ml_lints or self.ml_lint or self.python_lint_hooks or _HooksConfig()
 
 
 class _PyprojectConfig(BaseModel):
@@ -164,7 +169,7 @@ def _load_hooks_config(config_path: Path) -> _HooksConfig:
     if not config_path.exists():
         return _HooksConfig()
     with config_path.open("rb") as f:
-        return _PyprojectConfig.model_validate(tomllib.load(f)).tool.python_lint_hooks
+        return _PyprojectConfig.model_validate(tomllib.load(f)).tool.get_config()
 
 
 def _find_project_root(path: Path) -> Path:
@@ -360,7 +365,7 @@ def _collect_files(args: argparse.Namespace) -> _CollectedFiles:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="ml-lint",
+        prog="ml-lints",
         description="Check Python files for bare dict/tuple returns and classes defined inside functions.",
     )
     parser.add_argument(
@@ -462,7 +467,7 @@ def main() -> None:
     if all_violations:
         counts = Counter(v.code for v in all_violations)
         most_common, _ = counts.most_common(1)[0]
-        print(f"\n💡 Tip: For more information and examples, run 'ml-lint --explain {most_common}'")
+        print(f"\n💡 Tip: For more information and examples, run 'ml-lints --explain {most_common}'")
 
     sys.exit(1 if all_violations else 0)
 

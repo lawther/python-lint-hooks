@@ -23,10 +23,10 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import TYPE_CHECKING
 
-from python_lint_hooks.analyzers.newtype_index import BuiltinBase
+from ml_lints.analyzers.newtype_index import BuiltinBase
 
 if TYPE_CHECKING:
-    from python_lint_hooks.analyzers.newtype_index import NewTypeId, NewTypeIndex
+    from ml_lints.analyzers.newtype_index import NewTypeId, NewTypeIndex
 
 
 _WIDENING_BUILTINS = frozenset({"str", "int", "float", "bool", "bytes", "bytearray", "complex"})

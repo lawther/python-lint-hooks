@@ -15,9 +15,9 @@ from pathlib import Path
 # Ensure the src layout is on the path when run from the repo root.
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-import python_lint_hooks.rules  # noqa: F401, E402 — triggers auto-import of all rule modules
+import ml_lints.rules  # noqa: F401, E402 — triggers auto-import of all rule modules
 
-from python_lint_hooks.rules import all_rules  # noqa: E402
+from ml_lints.rules import all_rules  # noqa: E402
 
 _START = "<!-- rules-table-start -->"
 _END = "<!-- rules-table-end -->"

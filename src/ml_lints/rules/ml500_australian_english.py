@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 from typing import ClassVar, cast
 
-from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, register
+from ml_lints.rules import CheckContext, Rule, RuleCategory, RuleCode, register
 
 
 @register

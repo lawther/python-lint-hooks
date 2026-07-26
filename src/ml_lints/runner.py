@@ -5,9 +5,9 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from python_lint_hooks.analyzers.newtype_index import NewTypeIndex
-from python_lint_hooks.rules import CheckContext, Rule, all_rules
-from python_lint_hooks.violation import RuleCode, Violation
+from ml_lints.analyzers.newtype_index import NewTypeIndex
+from ml_lints.rules import CheckContext, Rule, all_rules
+from ml_lints.violation import RuleCode, Violation
 
 
 def check_file(

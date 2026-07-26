@@ -31,7 +31,7 @@ To add a new lint rule to this project, follow the guide in [CONTRIBUTING_RULES.
 just new-rule MLxxx
 ```
 
-Do not add rule logic directly to any existing file — each rule lives in its own module under `src/python_lint_hooks/rules/`.
+Do not add rule logic directly to any existing file — each rule lives in its own module under `src/ml_lints/rules/`.
 
 # Checks Architecture
 

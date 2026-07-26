@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from python_lint_hooks.rules import Rule, all_rules
+from ml_lints.rules import Rule, all_rules
 from tests.conftest import check
 
 if TYPE_CHECKING:

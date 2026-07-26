@@ -3,24 +3,24 @@ from __future__ import annotations
 import ast
 from typing import ClassVar
 
-from python_lint_hooks.analyzers.forbidden_types import ForbiddenTypeAnalyzer
-from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, annotation_noqa_lines, register
+from ml_lints.analyzers.forbidden_types import ForbiddenTypeAnalyzer
+from ml_lints.rules import CheckContext, Rule, RuleCategory, RuleCode, annotation_noqa_lines, register
 
 
 @register
-class ML104(Rule):
-    """Function returns a variable-length tuple.
+class ML103(Rule):
+    """Function returns a fixed-length tuple.
 
-    Variable-length tuples like `tuple[int, ...]` are immutable, which is often
-    desirable, but Python's `list[T]` is more idiomatic for collections of
-    homogeneous items. If you need immutability, consider a custom frozen
-    collection or a dataclass wrapping a list.
+    Returning fixed-length tuples like `tuple[int, int]` is often used for simple
+    pairs or triples, but it lacks semantic meaning. Callers must remember whether
+    `result[0]` is the width or the height, which leads to bugs. Using a `NamedTuple`
+    gives each field a meaningful name and makes the API self-documenting.
     """
 
-    code: ClassVar[RuleCode] = RuleCode.ML104
+    code: ClassVar[RuleCode] = RuleCode.ML103
     category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES
-    summary: ClassVar[str] = "Function returns a variable-length `tuple`"
-    suggestion: ClassVar[str] = "Use `list[T]` or a custom collection instead"
+    summary: ClassVar[str] = "Function returns a fixed-length `tuple`"
+    suggestion: ClassVar[str] = "Use a NamedTuple instead"
 
     def __init__(self, context: CheckContext) -> None:
         super().__init__(context)
@@ -46,7 +46,7 @@ class ML104(Rule):
             self.report(
                 finding.line,
                 finding.col,
-                f"Function '{func_name}' returns variable-length tuple; use list[T] or custom collection instead",
+                f"Function '{func_name}' returns fixed-length tuple; use a NamedTuple instead",
                 noqa_lines=annotation_noqa_lines(returns),
             )
 
@@ -55,13 +55,17 @@ class ML104(Rule):
     # -------------------------------------------------------------------------
 
     bad_example: ClassVar[str] = """
-def get_scores() -> tuple[int, ...]:
+def get_dimensions() -> tuple[int, int]:
     ...
 """
 
     good_examples: ClassVar[list[str]] = [
         """
-def get_scores() -> list[int]:
+class Dimensions(NamedTuple):
+    width: int
+    height: int
+
+def get_dimensions() -> Dimensions:
     ...
 """
     ]

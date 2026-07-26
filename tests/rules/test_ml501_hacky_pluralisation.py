@@ -6,8 +6,8 @@ import ast
 import textwrap
 from pathlib import Path
 
-from python_lint_hooks.rules import CheckContext
-from python_lint_hooks.rules.ml501_hacky_pluralisation import ML501
+from ml_lints.rules import CheckContext
+from ml_lints.rules.ml501_hacky_pluralisation import ML501
 from tests.conftest import check, codes
 
 # ---------------------------------------------------------------------------

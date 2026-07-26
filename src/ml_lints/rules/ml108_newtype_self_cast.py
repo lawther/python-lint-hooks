@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from python_lint_hooks.analyzers.newtype_casts import CastFinding, CastKind
-from python_lint_hooks.rules import RuleCategory, RuleCode, register
-from python_lint_hooks.rules._newtype_cast_base import NewTypeCastRuleBase
+from ml_lints.analyzers.newtype_casts import CastFinding, CastKind
+from ml_lints.rules import RuleCategory, RuleCode, register
+from ml_lints.rules._newtype_cast_base import NewTypeCastRuleBase
 
 
 @register

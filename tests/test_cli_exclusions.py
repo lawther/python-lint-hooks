@@ -8,7 +8,7 @@ import pytest
 
 def run_lint(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603
-        ["uv", "run", "ml-lint", *args],  # noqa: S607
+        ["uv", "run", "ml-lints", *args],  # noqa: S607
         capture_output=True,
         text=True,
         cwd=cwd,
@@ -103,7 +103,7 @@ def test_force_exclude(temp_repo: Path) -> None:
 
 def test_lint_outside_cwd_uses_target_repo_root_and_gitignore(tmp_path: Path) -> None:
     # Regression test for issue #30:
-    # When ml-lint is run against a path outside CWD (e.g. ../sibling_repo),
+    # When ml-lints is run against a path outside CWD (e.g. ../sibling_repo),
     # it must resolve gitignore and root exclusions relative to the target's containing repo.
     invoking_dir = tmp_path / "invoking_repo"
     invoking_dir.mkdir()

@@ -8,7 +8,7 @@ from __future__ import annotations
 import ast
 from typing import ClassVar
 
-from python_lint_hooks.rules import Rule, RuleCategory, RuleCode, register
+from ml_lints.rules import Rule, RuleCategory, RuleCode, register
 
 _PATCH_CALL_SUFFIXES = ("patch", "patch.object", "patch.multiple")
 _MOCK_CLASS_NAMES = frozenset({"Mock", "MagicMock", "AsyncMock"})

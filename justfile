@@ -26,7 +26,7 @@ test:
     echo "Running tests..."
     cov_json=$(mktemp)
     trap 'rm -f "$cov_json"' EXIT
-    uv run pytest --cov=python_lint_hooks --cov-report=term-missing --cov-branch --cov-report=json:"$cov_json"
+    uv run pytest --cov=ml_lints --cov-report=term-missing --cov-branch --cov-report=json:"$cov_json"
     uv run python scripts/branch_summary.py "$cov_json"
     echo "{{success}}Tests passed{{reset}}"
 
@@ -90,18 +90,18 @@ new-rule code:
     set -euo pipefail
     code="{{code}}"
     lower=$(echo "$code" | tr '[:upper:]' '[:lower:]')
-    rule_file="src/python_lint_hooks/rules/${lower}.py"
+    rule_file="src/ml_lints/rules/${lower}.py"
     test_file="tests/rules/test_${lower}.py"
     if [ -f "$rule_file" ]; then
         echo "Rule file already exists: $rule_file" >&2
         exit 1
     fi
-    sed "s/MLxxx/${code}/g" src/python_lint_hooks/rules/_template.py | sed 's/  # ty: ignore\[unresolved-attribute\]  # placeholder replaced by just new-rule//' > "$rule_file"
+    sed "s/MLxxx/${code}/g" src/ml_lints/rules/_template.py | sed 's/  # ty: ignore\[unresolved-attribute\]  # placeholder replaced by just new-rule//' > "$rule_file"
     sed "s/MLxxx/${code}/g; s/mlxxx/${lower}/g" tests/rules/_template.py > "$test_file"
-    python3 -c "import pathlib,sys; code=sys.argv[1]; p=pathlib.Path('src/python_lint_hooks/violation.py'); src=p.read_text(); sentinel='    # -- add new codes above this line --'; entry='    '+code+' = \"'+code+'\"'; p.write_text(src.replace(sentinel, entry+chr(10)+sentinel))" "$code"
+    python3 -c "import pathlib,sys; code=sys.argv[1]; p=pathlib.Path('src/ml_lints/violation.py'); src=p.read_text(); sentinel='    # -- add new codes above this line --'; entry='    '+code+' = \"'+code+'\"'; p.write_text(src.replace(sentinel, entry+chr(10)+sentinel))" "$code"
     echo "Created: $rule_file"
     echo "Created: $test_file"
-    echo "Added:   RuleCode.${code} to src/python_lint_hooks/violation.py"
+    echo "Added:   RuleCode.${code} to src/ml_lints/violation.py"
     echo ""
     echo "Next steps:"
     echo "  1. Edit $rule_file — fill in category/summary/suggestion and implement enter_*/leave_* hooks"

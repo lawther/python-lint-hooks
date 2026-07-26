@@ -4,9 +4,9 @@ import ast
 from dataclasses import dataclass
 from typing import ClassVar
 
-from python_lint_hooks.noqa import has_noqa
-from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, register
-from python_lint_hooks.violation import Violation
+from ml_lints.noqa import has_noqa
+from ml_lints.rules import CheckContext, Rule, RuleCategory, RuleCode, register
+from ml_lints.violation import Violation
 
 _UNTRUSTED_FUNCS: frozenset[str] = frozenset({"loads", "load", "safe_load", "full_load", "literal_eval"})
 

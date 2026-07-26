@@ -13,13 +13,13 @@ import pkgutil
 from enum import Enum
 from typing import TYPE_CHECKING, ClassVar, TypeVar
 
-from python_lint_hooks.noqa import has_noqa
-from python_lint_hooks.violation import RuleCode, Violation
+from ml_lints.noqa import has_noqa
+from ml_lints.violation import RuleCode, Violation
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from python_lint_hooks.analyzers.newtype_index import NewTypeIndex
+    from ml_lints.analyzers.newtype_index import NewTypeIndex
 
 
 class RuleCategory(Enum):

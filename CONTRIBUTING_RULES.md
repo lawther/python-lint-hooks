@@ -10,7 +10,7 @@ just new-rule ML150
 
 This creates two files pre-filled with the right structure:
 
-- `src/python_lint_hooks/rules/ml150.py` — the rule implementation
+- `src/ml_lints/rules/ml150.py` — the rule implementation
 - `tests/rules/test_ml150.py` — the test file
 
 Edit both, then run:
@@ -42,7 +42,7 @@ Pick the next unused code in the appropriate range.
 
 Every rule file must:
 
-1. Live at `src/python_lint_hooks/rules/<code>.py` (e.g. `ml150.py`).
+1. Live at `src/ml_lints/rules/<code>.py` (e.g. `ml150.py`).
 2. Define exactly one class decorated with `@register`.
 3. Provide a clear rationale in the class docstring. This is used for documentation and CLI help.
 4. Declare these four mandatory metadata fields and two example fields:
@@ -155,10 +155,10 @@ self.report(
 
 ## Using the shared type analyzer
 
-For any rule that needs to determine whether a type annotation is "forbidden" (bare dict, bare tuple, dict of primitives, etc.), use `ForbiddenTypeAnalyzer` from `python_lint_hooks.analyzers.forbidden_types`. Do not re-implement the analysis.
+For any rule that needs to determine whether a type annotation is "forbidden" (bare dict, bare tuple, dict of primitives, etc.), use `ForbiddenTypeAnalyzer` from `ml_lints.analyzers.forbidden_types`. Do not re-implement the analysis.
 
 ```python
-from python_lint_hooks.analyzers.forbidden_types import ForbiddenTypeAnalyzer
+from ml_lints.analyzers.forbidden_types import ForbiddenTypeAnalyzer
 
 analyzer = ForbiddenTypeAnalyzer()
 analyzer.analyze(node)          # node is an ast.expr (e.g. a return annotation)
@@ -224,7 +224,7 @@ from __future__ import annotations
 import ast
 from typing import ClassVar
 
-from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, register
+from ml_lints.rules import CheckContext, Rule, RuleCategory, RuleCode, register
 
 
 @register

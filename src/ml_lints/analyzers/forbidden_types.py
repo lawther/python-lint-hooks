@@ -11,7 +11,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 
-from python_lint_hooks.violation import RuleCode
+from ml_lints.violation import RuleCode
 
 _DICT_NAMES: frozenset[str] = frozenset({"dict", "Dict"})
 _MAPPING_NAMES: frozenset[str] = frozenset({"Mapping", "MutableMapping"})

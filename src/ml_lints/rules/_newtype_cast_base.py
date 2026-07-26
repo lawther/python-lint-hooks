@@ -6,7 +6,7 @@ module owns the hook delegation so the concrete rule files only have to
 say which CastKind they care about and how to phrase the violation.
 
 Filename is prefixed with `_` so the rule auto-discovery in
-`python_lint_hooks.rules.__init__` skips it.
+`ml_lints.rules.__init__` skips it.
 """
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ from __future__ import annotations
 import ast
 from typing import TYPE_CHECKING
 
-from python_lint_hooks.analyzers.newtype_casts import CastFinding, NewTypeCastAnalyzer
-from python_lint_hooks.rules import CheckContext, Rule
+from ml_lints.analyzers.newtype_casts import CastFinding, NewTypeCastAnalyzer
+from ml_lints.rules import CheckContext, Rule
 
 if TYPE_CHECKING:
     pass

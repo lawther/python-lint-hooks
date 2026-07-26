@@ -3,24 +3,24 @@ from __future__ import annotations
 import ast
 from typing import ClassVar
 
-from python_lint_hooks.analyzers.forbidden_types import ForbiddenTypeAnalyzer
-from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, annotation_noqa_lines, register
+from ml_lints.analyzers.forbidden_types import ForbiddenTypeAnalyzer
+from ml_lints.rules import CheckContext, Rule, RuleCategory, RuleCode, annotation_noqa_lines, register
 
 
 @register
-class ML106(Rule):
-    """Function returns a bare (unparameterised) Mapping.
+class ML107(Rule):
+    """Function returns a Mapping of primitive types.
 
-    A `Mapping` or `MutableMapping` with no type parameters gives callers no
-    information about what it contains. This makes the code harder to reason
-    about and prevents type checkers from verifying how the return value is used.
-    Use a dataclass to provide a named type with explicitly typed fields.
+    Returning a `Mapping[str, str]` or similar all-primitive mapping is
+    semantically "thin". It gives the caller no information about what the
+    keys or values represent. This encourages "primitive obsession". Use a
+    dataclass for structured data, or `NewType` to give keys/values meaningful names.
     """
 
-    code: ClassVar[RuleCode] = RuleCode.ML106
+    code: ClassVar[RuleCode] = RuleCode.ML107
     category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES
-    summary: ClassVar[str] = "Function returns a bare `Mapping`"
-    suggestion: ClassVar[str] = "Use a dataclass instead"
+    summary: ClassVar[str] = "Function returns a `Mapping` of primitives"
+    suggestion: ClassVar[str] = "Use a dataclass or `NewType` for keys/values"
 
     def __init__(self, context: CheckContext) -> None:
         super().__init__(context)
@@ -46,7 +46,7 @@ class ML106(Rule):
             self.report(
                 finding.line,
                 finding.col,
-                f"Function '{func_name}' returns bare Mapping; use a dataclass instead",
+                f"Function '{func_name}' returns Mapping of primitives; use NewType for keys/values or use a dataclass",
                 noqa_lines=annotation_noqa_lines(returns),
             )
 
@@ -55,18 +55,15 @@ class ML106(Rule):
     # -------------------------------------------------------------------------
 
     bad_example: ClassVar[str] = """
-def get_config() -> Mapping:
+def get_headers() -> Mapping[str, str]:
     ...
 """
 
     good_examples: ClassVar[list[str]] = [
         """
-@dataclass(frozen=True)
-class Config:
-    timeout: int
-    retries: int
-
-def get_config() -> Config:
+HeaderName = NewType("HeaderName", str)
+HeaderValue = NewType("HeaderValue", str)
+def get_headers() -> Mapping[HeaderName, HeaderValue]:
     ...
 """
     ]
