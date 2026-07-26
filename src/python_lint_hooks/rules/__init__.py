@@ -30,6 +30,7 @@ class RuleCategory(Enum):
     DATA_TRUST = "data-trust"
     LOCALISATION = "localisation"
     TYPE_HYGIENE = "type-hygiene"
+    TESTING = "testing"
 
 
 class CheckContext:

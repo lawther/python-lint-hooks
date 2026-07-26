@@ -25,6 +25,7 @@ Custom Python linting rules, distributed as a pip-installable CLI tool.
 | [`ML400`](docs/rules/ML400.md) | Unvalidated external data used without Pydantic validation | Validate with a Pydantic model before use |
 | [`ML500`](docs/rules/ML500.md) | American English spelling detected | Use Australian English spelling instead |
 | [`ML501`](docs/rules/ML501.md) | Hacky pluralisation in string literal | Avoid hacky parenthetical or bracketed plurals like '(s)'. Use proper pluralisation or rephrase the sentence. Remember to also check and update verb agreements (e.g. 'is/are', 'need/needs', 'has/have') in surrounding text. |
+| [`ML600`](docs/rules/ML600.md) | `@patch(new=Mock(...))` shares one mock instance across tests | Use `new_callable=Mock` (or `MagicMock`/`AsyncMock`) instead |
 <!-- rules-table-end -->
 
 **ML100 - ML107** catch violations related to return types. Unlike standard linting, these rules are **recursive** and will catch bare or primitive dicts/tuples even when nested inside other types like `list[...]` or `Optional[...]`.
@@ -87,18 +88,20 @@ uv run ml-lint src/ lib/
 # Use a non-default config file
 uv run ml-lint src/ --config path/to/pyproject.toml
 
-# Exclusion overrides (Ruff-style)
-uv run ml-lint src/ --exclude venv/ node_modules/
+# Exclusion overrides (Ruff-style; comma-separated, repeatable)
+uv run ml-lint src/ --exclude venv/,node_modules/
 uv run ml-lint src/ --extend-exclude build/
 uv run ml-lint src/ --no-respect-gitignore
 uv run ml-lint src/ --force-exclude
 
-# Rule selection and ignoring
-uv run ml-lint src/ --select ML100 ML200
+# Rule selection and ignoring (comma-separated, repeatable)
+uv run ml-lint src/ --select ML100,ML200
 uv run ml-lint src/ --extend-select ML300
 uv run ml-lint src/ --ignore ML101
 uv run ml-lint src/ --extend-ignore ML100
 ```
+
+Note: paths must precede these options on the command line (as in the examples above) — argparse cannot otherwise tell a path apart from another value for a repeatable option.
 
 Exits with code `1` if any violations are found, `0` otherwise. Output follows the ruff/flake8 format:
 
