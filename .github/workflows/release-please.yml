@@ -79,10 +79,23 @@ jobs:
     needs: [release-please, ci]
     if: ${{ needs.release-please.outputs.release_created }}
     runs-on: ubuntu-latest
+    environment: pypi
     permissions:
       contents: write
+      id-token: write
     steps:
-      - name: Publish release
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+
+      - name: Build package
+        run: uv build
+
+      - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release edit "${{ needs.release-please.outputs.tag_name }}" --draft=false
+
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypa-publish@release/v1
