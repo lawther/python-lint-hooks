@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.12.0](https://github.com/lawther/python-lint-hooks/compare/v0.11.0...v0.12.0) (2026-07-26)
+
+
+### Features
+
+* rename project to ml-lints and module to ml_lints ([4e2e1aa](https://github.com/lawther/python-lint-hooks/commit/4e2e1aa89e5b2bfe244838ae43383412bbb0aa9c))
+* **rules:** add ML600 to ban [@patch](https://github.com/patch)(new=Mock(...)) decorators ([765b94d](https://github.com/lawther/python-lint-hooks/commit/765b94de03aff2d0530e640dfb902f018487e5e8))
+
+
+### Bug Fixes
+
+* **cli:** load pyproject.toml per target project root when linting external directories ([81f45f9](https://github.com/lawther/python-lint-hooks/commit/81f45f91fa87a206d45c9ebba8c936b3ecb5dab4)), closes [#32](https://github.com/lawther/python-lint-hooks/issues/32)
+* **cli:** resolve path objects in _collect_out_of_root_files consistently ([516e1dd](https://github.com/lawther/python-lint-hooks/commit/516e1dd631b7c5ea4f08397ce4ec5d46bd6db67d))
+* **cli:** stop --select/--ignore/--exclude from swallowing paths ([6f367e3](https://github.com/lawther/python-lint-hooks/commit/6f367e3c8dae80e63e2190ac58db8cd197f16f0a))
+* resolve project root and gitignore per target path ([cbb8c0d](https://github.com/lawther/python-lint-hooks/commit/cbb8c0d63ee5eb80199c55a29fe8b3a779848549)), closes [#30](https://github.com/lawther/python-lint-hooks/issues/30)
+
+
+### Documentation
+
+* add missing rule-category rows to CONTRIBUTING_RULES.md ([f4fc7ae](https://github.com/lawther/python-lint-hooks/commit/f4fc7ae89570ef4f810db82ac8307f6f907308a2))
+
 ## [0.11.0](https://github.com/lawther/python-lint-hooks/compare/v0.10.1...v0.11.0) (2026-06-08)
 
 
