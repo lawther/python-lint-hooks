@@ -99,3 +99,29 @@ def test_force_exclude(temp_repo: Path) -> None:
     # With --force-exclude, it should be skipped
     result_forced = run_lint(temp_repo, excluded_file, "--force-exclude")
     assert "ignored/trash.py" not in result_forced.stdout
+
+
+def test_lint_outside_cwd_uses_target_repo_root_and_gitignore(tmp_path: Path) -> None:
+    # Regression test for issue #30:
+    # When ml-lint is run against a path outside CWD (e.g. ../sibling_repo),
+    # it must resolve gitignore and root exclusions relative to the target's containing repo.
+    invoking_dir = tmp_path / "invoking_repo"
+    invoking_dir.mkdir()
+    (invoking_dir / ".gitignore").write_text("invoking_only.py\n")
+
+    sibling_dir = tmp_path / "sibling_repo"
+    (sibling_dir / "src").mkdir(parents=True)
+    (sibling_dir / "sibling_ignored").mkdir()
+    (sibling_dir / "build").mkdir()
+
+    (sibling_dir / "src" / "valid.py").write_text("def f():\n    class ValidViolation: pass\n")
+    (sibling_dir / "sibling_ignored" / "trash.py").write_text("def f():\n    class IgnoredViolation: pass\n")
+    (sibling_dir / "build" / "generated.py").write_text("def f():\n    class BuiltViolation: pass\n")
+
+    (sibling_dir / ".gitignore").write_text("sibling_ignored/\n/build/\n")
+
+    result = run_lint(invoking_dir, "../sibling_repo")
+
+    assert "ValidViolation" in result.stdout
+    assert "IgnoredViolation" not in result.stdout
+    assert "BuiltViolation" not in result.stdout

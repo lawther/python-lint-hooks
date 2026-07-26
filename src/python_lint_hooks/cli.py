@@ -161,6 +161,15 @@ def _load_hooks_config(config_path: Path) -> _HooksConfig:
     return _HooksConfig.model_validate(hooks_raw)
 
 
+def _find_project_root(path: Path) -> Path:
+    abs_path = path.resolve()
+    start_dir = abs_path if abs_path.is_dir() else abs_path.parent
+    for d in (start_dir, *start_dir.parents):
+        if (d / ".git").exists() or (d / ".gitignore").exists() or (d / "pyproject.toml").exists():
+            return d
+    return start_dir
+
+
 def _load_gitignore_lines(root: Path) -> list[str]:
     gitignore_path = root / ".gitignore"
     if gitignore_path.exists():
@@ -169,10 +178,9 @@ def _load_gitignore_lines(root: Path) -> list[str]:
     return []
 
 
-def _is_excluded(path: Path, spec: pathspec.PathSpec, gitignore_spec: pathspec.PathSpec | None, root: Path) -> bool:
+def _is_excluded(path: Path, spec: pathspec.PathSpec, gitignore_spec: pathspec.PathSpec, root: Path) -> bool:
     try:
-        # Use absolute() instead of resolve() to avoid following symlinks for exclusion matching
-        rel_path = path.absolute().relative_to(root.absolute())
+        rel_path = path.resolve().relative_to(root.resolve())
     except ValueError:
         return False
 
@@ -186,39 +194,36 @@ def _is_excluded(path: Path, spec: pathspec.PathSpec, gitignore_spec: pathspec.P
         return True
 
     # Check gitignore if enabled
-    return bool(gitignore_spec and gitignore_spec.match_file(path_str))
+    return gitignore_spec.match_file(path_str)
 
 
-def _collect_files(config: _RunConfig, root: Path) -> list[Path]:  # noqa: PLR0912
+def _collect_files(config: _RunConfig) -> list[Path]:  # noqa: PLR0912
     files: list[Path] = []
-
-    # Pre-compile the full specs for the "force_exclude" case
     all_exclude_patterns = config.exclude + config.extend_exclude
-    gitignore_lines = _load_gitignore_lines(root) if config.respect_gitignore else []
-
     full_spec = pathspec.PathSpec.from_lines("gitwildmatch", all_exclude_patterns)
-    full_gitignore_spec = pathspec.PathSpec.from_lines("gitwildmatch", gitignore_lines)
 
     for p in config.paths:
-        # Normalize the input path relative to CWD
-        path = root / p
-        abs_path = path.absolute()
+        path = (Path.cwd() / p).resolve()
+        root = _find_project_root(path)
+
+        gitignore_lines = _load_gitignore_lines(root) if config.respect_gitignore else []
+        full_gitignore_spec = pathspec.PathSpec.from_lines("gitwildmatch", gitignore_lines)
 
         try:
-            rel_path = abs_path.relative_to(root.absolute())
+            rel_path = path.relative_to(root)
             path_str = rel_path.as_posix()
-            if abs_path.is_dir() and path_str != ".":
+            if path.is_dir() and path_str != ".":
                 path_str += "/"
         except ValueError:
             # Path is outside root, always include if it exists and is .py
-            if abs_path.is_file() and abs_path.suffix == ".py":
-                files.append(abs_path)
-            elif abs_path.is_dir():
-                files.extend(sorted(abs_path.rglob("*.py")))
+            if path.is_file() and path.suffix == ".py":
+                files.append(path)
+            elif path.is_dir():
+                files.extend(sorted(path.rglob("*.py")))
             continue
 
         if config.force_exclude:
-            if _is_excluded(abs_path, full_spec, full_gitignore_spec, root):
+            if _is_excluded(path, full_spec, full_gitignore_spec, root):
                 continue
             effective_spec = full_spec
             effective_gitignore = full_gitignore_spec
@@ -238,16 +243,17 @@ def _collect_files(config: _RunConfig, root: Path) -> list[Path]:  # noqa: PLR09
             effective_spec = pathspec.PathSpec.from_lines("gitwildmatch", active_exclude)
             effective_gitignore = pathspec.PathSpec.from_lines("gitwildmatch", active_gitignore)
 
-        if abs_path.is_file() and abs_path.suffix == ".py":
-            files.append(abs_path)
-        elif abs_path.is_dir():
-            for py_file in sorted(abs_path.rglob("*.py")):
-                if not _is_excluded(py_file, effective_spec, effective_gitignore, root):
-                    files.append(py_file)
+        if path.is_file() and path.suffix == ".py":
+            files.append(path)
+        elif path.is_dir():
+            for py_file in sorted(path.rglob("*.py")):
+                py_file_abs = py_file.resolve()
+                if not _is_excluded(py_file_abs, effective_spec, effective_gitignore, root):
+                    files.append(py_file_abs)
 
     # De-duplicate files while preserving order
     unique_files: list[Path] = []
-    seen = set()
+    seen: set[str] = set()
     for f in files:
         f_str = str(f)
         if f_str not in seen:
@@ -353,9 +359,8 @@ def main() -> None:
 
     hooks_config = _load_hooks_config(Path(args.config))
     run_config = _RunConfig.from_args(args, hooks_config)
-    root = Path.cwd().resolve()
 
-    files = _collect_files(run_config, root)
+    files = _collect_files(run_config)
 
     enabled_codes = frozenset(
         cls.code
