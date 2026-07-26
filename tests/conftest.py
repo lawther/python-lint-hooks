@@ -2,10 +2,45 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
+import sys
 from pathlib import Path
+from typing import NamedTuple
 
+import pytest
+
+from ml_lints import cli
 from ml_lints.runner import check_paths
 from ml_lints.violation import RuleCode, Violation
+
+
+class LintResult(NamedTuple):
+    returncode: int
+    stdout: str
+    stderr: str
+
+
+def run_lint(cwd: Path, *args: str) -> LintResult:
+    """Run the ml-lints CLI in-process against `cwd`, mirroring `subprocess.run`'s result shape.
+
+    Runs in-process (rather than shelling out to the installed console-script) so that
+    coverage.py can see cli.py execute — a subprocess spawns a separate interpreter that
+    pytest-cov never instruments, which previously left the CLI's coverage at 0% despite
+    being the most heavily exercised module in the suite.
+    """
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    exit_code = 0
+    with pytest.MonkeyPatch.context() as mp:
+        mp.chdir(cwd)
+        mp.setattr(sys, "argv", ["ml-lints", *args])
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            try:
+                cli.main()
+            except SystemExit as exc:
+                exit_code = exc.code if isinstance(exc.code, int) else 1
+    return LintResult(returncode=exit_code, stdout=stdout.getvalue(), stderr=stderr.getvalue())
 
 
 def check(code: str, tmp_path: Path) -> list[Violation]:

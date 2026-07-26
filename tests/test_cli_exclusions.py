@@ -1,19 +1,10 @@
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
 
-
-def run_lint(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603
-        ["uv", "run", "ml-lints", *args],  # noqa: S607
-        capture_output=True,
-        text=True,
-        cwd=cwd,
-        check=False,
-    )
+from tests.conftest import run_lint
 
 
 @pytest.fixture
