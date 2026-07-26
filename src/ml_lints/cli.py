@@ -174,7 +174,16 @@ def _load_hooks_config(config_path: Path) -> _HooksConfig:
 
 def _find_project_root(path: Path) -> Path:
     abs_path = path.resolve()
-    start_dir = abs_path if abs_path.is_dir() else abs_path.parent
+    cwd = Path.cwd().resolve()
+
+    # Paths inside (or equal to) the invocation directory share its root, even if a
+    # subdirectory happens to carry its own pyproject.toml/.gitignore (e.g. a monorepo
+    # sub-package). Otherwise CLI-relative --exclude patterns and gitignore lookups would
+    # silently shift to that subdirectory instead of matching what the caller intended.
+    # Only genuinely external paths (outside the invocation tree) search from themselves,
+    # so linting a sibling repo still picks up that repo's own root and pyproject.toml.
+    path_inside_cwd = abs_path == cwd or cwd in abs_path.parents
+    start_dir = cwd if path_inside_cwd else (abs_path if abs_path.is_dir() else abs_path.parent)
     for d in (start_dir, *start_dir.parents):
         if (d / ".git").exists() or (d / ".gitignore").exists() or (d / "pyproject.toml").exists():
             return d
@@ -280,20 +289,22 @@ class _CollectedFiles(NamedTuple):
 def _get_project_config(
     p: Path,
     args: argparse.Namespace,
-    config_cache: dict[Path, _ProjectConfig],
+    config_cache: dict[Path, _RunConfig],
 ) -> _ProjectConfig:
     path = (Path.cwd() / p).resolve()
     root = _find_project_root(path)
 
     config_path = Path(args.config) if args.config is not None else root / "pyproject.toml"
 
+    # Root is always recomputed per path above (sibling paths can have different roots
+    # even under one shared --config), but the parsed config for a given config file is
+    # cached since re-reading pyproject.toml for every path would be wasteful.
     config_path_abs = config_path.resolve()
     if config_path_abs not in config_cache:
         hooks_config = _load_hooks_config(config_path)
-        run_config = _RunConfig.from_args(args, hooks_config)
-        config_cache[config_path_abs] = _ProjectConfig(run_config=run_config, root=root)
+        config_cache[config_path_abs] = _RunConfig.from_args(args, hooks_config)
 
-    return config_cache[config_path_abs]
+    return _ProjectConfig(run_config=config_cache[config_path_abs], root=root)
 
 
 def _compute_enabled_codes(run_config: _RunConfig) -> frozenset[RuleCode]:
@@ -342,7 +353,7 @@ def _collect_files(args: argparse.Namespace) -> _CollectedFiles:
     file_enabled_codes: dict[Path, frozenset[RuleCode]] = {}
     seen: set[str] = set()
 
-    config_cache: dict[Path, _ProjectConfig] = {}
+    config_cache: dict[Path, _RunConfig] = {}
 
     for path_str in args.paths:
         p = Path(path_str)

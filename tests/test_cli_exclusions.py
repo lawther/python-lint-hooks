@@ -125,3 +125,33 @@ def test_lint_outside_cwd_uses_target_repo_root_and_gitignore(tmp_path: Path) ->
     assert "ValidViolation" in result.stdout
     assert "IgnoredViolation" not in result.stdout
     assert "BuiltViolation" not in result.stdout
+
+
+def test_subpackage_with_own_pyproject_does_not_shift_root(tmp_path: Path) -> None:
+    # Regression test: a monorepo sub-package (e.g. api/pyproject.toml) sitting inside the
+    # invocation directory must not be mistaken for the project root just because it carries
+    # its own pyproject.toml. That previously made CLI-relative --extend-exclude patterns
+    # (written relative to the invocation dir) silently match nothing.
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "api").mkdir()
+    (tmp_path / "api" / "pyproject.toml").write_text('[project]\nname = "api"\n')
+    (tmp_path / "api" / "vs_secrets.py").write_text("def f():\n    class Secret: pass\n")
+    (tmp_path / "api" / "other.py").write_text("def f():\n    class Other: pass\n")
+
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "ignored.py").write_text("def f():\n    class ScriptIgnored: pass\n")
+    (tmp_path / ".gitignore").write_text("scripts/ignored.py\n")
+
+    result = run_lint(
+        tmp_path,
+        "api/",
+        "scripts/",
+        "--extend-exclude",
+        "api/vs_secrets.py",
+        "--config",
+        "api/pyproject.toml",
+    )
+
+    assert "Other" in result.stdout
+    assert "Secret" not in result.stdout
+    assert "ScriptIgnored" not in result.stdout
