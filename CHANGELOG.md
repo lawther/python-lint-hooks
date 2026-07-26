@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.3](https://github.com/lawther/python-lint-hooks/compare/v0.12.2...v0.12.3) (2026-07-26)
+
+
+### Bug Fixes
+
+* **cli:** stop nested pyproject.toml from silently shifting root detection ([b66b093](https://github.com/lawther/python-lint-hooks/commit/b66b093919cf77587ba2bdd0338c7188e1f5eb22))
+
 ## [0.12.2](https://github.com/lawther/python-lint-hooks/compare/v0.12.1...v0.12.2) (2026-07-26)
 
 
