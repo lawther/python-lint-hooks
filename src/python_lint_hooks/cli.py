@@ -10,6 +10,7 @@ import tomllib
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NamedTuple
 
 import pathspec
 from pydantic import BaseModel, ConfigDict, Field
@@ -197,69 +198,117 @@ def _is_excluded(path: Path, spec: pathspec.PathSpec, gitignore_spec: pathspec.P
     return gitignore_spec.match_file(path_str)
 
 
-def _collect_files(config: _RunConfig) -> list[Path]:  # noqa: PLR0912
-    files: list[Path] = []
+class _EffectiveSpecs(NamedTuple):
+    spec: pathspec.PathSpec
+    gitignore_spec: pathspec.PathSpec
+
+
+def _collect_out_of_root_files(path: Path) -> list[Path]:
+    if path.is_file() and path.suffix == ".py":
+        return [path]
+    if path.is_dir():
+        return sorted(path.rglob("*.py"))
+    return []
+
+
+def _compute_effective_specs(
+    config: _RunConfig,
+    path_str: str,
+    full_spec: pathspec.PathSpec,
+    full_gitignore_spec: pathspec.PathSpec,
+    gitignore_lines: list[str],
+) -> _EffectiveSpecs:
+    if config.force_exclude:
+        return _EffectiveSpecs(spec=full_spec, gitignore_spec=full_gitignore_spec)
+
+    # Ruff behaviour: if not force_exclude, we ignore exclusions matching the search path itself.
+    # This allows explicitly passed files/dirs to be linted even if globally excluded.
     all_exclude_patterns = config.exclude + config.extend_exclude
-    full_spec = pathspec.PathSpec.from_lines("gitwildmatch", all_exclude_patterns)
+    active_exclude = [
+        pat
+        for pat in all_exclude_patterns
+        if not pathspec.PathSpec.from_lines("gitwildmatch", [pat]).match_file(path_str)
+    ]
+    active_gitignore = [
+        line
+        for line in gitignore_lines
+        if not pathspec.PathSpec.from_lines("gitwildmatch", [line]).match_file(path_str)
+    ]
+    return _EffectiveSpecs(
+        spec=pathspec.PathSpec.from_lines("gitwildmatch", active_exclude),
+        gitignore_spec=pathspec.PathSpec.from_lines("gitwildmatch", active_gitignore),
+    )
 
-    for p in config.paths:
-        path = (Path.cwd() / p).resolve()
-        root = _find_project_root(path)
 
-        gitignore_lines = _load_gitignore_lines(root) if config.respect_gitignore else []
-        full_gitignore_spec = pathspec.PathSpec.from_lines("gitwildmatch", gitignore_lines)
+def _collect_matching_files(
+    path: Path,
+    specs: _EffectiveSpecs,
+    root: Path,
+) -> list[Path]:
+    if path.is_file() and path.suffix == ".py":
+        return [path]
+    if path.is_dir():
+        files: list[Path] = []
+        for py_file in sorted(path.rglob("*.py")):
+            py_file_abs = py_file.resolve()
+            if not _is_excluded(py_file_abs, specs.spec, specs.gitignore_spec, root):
+                files.append(py_file_abs)
+        return files
+    return []
 
-        try:
-            rel_path = path.relative_to(root)
-            path_str = rel_path.as_posix()
-            if path.is_dir() and path_str != ".":
-                path_str += "/"
-        except ValueError:
-            # Path is outside root, always include if it exists and is .py
-            if path.is_file() and path.suffix == ".py":
-                files.append(path)
-            elif path.is_dir():
-                files.extend(sorted(path.rglob("*.py")))
-            continue
 
-        if config.force_exclude:
-            if _is_excluded(path, full_spec, full_gitignore_spec, root):
-                continue
-            effective_spec = full_spec
-            effective_gitignore = full_gitignore_spec
-        else:
-            # Ruff behavior: if not force_exclude, we ignore exclusions matching the search path itself.
-            # This allows explicitly passed files/dirs to be linted even if globally excluded.
-            active_exclude = [
-                pat
-                for pat in all_exclude_patterns
-                if not pathspec.PathSpec.from_lines("gitwildmatch", [pat]).match_file(path_str)
-            ]
-            active_gitignore = [
-                line
-                for line in gitignore_lines
-                if not pathspec.PathSpec.from_lines("gitwildmatch", [line]).match_file(path_str)
-            ]
-            effective_spec = pathspec.PathSpec.from_lines("gitwildmatch", active_exclude)
-            effective_gitignore = pathspec.PathSpec.from_lines("gitwildmatch", active_gitignore)
+def _collect_files_for_path(
+    p: Path,
+    config: _RunConfig,
+    full_spec: pathspec.PathSpec,
+) -> list[Path]:
+    path = (Path.cwd() / p).resolve()
+    root = _find_project_root(path)
 
-        if path.is_file() and path.suffix == ".py":
-            files.append(path)
-        elif path.is_dir():
-            for py_file in sorted(path.rglob("*.py")):
-                py_file_abs = py_file.resolve()
-                if not _is_excluded(py_file_abs, effective_spec, effective_gitignore, root):
-                    files.append(py_file_abs)
+    gitignore_lines = _load_gitignore_lines(root) if config.respect_gitignore else []
+    full_gitignore_spec = pathspec.PathSpec.from_lines("gitwildmatch", gitignore_lines)
 
-    # De-duplicate files while preserving order
+    try:
+        rel_path = path.relative_to(root)
+        path_str = rel_path.as_posix()
+        if path.is_dir() and path_str != ".":
+            path_str += "/"
+    except ValueError:
+        return _collect_out_of_root_files(path)
+
+    if config.force_exclude and _is_excluded(path, full_spec, full_gitignore_spec, root):
+        return []
+
+    specs = _compute_effective_specs(
+        config,
+        path_str,
+        full_spec,
+        full_gitignore_spec,
+        gitignore_lines,
+    )
+    return _collect_matching_files(path, specs, root)
+
+
+def _deduplicate_paths(paths: list[Path]) -> list[Path]:
     unique_files: list[Path] = []
     seen: set[str] = set()
-    for f in files:
+    for f in paths:
         f_str = str(f)
         if f_str not in seen:
             unique_files.append(f)
             seen.add(f_str)
     return unique_files
+
+
+def _collect_files(config: _RunConfig) -> list[Path]:
+    files: list[Path] = []
+    all_exclude_patterns = config.exclude + config.extend_exclude
+    full_spec = pathspec.PathSpec.from_lines("gitwildmatch", all_exclude_patterns)
+
+    for p in config.paths:
+        files.extend(_collect_files_for_path(p, config, full_spec))
+
+    return _deduplicate_paths(files)
 
 
 def main() -> None:
