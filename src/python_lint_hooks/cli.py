@@ -77,6 +77,18 @@ class _HooksConfig(BaseModel):
     extend_ignore: list[str] = Field(default_factory=list, alias="extend-ignore")
 
 
+class _ToolTable(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    python_lint_hooks: _HooksConfig = Field(default_factory=_HooksConfig, alias="python-lint-hooks")
+
+
+class _PyprojectConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    tool: _ToolTable = Field(default_factory=_ToolTable)
+
+
 @dataclass(frozen=True)
 class _RunConfig:
     paths: list[Path]
@@ -152,14 +164,7 @@ def _load_hooks_config(config_path: Path) -> _HooksConfig:
     if not config_path.exists():
         return _HooksConfig()
     with config_path.open("rb") as f:
-        data = tomllib.load(f)  # noqa: ML400
-    tool = data.get("tool")
-    if not isinstance(tool, dict):
-        return _HooksConfig()
-    hooks_raw = tool.get("python-lint-hooks")
-    if not isinstance(hooks_raw, dict):
-        return _HooksConfig()
-    return _HooksConfig.model_validate(hooks_raw)
+        return _PyprojectConfig.model_validate(tomllib.load(f)).tool.python_lint_hooks
 
 
 def _find_project_root(path: Path) -> Path:
