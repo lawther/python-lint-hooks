@@ -26,10 +26,13 @@ just precommit   # lint, type-check, tests, README update
 | Range | Category | Enum value |
 |-------|----------|------------|
 | ML1xx | Return type / signature shape | `RuleCategory.RETURN_TYPES` |
+| ML1xx | Parameter type shape | `RuleCategory.PARAMETER_TYPES` |
+| ML1xx | Type hygiene (NewType casts) | `RuleCategory.TYPE_HYGIENE` |
 | ML2xx | Class / dataclass shape | `RuleCategory.CLASS_SHAPE` |
 | ML3xx | Scope violations | `RuleCategory.SCOPE` |
 | ML4xx | Data trust / external data | `RuleCategory.DATA_TRUST` |
 | ML5xx | Localisation / Spelling | `RuleCategory.LOCALISATION` |
+| ML6xx | Testing pitfalls | `RuleCategory.TESTING` |
 
 Pick the next unused code in the appropriate range.
 
