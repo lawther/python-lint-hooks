@@ -6,6 +6,8 @@ from typing import ClassVar
 from python_lint_hooks.analyzers.forbidden_types import ForbiddenTypeAnalyzer
 from python_lint_hooks.rules import CheckContext, Rule, RuleCategory, RuleCode, register
 
+_NEWTYPE_CALL_MIN_ARGS = 2  # NewType(name, underlying_type)
+
 
 def _is_newtype_call(node: ast.Call) -> bool:
     func = node.func
@@ -33,7 +35,7 @@ class ML105(Rule):
         super().__init__(context)
 
     def enter_Call(self, node: ast.Call) -> None:
-        if not _is_newtype_call(node) or len(node.args) < 2:  # noqa: PLR2004
+        if not _is_newtype_call(node) or len(node.args) < _NEWTYPE_CALL_MIN_ARGS:
             return
 
         wrapped_type = node.args[1]

@@ -17,6 +17,7 @@ _DICT_NAMES: frozenset[str] = frozenset({"dict", "Dict"})
 _MAPPING_NAMES: frozenset[str] = frozenset({"Mapping", "MutableMapping"})
 _TUPLE_NAMES: frozenset[str] = frozenset({"tuple", "Tuple"})
 _PRIMITIVE_NAMES: frozenset[str] = frozenset({"str", "int", "float", "bool", "bytes", "Any", "None"})
+_KEY_VALUE_SUBSCRIPT_LEN = 2  # dict[K, V] / Mapping[K, V] subscript is always a 2-tuple
 
 
 @dataclass(frozen=True)
@@ -90,7 +91,7 @@ class ForbiddenTypeAnalyzer:
             self.analyze(node.slice)
 
     def _check_dict_subscript(self, node: ast.Subscript) -> None:
-        if not isinstance(node.slice, ast.Tuple) or len(node.slice.elts) != 2:  # noqa: PLR2004
+        if not isinstance(node.slice, ast.Tuple) or len(node.slice.elts) != _KEY_VALUE_SUBSCRIPT_LEN:
             self.findings.append(ForbiddenTypeFinding(RuleCode.ML100, node.lineno, node.col_offset + 1))
             return
 
@@ -102,7 +103,7 @@ class ForbiddenTypeAnalyzer:
         self.analyze(v)
 
     def _check_mapping_subscript(self, node: ast.Subscript) -> None:
-        if not isinstance(node.slice, ast.Tuple) or len(node.slice.elts) != 2:  # noqa: PLR2004
+        if not isinstance(node.slice, ast.Tuple) or len(node.slice.elts) != _KEY_VALUE_SUBSCRIPT_LEN:
             self.findings.append(ForbiddenTypeFinding(RuleCode.ML106, node.lineno, node.col_offset + 1))
             return
 
