@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1](https://github.com/lawther/python-lint-hooks/compare/v0.12.0...v0.12.1) (2026-07-26)
+
+
+### Bug Fixes
+
+* **ci:** correct PyPI GitHub Action repository path ([a101777](https://github.com/lawther/python-lint-hooks/commit/a101777e8f51d7b698ad15936171fa36caab1281))
+
 ## [0.12.0](https://github.com/lawther/python-lint-hooks/compare/v0.11.0...v0.12.0) (2026-07-26)
 
 
