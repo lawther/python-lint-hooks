@@ -98,4 +98,4 @@ jobs:
         run: gh release edit "${{ needs.release-please.outputs.tag_name }}" --draft=false
 
       - name: Publish package to PyPI
-        uses: pypa/gh-action-pypa-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@release/v1
