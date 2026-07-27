@@ -1,4 +1,4 @@
-# python-lint-hooks
+# ml-lints
 
 Custom Python linting rules, distributed as a pip-installable CLI tool.
 
@@ -52,19 +52,17 @@ Add as a dev dependency using a git source. Pin to a specific tag for reproducib
 # pyproject.toml
 [dependency-groups]
 dev = [
-    "python-lint-hooks",
+    "ml-lints",
     # ... other dev deps
 ]
 
-[tool.uv.sources]
-python-lint-hooks = { git = "https://github.com/lawther/python-lint-hooks", tag = "v0.1.0" }
 ```
 
 During local development of the hook itself, use a path source instead:
 
 ```toml
 [tool.uv.sources]
-python-lint-hooks = { path = "../python-lint-hooks", editable = true }
+ml-lints = { path = "../python-lint-hooks", editable = true }
 ```
 
 Then run:
@@ -77,28 +75,28 @@ uv sync
 
 ```sh
 # Check a directory
-uv run ml-lint src/
+uv run ml-lints src/
 
 # Check specific files
-uv run ml-lint src/mypackage/utils.py
+uv run ml-lints src/mypackage/utils.py
 
 # Check multiple directories
-uv run ml-lint src/ lib/
+uv run ml-lints src/ lib/
 
 # Use a non-default config file
-uv run ml-lint src/ --config path/to/pyproject.toml
+uv run ml-lints src/ --config path/to/pyproject.toml
 
 # Exclusion overrides (Ruff-style; comma-separated, repeatable)
-uv run ml-lint src/ --exclude venv/,node_modules/
-uv run ml-lint src/ --extend-exclude build/
-uv run ml-lint src/ --no-respect-gitignore
-uv run ml-lint src/ --force-exclude
+uv run ml-lints src/ --exclude venv/,node_modules/
+uv run ml-lints src/ --extend-exclude build/
+uv run ml-lints src/ --no-respect-gitignore
+uv run ml-lints src/ --force-exclude
 
 # Rule selection and ignoring (comma-separated, repeatable)
-uv run ml-lint src/ --select ML100,ML200
-uv run ml-lint src/ --extend-select ML300
-uv run ml-lint src/ --ignore ML101
-uv run ml-lint src/ --extend-ignore ML100
+uv run ml-lints src/ --select ML100,ML200
+uv run ml-lints src/ --extend-select ML300
+uv run ml-lints src/ --ignore ML101
+uv run ml-lints src/ --extend-ignore ML100
 ```
 
 Note: paths must precede these options on the command line (as in the examples above) — argparse cannot otherwise tell a path apart from another value for a repeatable option.
@@ -113,10 +111,10 @@ src/mypackage/models.py:10:1: ML200 Dataclass 'Config' is not frozen; use @datac
 
 ## Configuration
 
-Configure in `pyproject.toml` under `[tool.python-lint-hooks]`. Options behave similarly to [Ruff's selection settings](https://docs.astral.sh/ruff/settings/#select) and [exclusion settings](https://docs.astral.sh/ruff/settings/#exclude).
+Configure in `pyproject.toml` under `[tool.ml-lints]`. Options behave similarly to [Ruff's selection settings](https://docs.astral.sh/ruff/settings/#select) and [exclusion settings](https://docs.astral.sh/ruff/settings/#exclude).
 
 ```toml
-[tool.python-lint-hooks]
+[tool.ml-lints]
 # Rule selection (prefix matching supported, e.g. "ML")
 select = ["ML"]
 extend-select = []
@@ -145,7 +143,7 @@ force-exclude = false
 *   **Precedence**: `ignore` always takes precedence over `select`. If a rule is both selected and ignored, it will be ignored.
 
 ### Default Exclusions
-By default, `ml-lint` excludes a comprehensive list of common "junk" and environment directories, including `.git`, `.venv`, `node_modules`, `__pycache__`, `build`, `dist`, etc.
+By default, `ml-lints` excludes a comprehensive list of common "junk" and environment directories, including `.git`, `.venv`, `node_modules`, `__pycache__`, `build`, `dist`, etc.
 
 ## Suppressing individual violations
 
@@ -182,14 +180,14 @@ The recommended setup keeps the justfile as the single source of truth, with the
 **justfile:**
 
 ```just
-# Run ml-lint (return types, class shape, scope, and data-trust rules)
-lint-ml:
-    @uv run ml-lint src/
+# Run ml-lints (return types, class shape, scope, and data-trust rules)
+extra-lints:
+    @uv run ml-lints src/
 
 # Include in your main lint recipe
 lint:
     # ... ruff, ty, etc.
-    just lint-ml
+    just extra-lints
 ```
 
 **`.githooks/pre-commit`** (or however your hooks are wired):
@@ -201,7 +199,7 @@ just precommit
 **`.github/workflows/ci.yml`:**
 
 ```yaml
-- run: just lint-ml
+- run: just extra-lints
 ```
 
 ## Ruff integration
