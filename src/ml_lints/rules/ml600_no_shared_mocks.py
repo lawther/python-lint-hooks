@@ -192,12 +192,11 @@ class ML600(Rule):
                 mock_class = self._resolve_mock_class(kw.value)
                 if mock_class is None:
                     continue
-                new_repr = kw.value.id if isinstance(kw.value, ast.Name) else f"{mock_class}(...)"
                 self.report(
                     kw.value.lineno,
                     kw.value.col_offset + 1,
-                    f"@patch(new={new_repr}) shares one instance across every test; "
-                    f"use new_callable={mock_class} instead",
+                    f"@patch(new={ast.unparse(kw.value)}) shares one instance across every "
+                    f"test; use new_callable={mock_class} instead",
                 )
 
     def enter_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
