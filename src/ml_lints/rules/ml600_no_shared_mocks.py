@@ -42,12 +42,14 @@ def _mock_class_name(value: ast.expr) -> str | None:
     return None if name is None else _simple_mock_class_name(name)
 
 
+def _called_name(node: ast.expr) -> str | None:
+    """Return the dotted callee name if `node` is `name(...)` or `a.b(...)`, else None."""
+    return _dotted_name(node.func) if isinstance(node, ast.Call) else None
+
+
 def _factory_call_name(node: ast.expr) -> str | None:
-    """Return the factory's name if `node` is `factory()()`, else None."""
-    if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Call):
-        return None
-    factory = node.func.func
-    return factory.id if isinstance(factory, ast.Name) else None
+    """Return the callee's dotted name if `node` is `factory()()`, else None."""
+    return None if not isinstance(node, ast.Call) else _called_name(node.func)
 
 
 def _single_return_value(func_def: ast.FunctionDef | ast.AsyncFunctionDef) -> ast.expr | None:
@@ -57,52 +59,51 @@ def _single_return_value(func_def: ast.FunctionDef | ast.AsyncFunctionDef) -> as
     return only.value if isinstance(only, ast.Return) and only.value is not None else None
 
 
-def _module_level_patch_factories(module: ast.Module) -> frozenset[str]:
-    """Names of top-level functions whose entire body is `return patch` (or equivalent).
+def _class_method_single_returns(cls_def: ast.ClassDef) -> dict[str, ast.expr]:
+    """Map `ClassName.method` to its single return expression, for `return X`-only methods."""
+    returns: dict[str, ast.expr] = {}
+    for stmt in cls_def.body:
+        if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef):
+            value = _single_return_value(stmt)
+            if value is not None:
+                returns[f"{cls_def.name}.{stmt.name}"] = value
+    return returns
+
+
+def _single_return_functions(module: ast.Module) -> dict[str, ast.expr]:
+    """Map every function (top-level, or `Class.method`) whose body is `return X` to X.
 
     `@factory()(...)` calls the factory to get a decorator, then immediately calls the
-    result. If the factory does nothing but hand back `patch` (or `mock.patch.object`,
-    etc.) unmodified, the produced decorator behaves exactly like `patch` itself,
-    including evaluating `new=` once at import time.
+    result; `new=factory()()` does the same to get a mock class. If the factory does
+    nothing but hand back `patch` or a Mock/MagicMock/AsyncMock class unmodified, the
+    result behaves exactly like using that value directly, including evaluating `new=`
+    once at import time. A factory can itself be reached through another factory
+    (`_get_patcher2` returning `_get_patcher()`), so every such function needs indexing
+    up front — not just the ones that obviously return `patch` or a mock class — to let
+    the resolver walk the whole chain.
     """
-    factories: set[str] = set()
+    returns: dict[str, ast.expr] = {}
     for stmt in module.body:
         if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef):
             value = _single_return_value(stmt)
-            if value is not None and _is_patch_call(value):
-                factories.add(stmt.name)
-    return frozenset(factories)
+            if value is not None:
+                returns[stmt.name] = value
+        elif isinstance(stmt, ast.ClassDef):
+            returns.update(_class_method_single_returns(stmt))
+    return returns
 
 
-def _module_level_mock_class_factories(module: ast.Module) -> dict[str, str]:
-    """Map top-level functions whose entire body is `return MockClass` to that class name.
+def _top_level_name_assigns(module: ast.Module) -> dict[str, ast.expr]:
+    """Map every top-level `name = value` (or annotated) binding to its RHS value.
 
-    `new=factory()()` calls the factory to get a mock class, then instantiates it. If the
-    factory does nothing but hand back a Mock/MagicMock/AsyncMock class, the result is
-    exactly `new=MockClass()` — still built once, still shared.
+    A `new=` argument doesn't have to construct the mock inline — a bare name bound
+    once at module scope is just as shared, since the binding (like the decorator's
+    keyword arguments) is only ever evaluated at import time. The name doesn't have to
+    be bound directly to the mock either (`a = AsyncMock()` then `b = a`); every binding
+    is indexed so the resolver can follow an alias chain to whatever it ultimately
+    points at.
     """
-    factories: dict[str, str] = {}
-    for stmt in module.body:
-        if not isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef):
-            continue
-        value = _single_return_value(stmt)
-        if value is None:
-            continue
-        name = _dotted_name(value)
-        mock_class = None if name is None else _simple_mock_class_name(name)
-        if mock_class is not None:
-            factories[stmt.name] = mock_class
-    return factories
-
-
-def _module_level_mock_names(module: ast.Module) -> dict[str, str]:
-    """Map top-level `name = Mock(...)` bindings to their mock class name.
-
-    A `new=` argument doesn't have to construct the mock inline — a bare name
-    bound once at module scope is just as shared, since the binding (like the
-    decorator's keyword arguments) is only ever evaluated at import time.
-    """
-    mock_names: dict[str, str] = {}
+    assigns: dict[str, ast.expr] = {}
     for stmt in module.body:
         target: ast.expr
         value: ast.expr
@@ -112,12 +113,9 @@ def _module_level_mock_names(module: ast.Module) -> dict[str, str]:
             target, value = stmt.target, stmt.value
         else:
             continue
-        if not isinstance(target, ast.Name):
-            continue
-        mock_class = _mock_class_name(value)
-        if mock_class is not None:
-            mock_names[target.id] = mock_class
-    return mock_names
+        if isinstance(target, ast.Name):
+            assigns[target.id] = value
+    return assigns
 
 
 @register
@@ -144,7 +142,9 @@ class ML600(Rule):
     — the produced decorator behaves exactly like `patch` itself. The same applies on
     the `new=` side: a factory that just hands back a mock class
     (`def _get_cls(): return AsyncMock` then `new=_get_cls()()`) still builds one
-    instance at import time.
+    instance at import time. Resolution isn't limited to one hop: a factory reached
+    through another factory, a name aliasing another name, or a factory reached via a
+    class attribute (`Helpers.get_patcher()`) are all followed to the end of the chain.
 
     Note this only applies to the decorator form. `with patch(..., new=Mock()):`
     inside a function body is fine — that expression re-evaluates on every
@@ -158,29 +158,64 @@ class ML600(Rule):
 
     def __init__(self, context: CheckContext) -> None:
         super().__init__(context)
-        self._module_mocks: dict[str, str] = {}
-        self._patch_factories: frozenset[str] = frozenset()
-        self._mock_class_factories: dict[str, str] = {}
+        self._name_assigns: dict[str, ast.expr] = {}
+        self._factory_defs: dict[str, ast.expr] = {}
 
     def enter_Module(self, node: ast.Module) -> None:
-        self._module_mocks = _module_level_mock_names(node)
-        self._patch_factories = _module_level_patch_factories(node)
-        self._mock_class_factories = _module_level_mock_class_factories(node)
+        self._name_assigns = _top_level_name_assigns(node)
+        self._factory_defs = _single_return_functions(node)
+
+    def _resolve_mock_instance_class(self, name: str, seen: frozenset[str]) -> str | None:
+        if name in seen:
+            return None
+        value = self._name_assigns.get(name)
+        if value is None:
+            return None
+        mock_class = _mock_class_name(value)
+        if mock_class is not None:
+            return mock_class
+        if isinstance(value, ast.Name):
+            return self._resolve_mock_instance_class(value.id, seen | {name})
+        return None
+
+    def _resolve_patch_factory(self, name: str, seen: frozenset[str]) -> bool:
+        if name in seen:
+            return False
+        value = self._factory_defs.get(name)
+        if value is None:
+            return False
+        if _is_patch_call(value):
+            return True
+        inner = _called_name(value)
+        return inner is not None and self._resolve_patch_factory(inner, seen | {name})
+
+    def _resolve_mock_class_factory(self, name: str, seen: frozenset[str]) -> str | None:
+        if name in seen:
+            return None
+        value = self._factory_defs.get(name)
+        if value is None:
+            return None
+        dotted = _dotted_name(value)
+        mock_class = None if dotted is None else _simple_mock_class_name(dotted)
+        if mock_class is not None:
+            return mock_class
+        inner = _called_name(value)
+        return None if inner is None else self._resolve_mock_class_factory(inner, seen | {name})
 
     def _resolve_mock_class(self, value: ast.expr) -> str | None:
         mock_class = _mock_class_name(value)
         if mock_class is not None:
             return mock_class
         if isinstance(value, ast.Name):
-            return self._module_mocks.get(value.id)
+            return self._resolve_mock_instance_class(value.id, frozenset())
         factory_name = _factory_call_name(value)
-        return None if factory_name is None else self._mock_class_factories.get(factory_name)
+        return None if factory_name is None else self._resolve_mock_class_factory(factory_name, frozenset())
 
     def _is_patch_decorator_call(self, deco: ast.Call) -> bool:
         if _is_patch_call(deco.func):
             return True
         factory_name = _factory_call_name(deco)
-        return factory_name is not None and factory_name in self._patch_factories
+        return factory_name is not None and self._resolve_patch_factory(factory_name, frozenset())
 
     def _check_decorators(self, decorator_list: list[ast.expr]) -> None:
         for deco in decorator_list:

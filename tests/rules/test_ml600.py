@@ -110,6 +110,103 @@ def test_ml600_flags_new_via_mock_class_factory(tmp_path: Path) -> None:
     assert codes(violations) == ["ML600"]
 
 
+def test_ml600_flags_two_hop_decorator_factory_chain(tmp_path: Path) -> None:
+    # A factory can itself be reached through another factory — `_get_patcher2` doesn't
+    # return `patch` directly, it returns the *result of calling* `_get_patcher`, which
+    # does. Resolving only one hop stops at `_get_patcher2` and never discovers `patch`.
+    code = textwrap.dedent("""\
+        from unittest.mock import AsyncMock, patch
+
+        def _get_patcher():
+            return patch
+
+        def _get_patcher2():
+            return _get_patcher()
+
+        @_get_patcher2()("api.client.send", new=AsyncMock())
+        def test_send():
+            ...
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML600"]
+
+
+def test_ml600_flags_two_hop_mock_alias_chain(tmp_path: Path) -> None:
+    # Same root cause on the `new=` side: `b` aliases `a`, and `a` is the module-level
+    # mock instance. A single dict lookup for `b` finds nothing, since only `a` maps
+    # directly to a mock class — the alias chain has to be followed to the end.
+    code = textwrap.dedent("""\
+        from unittest.mock import AsyncMock, patch
+
+        a = AsyncMock()
+        b = a
+
+        @patch("api.client.send", new=b)
+        def test_send():
+            ...
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML600"]
+
+
+def test_ml600_flags_new_via_class_attribute_factory(tmp_path: Path) -> None:
+    # A factory doesn't have to be a bare module-level function — `Helpers.get_patcher`
+    # is reached through an attribute access, not a plain `Name`, so it needs dotted-name
+    # resolution rather than the `ast.Name`-only check the factory lookup used to do.
+    code = textwrap.dedent("""\
+        from unittest.mock import AsyncMock, patch
+
+        class Helpers:
+            @staticmethod
+            def get_patcher():
+                return patch
+
+        @Helpers.get_patcher()("api.client.send", new=AsyncMock())
+        def test_send():
+            ...
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML600"]
+
+
+def test_ml600_ok_self_referential_alias_does_not_crash(tmp_path: Path) -> None:
+    # `x` and `y` alias each other — nonsensical code that would NameError at runtime,
+    # but the rule still has to walk the AST without recursing forever. Cycle protection
+    # should just give up and report nothing, not hang or raise.
+    code = textwrap.dedent("""\
+        from unittest.mock import patch
+
+        x = y
+        y = x
+
+        @patch("api.client.send", new=x)
+        def test_send():
+            ...
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml600_flags_two_hop_mock_class_factory_chain(tmp_path: Path) -> None:
+    # Symmetric to the decorator-chain case: `_get_cls2` doesn't hand back `AsyncMock`
+    # directly, it hands back the result of calling `_get_cls`, which does.
+    code = textwrap.dedent("""\
+        from unittest.mock import AsyncMock, patch
+
+        def _get_cls():
+            return AsyncMock
+
+        def _get_cls2():
+            return _get_cls()
+
+        @patch("api.client.send", new=_get_cls2()())
+        def test_send():
+            ...
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML600"]
+
+
 def test_ml600_flags_decorator_on_class(tmp_path: Path) -> None:
     code = textwrap.dedent("""\
         from unittest.mock import MagicMock, patch
@@ -192,6 +289,121 @@ def test_ml600_ok_unrelated_call_with_new_kwarg(tmp_path: Path) -> None:
     """)
     violations = check(code, tmp_path)
     assert "ML600" not in codes(violations)
+
+
+def test_ml600_ok_new_references_undefined_name(tmp_path: Path) -> None:
+    # `undefined_name` isn't bound anywhere at module scope, so the alias resolver has
+    # nothing to look up — it must give up cleanly rather than assume a match.
+    code = textwrap.dedent("""\
+        from unittest.mock import patch
+
+        @patch("api.client.send", new=undefined_name)
+        def test_send():
+            ...
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml600_ok_new_aliases_non_mock_value(tmp_path: Path) -> None:
+    # `sentinel` is a module-level name, but it doesn't point at a mock — the alias
+    # chain has to terminate on "not a mock" rather than flagging every bare name.
+    code = textwrap.dedent("""\
+        from unittest.mock import patch
+
+        sentinel = object()
+
+        @patch("api.client.send", new=sentinel)
+        def test_send():
+            ...
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml600_ok_self_referential_decorator_factory_does_not_crash(tmp_path: Path) -> None:
+    # `_get_patcher` calls itself and never bottoms out at `patch` — cycle protection
+    # has to stop the recursion rather than looping forever.
+    code = textwrap.dedent("""\
+        from unittest.mock import patch
+
+        def _get_patcher():
+            return _get_patcher()
+
+        @_get_patcher()("api.client.send", new=object())
+        def test_send():
+            ...
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml600_ok_decorator_factory_calls_undefined_helper(tmp_path: Path) -> None:
+    # `_get_patcher` hands off to a name that isn't defined anywhere in the module —
+    # the chain has to end on "unknown", not assume it eventually resolves to `patch`.
+    code = textwrap.dedent("""\
+        from unittest.mock import patch
+
+        def _get_patcher():
+            return _undefined_helper()
+
+        @_get_patcher()("api.client.send", new=object())
+        def test_send():
+            ...
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml600_ok_self_referential_mock_class_factory_does_not_crash(tmp_path: Path) -> None:
+    # Same cycle-protection requirement as the decorator-factory case above, but on the
+    # `new=` side: `_get_cls` calls itself and never bottoms out at a mock class.
+    code = textwrap.dedent("""\
+        from unittest.mock import patch
+
+        def _get_cls():
+            return _get_cls()
+
+        @patch("api.client.send", new=_get_cls()())
+        def test_send():
+            ...
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml600_ok_mock_class_factory_calls_undefined_helper(tmp_path: Path) -> None:
+    # `_get_cls` hands off to an undefined name rather than a recognised mock class —
+    # the chain has to end on "unknown" instead of assuming a match.
+    code = textwrap.dedent("""\
+        from unittest.mock import patch
+
+        def _get_cls():
+            return _undefined_thing()
+
+        @patch("api.client.send", new=_get_cls()())
+        def test_send():
+            ...
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml600_ok_mock_class_factory_returns_non_callable_non_name(tmp_path: Path) -> None:
+    # `_get_cls` returns a plain literal — neither a mock class reference nor a call to
+    # another factory, so the chain must terminate without a name to keep following.
+    code = textwrap.dedent("""\
+        from unittest.mock import patch
+
+        def _get_cls():
+            return 5
+
+        @patch("api.client.send", new=_get_cls()())
+        def test_send():
+            ...
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
 
 
 # ---------------------------------------------------------------------------
