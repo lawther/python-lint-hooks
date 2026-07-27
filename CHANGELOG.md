@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.12.5](https://github.com/lawther/python-lint-hooks/compare/v0.12.4...v0.12.5) (2026-07-27)
+
+
+### Bug Fixes
+
+* **lint:** expand just lint scope and fix script lint issues ([678dad5](https://github.com/lawther/python-lint-hooks/commit/678dad5044724b627babdd37b0282a4551bcfc64))
+* **lint:** resolve ruff errors for PERF and pep8-naming rules ([23dd47d](https://github.com/lawther/python-lint-hooks/commit/23dd47d70bd3c141898b8dc1340072f95a26d5fe))
+* **lint:** resolve ruff lint errors for ALL rules configuration ([83fbc3a](https://github.com/lawther/python-lint-hooks/commit/83fbc3a8c6ca860b18aa49656db4871b3256a5e7))
+* resolve ruff lint errors for new INP, FBT, and PIE rules ([a137cb0](https://github.com/lawther/python-lint-hooks/commit/a137cb057a0804454b2443603adc56cffad5f6b0))
+
 ## [0.12.4](https://github.com/lawther/python-lint-hooks/compare/v0.12.3...v0.12.4) (2026-07-27)
 
 
