@@ -39,6 +39,40 @@ def test_ml600_flags_patch_object_decorator(tmp_path: Path) -> None:
     assert codes(violations) == ["ML600"]
 
 
+def test_ml600_flags_new_referencing_module_level_mock(tmp_path: Path) -> None:
+    # `new=` doesn't have to construct the Mock inline — a bare name pointing at a
+    # module-level instance is evaluated once at import time too, so it's decorated
+    # onto every test with the exact same shared object. This is the same footgun the
+    # rule exists to catch, just one level of indirection away from `new=Mock()`.
+    code = textwrap.dedent("""\
+        from unittest.mock import AsyncMock, patch
+
+        shared_mock = AsyncMock()
+
+        @patch("api.client.send", new=shared_mock)
+        def test_send():
+            ...
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML600"]
+
+
+def test_ml600_flags_new_referencing_annotated_module_level_mock(tmp_path: Path) -> None:
+    # Same as above but via an annotated module-level assignment, since the project's
+    # own style mandates type hints on every binding — this is the realistic shape.
+    code = textwrap.dedent("""\
+        from unittest.mock import AsyncMock, patch
+
+        shared_mock: AsyncMock = AsyncMock()
+
+        @patch("api.client.send", new=shared_mock)
+        def test_send():
+            ...
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML600"]
+
+
 def test_ml600_flags_decorator_on_class(tmp_path: Path) -> None:
     code = textwrap.dedent("""\
         from unittest.mock import MagicMock, patch
@@ -90,6 +124,23 @@ def test_ml600_ok_new_with_preconfigured_fixture_mock(tmp_path: Path) -> None:
         def test_send(configured_mock: AsyncMock) -> None:
             with patch("api.client.send", new=configured_mock):
                 ...
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml600_ok_new_with_unrelated_call(tmp_path: Path) -> None:
+    # `new=` here is a Call (rules out the module-level-name lookup) whose callee isn't
+    # one of the recognised mock classes, so it must fall through to "not flagged".
+    code = textwrap.dedent("""\
+        from unittest.mock import patch
+
+        def build_stub() -> object:
+            return object()
+
+        @patch("api.client.send", new=build_stub())
+        def test_send():
+            ...
     """)
     violations = check(code, tmp_path)
     assert violations == []
