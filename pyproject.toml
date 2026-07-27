@@ -54,19 +54,34 @@ select = [
     "TC",
     "PT",
     "W",
+    "PERF",
+    "N",
 ]
 ignore = [
-    "D100",  # missing docstring in public module
-    "D101",  # missing docstring in public class
-    "D102",  # missing docstring in public method
-    "D103",  # missing docstring in public function
-    "D104",  # missing docstring in public package
-    "D105",  # missing docstring in magic method
-    "D107",  # missing docstring in __init__
+  "COM812", # missing-trailing-comma "We recommend against using this rule alongside the formatter. The formatter enforces consistent use of trailing commas, making the rule redundant."
+  "D100",   # missing docstring in public module
+  "D101",   # missing docstring in public class
+  "D102",   # missing docstring in public method
+  "D103",   # missing docstring in public function
+  "D104",   # missing docstring in public package
+  "D105",   # missing docstring in magic method
+  "D107",   # missing docstring in __init__
+  "EM101",  # raw-string-in-exception: exception must not use a string literal, assign to variable first
+  "EM102",  # f-string-in-exception: exception must not use an f-string literal, assign to variable first
+  # "PLR0911",  # DO NOT IGNORE # too many return statements
+  # "PLR0912",  # DO NOT IGNORE # too many branches
+  # "PLR0913",  # DO NOT IGNORE # too many arguments
+  # "PLR0915",  # DO NOT IGNORE # too many statements
+  "TRY003", # raise-vanilla-args: avoid specifying long messages outside the exception class
 ]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.ruff.lint.pep8-naming]
+# AST visitor hook methods on Rule subclasses are named enter_<ASTNodeName> and leave_<ASTNodeName>
+# (e.g. enter_FunctionDef) to match standard ast.AST PascalCase class names.
+ignore-names = ["enter_*", "leave_*"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101", "S105", "S106", "PLC0415", "PLR2004", "PGH003"]

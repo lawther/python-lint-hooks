@@ -32,10 +32,7 @@ def check_file(
     tree = ast.parse(source, filename=str(path))
     context = CheckContext(path, source_lines, project_index=project_index)
 
-    rules: list[Rule] = []
-    for cls in all_rules():
-        if enabled_codes is None or cls.code in enabled_codes:
-            rules.append(cls(context))
+    rules: list[Rule] = [cls(context) for cls in all_rules() if enabled_codes is None or cls.code in enabled_codes]
 
     if rules:
         _walk(tree, rules)
