@@ -34,34 +34,7 @@ target-version = "py311"
 [tool.ruff.lint]
 external = ["ML"]
 select = [
-    "B",
-    "C4",
-    "D",
-    "DTZ",
-    "E",
-    "F",
-    "I",
-    "S",
-    "ICN",
-    "PGH",
-    "PL",
-    "RUF",
-    "UP",
-    "ANN",
-    "ASYNC",
-    "SIM",
-    "LOG",
-    "TC",
-    "PT",
-    "W",
-    "PERF",
-    "N",
-    "BLE",
-    "ARG",
-    "T",
-    "INP",
-    "FBT",
-    "PIE",
+    "ALL",
 ]
 ignore = [
   "COM812", # missing-trailing-comma "We recommend against using this rule alongside the formatter. The formatter enforces consistent use of trailing commas, making the rule redundant."
@@ -95,6 +68,7 @@ ignore-names = ["enter_*", "leave_*"]
 "src/**" = ["S603", "S607"]
 "scripts/**" = ["T201", "INP001"]
 "src/ml_lints/cli.py" = ["T201"]
+"**/_template.py" = ["ERA001", "TD002", "TD003", "FIX002"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

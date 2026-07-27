@@ -72,8 +72,8 @@ def get_user_scores() -> dict[str, int]:
 
     good_examples: ClassVar[list[str]] = [
         """
-UserId = NewType('UserId', str)
-Score = NewType('Score', int)
+UserId = NewType("UserId", str)
+Score = NewType("Score", int)
 def get_user_scores() -> dict[UserId, Score]:
     ...
 """,
