@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.12.4](https://github.com/lawther/python-lint-hooks/compare/v0.12.3...v0.12.4) (2026-07-27)
+
+
+### Bug Fixes
+
+* **ml600:** flag new= and decorators reached through a factory call ([893499b](https://github.com/lawther/python-lint-hooks/commit/893499bbf6718dcf1ad6fd1d73069c0a73fdc6ca))
+* **ml600:** render the actual new= expression in violation messages ([769fc3a](https://github.com/lawther/python-lint-hooks/commit/769fc3a93ccf2e1439ac57460b35f7b64a9e5df8))
+* **ml600:** resolve mock/patch indirection to a fixed point, not one hop ([8d0c1bb](https://github.com/lawther/python-lint-hooks/commit/8d0c1bb68eceaf0ded2860e6d38af3b5f2ee1d07)), closes [#37](https://github.com/lawther/python-lint-hooks/issues/37)
+
+
+### Documentation
+
+* update README for pypi rename to ml-lints ([0824eef](https://github.com/lawther/python-lint-hooks/commit/0824eef56663f307caacd97afa42626d74099903))
+
 ## [0.12.3](https://github.com/lawther/python-lint-hooks/compare/v0.12.2...v0.12.3) (2026-07-26)
 
 
