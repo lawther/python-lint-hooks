@@ -310,7 +310,6 @@ def initialize_color():
 def initialise_colour():
     _my_favourite_colour = "red"
     # This colour is nice
-    ...
 """,
         """
 # Override methods from base classes are exempted

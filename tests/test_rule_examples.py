@@ -82,7 +82,7 @@ def test_rule_examples_are_valid_and_accurate(rule_cls: type[Rule], tmp_path: Pa
         path = tmp_path / f"example_{rule_cls.code}_{i}.py"
         path.write_text(code + "\n", encoding="utf-8")
         result = subprocess.run(  # noqa: S603
-            ["uv", "run", "ruff", "check", "--ignore", "ANN201,RUF100,TC,T201", str(path)],  # noqa: S607
+            ["uv", "run", "ruff", "check", "--ignore", "ANN201,RUF100,TC,T201,INP001", str(path)],  # noqa: S607
             capture_output=True,
             text=True,
             check=False,

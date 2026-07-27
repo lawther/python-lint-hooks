@@ -172,7 +172,7 @@ class NewTypeIndex:
         if dotted_name in self._modules:
             return dotted_name
         path_form = dotted_name.replace(".", "/") + ".py"
-        matches = [path for path in self._modules if path.endswith("/" + path_form) or path.endswith(path_form)]
+        matches = [path for path in self._modules if path.endswith(("/" + path_form, path_form))]
         if len(matches) == 1:
             return matches[0]
         return None

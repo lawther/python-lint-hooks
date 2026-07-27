@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     import ml_lints.rules
 
 
-def generate_doc(cls: type[ml_lints.rules.Rule], out_dir: Path, check: bool = False) -> bool:
+def generate_doc(cls: type[ml_lints.rules.Rule], out_dir: Path, *, check: bool = False) -> bool:
     docstring = inspect.getdoc(cls)
     if not docstring:
         print(f"ERROR: Rule {cls.code} is missing a rationale (class docstring).", file=sys.stderr)
