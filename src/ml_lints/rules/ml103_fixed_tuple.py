@@ -33,7 +33,7 @@ class ML103(Rule):
             self._check_return(node.name, node.returns)
         self._function_depth += 1
 
-    def leave_FunctionDef(self, node: ast.FunctionDef) -> None:
+    def leave_FunctionDef(self, _node: ast.FunctionDef) -> None:
         self._function_depth -= 1
 
     enter_AsyncFunctionDef = enter_FunctionDef  # type: ignore[assignment]

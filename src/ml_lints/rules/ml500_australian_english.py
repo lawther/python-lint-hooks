@@ -215,7 +215,7 @@ class ML500(Rule):
             for attr in getattr_chain:
                 obj = getattr(obj, attr)
             result: frozenset[str] | None = frozenset(dir(obj))
-        except Exception:
+        except (ImportError, AttributeError, ValueError, TypeError):
             result = None
 
         self._BASE_METHODS_CACHE[cache_key] = result
@@ -276,7 +276,7 @@ class ML500(Rule):
             combined = combined | result
         self._class_method_stack.append(combined)
 
-    def leave_ClassDef(self, node: ast.ClassDef) -> None:
+    def leave_ClassDef(self, _node: ast.ClassDef) -> None:
         self._class_method_stack.pop()
 
     def enter_arg(self, node: ast.arg) -> None:

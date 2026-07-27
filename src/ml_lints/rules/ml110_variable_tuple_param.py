@@ -33,7 +33,7 @@ class ML110(Rule):
             self._check_params(node)
         self._function_depth += 1
 
-    def leave_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+    def leave_FunctionDef(self, _node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self._function_depth -= 1
 
     enter_AsyncFunctionDef = enter_FunctionDef  # type: ignore[assignment]

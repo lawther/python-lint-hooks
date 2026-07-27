@@ -43,10 +43,10 @@ class ML400(Rule):
     # Scope tracking — push/pop a taint scope on function/comprehension entry/exit
     # ------------------------------------------------------------------
 
-    def enter_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+    def enter_FunctionDef(self, _node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self._taint_stack.append({})
 
-    def leave_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+    def leave_FunctionDef(self, _node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self._taint_stack.pop()
 
     enter_AsyncFunctionDef = enter_FunctionDef
@@ -56,7 +56,7 @@ class ML400(Rule):
         self._taint_stack.append({})
         self._handle_comprehension(node.generators)
 
-    def leave_ListComp(self, node: ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp) -> None:
+    def leave_ListComp(self, _node: ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp) -> None:
         self._taint_stack.pop()
 
     enter_SetComp = enter_ListComp

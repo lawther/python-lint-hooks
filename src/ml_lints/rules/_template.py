@@ -37,13 +37,13 @@ class MLxxx(Rule):
     # Do NOT recurse inside these methods — the runner handles traversal.
     # ------------------------------------------------------------------
 
-    def enter_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+    def enter_FunctionDef(self, _node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         # Only inspect top-level function definitions (not nested functions).
         if self._function_depth == 0:
             pass  # TODO: replace with your check logic; call self.report() on violations
         self._function_depth += 1
 
-    def leave_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+    def leave_FunctionDef(self, _node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self._function_depth -= 1
 
     # Async functions follow the same pattern as sync ones.

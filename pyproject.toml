@@ -56,6 +56,8 @@ select = [
     "W",
     "PERF",
     "N",
+    "BLE",
+    "ARG",
 ]
 ignore = [
   "COM812", # missing-trailing-comma "We recommend against using this rule alongside the formatter. The formatter enforces consistent use of trailing commas, making the rule redundant."

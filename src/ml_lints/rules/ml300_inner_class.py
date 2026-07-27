@@ -36,10 +36,10 @@ class ML300(Rule):
         super().__init__(context)
         self._function_depth: int = 0
 
-    def enter_FunctionDef(self, node: ast.FunctionDef) -> None:
+    def enter_FunctionDef(self, _node: ast.FunctionDef) -> None:
         self._function_depth += 1
 
-    def leave_FunctionDef(self, node: ast.FunctionDef) -> None:
+    def leave_FunctionDef(self, _node: ast.FunctionDef) -> None:
         self._function_depth -= 1
 
     enter_AsyncFunctionDef = enter_FunctionDef  # type: ignore[assignment]
