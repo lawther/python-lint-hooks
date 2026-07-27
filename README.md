@@ -2,6 +2,8 @@
 
 Custom Python linting rules, distributed as a pip-installable CLI tool.
 
+These rules are aimed at optimising AI agent development. A common failure mode of Python projects as they get larger is 'wtf is this tuple?', 'what's this string/int?'. By forcing a more self-documenting code style during development, agents will spend fewer tokens parsing and analysing the code everytime you spin up a fresh context.
+
 ## Rules
 
 <!-- rules-table-start -->
