@@ -30,14 +30,69 @@ def _is_patch_call(func: ast.expr) -> bool:
     return any(name == suffix or name.endswith(f".{suffix}") for suffix in _PATCH_CALL_SUFFIXES)
 
 
+def _simple_mock_class_name(name: str) -> str | None:
+    simple = name.rsplit(".", maxsplit=1)[-1]
+    return simple if simple in _MOCK_CLASS_NAMES else None
+
+
 def _mock_class_name(value: ast.expr) -> str | None:
     if not isinstance(value, ast.Call):
         return None
     name = _dotted_name(value.func)
-    if name is None:
+    return None if name is None else _simple_mock_class_name(name)
+
+
+def _factory_call_name(node: ast.expr) -> str | None:
+    """Return the factory's name if `node` is `factory()()`, else None."""
+    if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Call):
         return None
-    simple = name.rsplit(".", maxsplit=1)[-1]
-    return simple if simple in _MOCK_CLASS_NAMES else None
+    factory = node.func.func
+    return factory.id if isinstance(factory, ast.Name) else None
+
+
+def _single_return_value(func_def: ast.FunctionDef | ast.AsyncFunctionDef) -> ast.expr | None:
+    if len(func_def.body) != 1:
+        return None
+    (only,) = func_def.body
+    return only.value if isinstance(only, ast.Return) and only.value is not None else None
+
+
+def _module_level_patch_factories(module: ast.Module) -> frozenset[str]:
+    """Names of top-level functions whose entire body is `return patch` (or equivalent).
+
+    `@factory()(...)` calls the factory to get a decorator, then immediately calls the
+    result. If the factory does nothing but hand back `patch` (or `mock.patch.object`,
+    etc.) unmodified, the produced decorator behaves exactly like `patch` itself,
+    including evaluating `new=` once at import time.
+    """
+    factories: set[str] = set()
+    for stmt in module.body:
+        if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef):
+            value = _single_return_value(stmt)
+            if value is not None and _is_patch_call(value):
+                factories.add(stmt.name)
+    return frozenset(factories)
+
+
+def _module_level_mock_class_factories(module: ast.Module) -> dict[str, str]:
+    """Map top-level functions whose entire body is `return MockClass` to that class name.
+
+    `new=factory()()` calls the factory to get a mock class, then instantiates it. If the
+    factory does nothing but hand back a Mock/MagicMock/AsyncMock class, the result is
+    exactly `new=MockClass()` — still built once, still shared.
+    """
+    factories: dict[str, str] = {}
+    for stmt in module.body:
+        if not isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        value = _single_return_value(stmt)
+        if value is None:
+            continue
+        name = _dotted_name(value)
+        mock_class = None if name is None else _simple_mock_class_name(name)
+        if mock_class is not None:
+            factories[stmt.name] = mock_class
+    return factories
 
 
 def _module_level_mock_names(module: ast.Module) -> dict[str, str]:
@@ -84,6 +139,13 @@ class ML600(Rule):
     at module scope (`shared = AsyncMock()` then `@patch(..., new=shared)`) —
     that binding is evaluated once too, so it's exactly as shared.
 
+    It also sees through a decorator factory that does nothing but hand back
+    `patch` (`def _get_patcher(): return patch` then `@_get_patcher()(..., new=Mock())`)
+    — the produced decorator behaves exactly like `patch` itself. The same applies on
+    the `new=` side: a factory that just hands back a mock class
+    (`def _get_cls(): return AsyncMock` then `new=_get_cls()()`) still builds one
+    instance at import time.
+
     Note this only applies to the decorator form. `with patch(..., new=Mock()):`
     inside a function body is fine — that expression re-evaluates on every
     call, so each test gets its own instance.
@@ -97,9 +159,13 @@ class ML600(Rule):
     def __init__(self, context: CheckContext) -> None:
         super().__init__(context)
         self._module_mocks: dict[str, str] = {}
+        self._patch_factories: frozenset[str] = frozenset()
+        self._mock_class_factories: dict[str, str] = {}
 
     def enter_Module(self, node: ast.Module) -> None:
         self._module_mocks = _module_level_mock_names(node)
+        self._patch_factories = _module_level_patch_factories(node)
+        self._mock_class_factories = _module_level_mock_class_factories(node)
 
     def _resolve_mock_class(self, value: ast.expr) -> str | None:
         mock_class = _mock_class_name(value)
@@ -107,11 +173,18 @@ class ML600(Rule):
             return mock_class
         if isinstance(value, ast.Name):
             return self._module_mocks.get(value.id)
-        return None
+        factory_name = _factory_call_name(value)
+        return None if factory_name is None else self._mock_class_factories.get(factory_name)
+
+    def _is_patch_decorator_call(self, deco: ast.Call) -> bool:
+        if _is_patch_call(deco.func):
+            return True
+        factory_name = _factory_call_name(deco)
+        return factory_name is not None and factory_name in self._patch_factories
 
     def _check_decorators(self, decorator_list: list[ast.expr]) -> None:
         for deco in decorator_list:
-            if not isinstance(deco, ast.Call) or not _is_patch_call(deco.func):
+            if not isinstance(deco, ast.Call) or not self._is_patch_decorator_call(deco):
                 continue
             for kw in deco.keywords:
                 if kw.arg != "new":

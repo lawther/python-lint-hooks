@@ -73,6 +73,43 @@ def test_ml600_flags_new_referencing_annotated_module_level_mock(tmp_path: Path)
     assert codes(violations) == ["ML600"]
 
 
+def test_ml600_flags_new_via_decorator_factory(tmp_path: Path) -> None:
+    # The decorator itself doesn't have to be a bare `patch(...)` call — a helper that
+    # returns `patch` and is then called (`@_get_patcher()(...)`) produces the exact same
+    # shared-instance decorator at runtime. `_dotted_name` only walks Name/Attribute chains,
+    # so a Call in the callee position silently fell through to "not a patch call".
+    code = textwrap.dedent("""\
+        from unittest.mock import AsyncMock, patch
+
+        def _get_patcher():
+            return patch
+
+        @_get_patcher()("api.client.send", new=AsyncMock())
+        def test_send():
+            ...
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML600"]
+
+
+def test_ml600_flags_new_via_mock_class_factory(tmp_path: Path) -> None:
+    # Symmetric to the decorator-factory case above, but the indirection is on the `new=`
+    # side: a factory that just hands back the mock class, immediately called. Same
+    # single-evaluation-at-import-time footgun, just one more hop away from `new=Mock()`.
+    code = textwrap.dedent("""\
+        from unittest.mock import AsyncMock, patch
+
+        def _get_mock_class():
+            return AsyncMock
+
+        @patch("api.client.send", new=_get_mock_class()())
+        def test_send():
+            ...
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML600"]
+
+
 def test_ml600_flags_decorator_on_class(tmp_path: Path) -> None:
     code = textwrap.dedent("""\
         from unittest.mock import MagicMock, patch
