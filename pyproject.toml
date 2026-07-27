@@ -58,6 +58,7 @@ select = [
     "N",
     "BLE",
     "ARG",
+    "T",
 ]
 ignore = [
   "COM812", # missing-trailing-comma "We recommend against using this rule alongside the formatter. The formatter enforces consistent use of trailing commas, making the rule redundant."
@@ -89,6 +90,8 @@ ignore-names = ["enter_*", "leave_*"]
 "tests/**/*.py" = ["S101", "S105", "S106", "PLC0415", "PLR2004", "PGH003"]
 "tests/**" = ["RUF003"]
 "src/**" = ["S603", "S607"]
+"scripts/**" = ["T201"]
+"src/ml_lints/cli.py" = ["T201"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
