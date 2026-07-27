@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "ml-lints"
 version = "0.12.5"
-description = "Custom Python linting rules."
+description = "Python linting rules for optimised AI agent development"
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.0",
