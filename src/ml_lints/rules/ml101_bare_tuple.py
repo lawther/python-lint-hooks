@@ -67,5 +67,5 @@ class Point(NamedTuple):
 
 def get_point() -> Point:
     ...
-"""
+""",
     ]

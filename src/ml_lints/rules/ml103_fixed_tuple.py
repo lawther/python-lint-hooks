@@ -67,5 +67,5 @@ class Dimensions(NamedTuple):
 
 def get_dimensions() -> Dimensions:
     ...
-"""
+""",
     ]

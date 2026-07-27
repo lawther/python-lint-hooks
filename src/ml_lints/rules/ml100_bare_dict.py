@@ -68,5 +68,5 @@ class UserData:
 
 def get_user_data() -> UserData:
     ...
-"""
+""",
     ]

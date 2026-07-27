@@ -63,5 +63,5 @@ def get_scores() -> tuple[int, ...]:
         """
 def get_scores() -> list[int]:
     ...
-"""
+""",
     ]

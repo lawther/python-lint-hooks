@@ -20,7 +20,8 @@ def test_mutable_mapping_of_primitives_flagged(tmp_path: Path) -> None:
 
 def test_nested_mapping_flagged(tmp_path: Path) -> None:
     violations = check(
-        "from typing import Mapping, Optional\ndef foo() -> Optional[Mapping[str, str]]: ...\n", tmp_path
+        "from typing import Mapping, Optional\ndef foo() -> Optional[Mapping[str, str]]: ...\n",
+        tmp_path,
     )
     assert len(violations) == 1
     assert violations[0].code == "ML107"

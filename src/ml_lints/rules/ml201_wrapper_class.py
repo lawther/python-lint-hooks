@@ -75,5 +75,5 @@ class UserUpdateResponse:
     username: str
     email: str
     status: str
-"""
+""",
     ]

@@ -71,5 +71,5 @@ class User:
 class User:
     id: int
     name: str
-"""
+""",
     ]

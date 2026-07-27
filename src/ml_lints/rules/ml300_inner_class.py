@@ -77,5 +77,5 @@ class _RawConfig:
 
 def parse_config(raw: str) -> None:
     ...
-"""
+""",
     ]

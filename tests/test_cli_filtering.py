@@ -20,7 +20,7 @@ def temp_project(tmp_path: Path) -> Path:
             
         def get_data() -> dict[str, str]:
             return {"x": "1"}
-    """)
+    """),
     )
     return tmp_path
 
@@ -71,7 +71,7 @@ def test_config_override(temp_project: Path) -> None:
         textwrap.dedent("""\
         [tool.python-lint-hooks]
         select = ["ML102"]
-    """)
+    """),
     )
 
     # Running without flags should only show ML102
@@ -118,7 +118,7 @@ def test_config_extend_select(temp_project: Path) -> None:
         [tool.python-lint-hooks]
         select = ["ML102"]
         extend-select = ["ML200"]
-    """)
+    """),
     )
 
     # Should show both
@@ -143,7 +143,7 @@ def test_lint_outside_cwd_uses_target_repo_pyproject_config(tmp_path: Path) -> N
         textwrap.dedent("""\
         [tool.python-lint-hooks]
         select = ["ML100"]
-    """)
+    """),
     )
 
     sibling_dir = tmp_path / "sibling_repo"
@@ -152,7 +152,7 @@ def test_lint_outside_cwd_uses_target_repo_pyproject_config(tmp_path: Path) -> N
         textwrap.dedent("""\
         [tool.python-lint-hooks]
         select = ["ML300"]
-    """)
+    """),
     )
     (sibling_dir / "main.py").write_text("def f():\n    class TargetViolation: pass\n")
 

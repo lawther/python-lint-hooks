@@ -49,7 +49,7 @@ _SINGLE_PARAM_ITERABLES = frozenset(
         "Collection",
         "Reversible",
         "Container",
-    }
+    },
 )
 
 # Containers whose first generic parameter is the iteration element (mappings).

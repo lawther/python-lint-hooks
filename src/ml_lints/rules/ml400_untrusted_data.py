@@ -143,7 +143,7 @@ class ML400(Rule):
                 path=self._context.path,
                 line=report_lineno,
                 col=report_col + 1,
-            )
+            ),
         )
 
     def _get_taint(self, name: str) -> _Tainted | None:
@@ -183,7 +183,7 @@ def get_config_timeout(path: Path):
     with open(path) as f:
         config = Config.model_validate(json.load(f))
     return config.timeout
-"""
+""",
     ]
 
 

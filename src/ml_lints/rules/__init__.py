@@ -97,7 +97,7 @@ class Rule:
                 path=self._context.path,
                 line=line,
                 col=col,
-            )
+            ),
         )
 
 

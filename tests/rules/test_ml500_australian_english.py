@@ -277,7 +277,9 @@ def test_ml500_imported_alias_also_exempt(tmp_path: Path) -> None:
 def test_ml500_override_via_dotted_base_not_flagged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # 'initialize' is a real method on the base class — it cannot be renamed.
     monkeypatch.setattr(
-        ML500, "_BASE_METHODS_CACHE", {("some_framework.core", None, ("Base",)): frozenset(["initialize"])}
+        ML500,
+        "_BASE_METHODS_CACHE",
+        {("some_framework.core", None, ("Base",)): frozenset(["initialize"])},
     )
     code = textwrap.dedent("""\
         import some_framework.core as fw
@@ -293,7 +295,9 @@ def test_ml500_override_via_dotted_base_not_flagged(tmp_path: Path, monkeypatch:
 def test_ml500_new_method_in_subclass_still_flagged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # 'save_color' is NOT on the base class, so the developer named it and must fix it.
     monkeypatch.setattr(
-        ML500, "_BASE_METHODS_CACHE", {("some_framework.core", None, ("Base",)): frozenset(["initialize"])}
+        ML500,
+        "_BASE_METHODS_CACHE",
+        {("some_framework.core", None, ("Base",)): frozenset(["initialize"])},
     )
     code = textwrap.dedent("""\
         import some_framework.core as fw
@@ -363,7 +367,9 @@ def test_ml500_3_level_chain_exempts_overrides(tmp_path: Path, monkeypatch: pyte
     # `import some_framework.core` -> local root "some_framework" maps to module "some_framework.core";
     # "core" is baked into the module path so the cache key resolves to ("some_framework.core", None, ("Base",)).
     monkeypatch.setattr(
-        ML500, "_BASE_METHODS_CACHE", {("some_framework.core", None, ("Base",)): frozenset(["initialize"])}
+        ML500,
+        "_BASE_METHODS_CACHE",
+        {("some_framework.core", None, ("Base",)): frozenset(["initialize"])},
     )
     code = textwrap.dedent("""\
         import some_framework.core
@@ -379,7 +385,9 @@ def test_ml500_3_level_chain_exempts_overrides(tmp_path: Path, monkeypatch: pyte
 def test_ml500_override_from_importfrom(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Same resolution works when the base class comes from a 'from X import Y' statement.
     monkeypatch.setattr(
-        ML500, "_BASE_METHODS_CACHE", {("some_framework.core", "Base", ("Base",)): frozenset(["initialize"])}
+        ML500,
+        "_BASE_METHODS_CACHE",
+        {("some_framework.core", "Base", ("Base",)): frozenset(["initialize"])},
     )
     code = textwrap.dedent("""\
         from some_framework.core import Base

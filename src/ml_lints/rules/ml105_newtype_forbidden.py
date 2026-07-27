@@ -70,5 +70,5 @@ class UserStats:
     user_id: str
     login_count: int
     last_login: datetime
-"""
+""",
     ]

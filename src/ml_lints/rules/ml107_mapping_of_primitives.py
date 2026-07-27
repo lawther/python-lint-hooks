@@ -65,5 +65,5 @@ HeaderName = NewType("HeaderName", str)
 HeaderValue = NewType("HeaderValue", str)
 def get_headers() -> Mapping[HeaderName, HeaderValue]:
     ...
-"""
+""",
     ]

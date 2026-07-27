@@ -144,7 +144,7 @@ class ML500(Rule):
         first = node.body[0]
         if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
             doc_node = first.value
-            value = cast(str, doc_node.value)  # narrowed by isinstance above; ast.Constant.value is typed broadly
+            value = cast("str", doc_node.value)  # narrowed by isinstance above; ast.Constant.value is typed broadly
 
             # Determine the offset to skip quotes/prefixes (r, f, u, b)
             line_text = self._context.source_lines[doc_node.lineno - 1]

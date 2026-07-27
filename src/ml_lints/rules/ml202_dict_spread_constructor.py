@@ -99,5 +99,5 @@ class Point:
 
 p = Point(1, 2)
 q = dataclasses.replace(p, x=10)
-"""
+""",
     ]

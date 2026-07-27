@@ -68,5 +68,5 @@ class Config:
 
 def get_config() -> Config:
     ...
-"""
+""",
     ]
