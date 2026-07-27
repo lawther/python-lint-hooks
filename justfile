@@ -14,9 +14,9 @@ default:
 # Run all lints and formatting
 lint:
     @echo "Linting and formatting..."
-    @uv run ruff format src/ tests/
-    @uv run ruff check --fix src/ tests/
-    @uv run ty check src/ tests/
+    @uv run ruff format .
+    @uv run ruff check --fix .
+    @uv run ty check .
     @echo "{{success}}Lint complete{{reset}}"
 
 # Run tests

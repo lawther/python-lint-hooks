@@ -14,8 +14,8 @@ from pathlib import Path
 # Ensure the src layout is on the path when run from the repo root.
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-import ml_lints.rules  # noqa: F401, E402 — triggers auto-import of all rule modules
-from ml_lints.rules import all_rules  # noqa: E402
+import ml_lints.rules
+from ml_lints.rules import all_rules
 
 
 def generate_doc(cls: type[ml_lints.rules.Rule], out_dir: Path, check: bool = False) -> bool:
@@ -37,24 +37,28 @@ def generate_doc(cls: type[ml_lints.rules.Rule], out_dir: Path, check: bool = Fa
 
     exemptions = getattr(cls, "exemptions", None)
     if exemptions:
-        md_lines.extend([
-            "## Automatic Exemptions",
-            "",
-            exemptions,
-            "",
-        ])
+        md_lines.extend(
+            [
+                "## Automatic Exemptions",
+                "",
+                exemptions,
+                "",
+            ]
+        )
 
     try:
         bad_example = cls.bad_example
         if bad_example:
-            md_lines.extend([
-                "## Bad Example",
-                "",
-                "```python",
-                textwrap.dedent(bad_example).strip(),
-                "```",
-                "",
-            ])
+            md_lines.extend(
+                [
+                    "## Bad Example",
+                    "",
+                    "```python",
+                    textwrap.dedent(bad_example).strip(),
+                    "```",
+                    "",
+                ]
+            )
     except AttributeError:
         print(f"ERROR: Rule {cls.code} is missing mandatory 'bad_example' field.", file=sys.stderr)
         sys.exit(1)
@@ -63,17 +67,21 @@ def generate_doc(cls: type[ml_lints.rules.Rule], out_dir: Path, check: bool = Fa
         good_examples = cls.good_examples
         if good_examples:
             header = "Good Example" if len(good_examples) == 1 else "Good Examples"
-            md_lines.extend([
-                f"## {header}",
-                "",
-            ])
-            for ex in good_examples:
-                md_lines.extend([
-                    "```python",
-                    textwrap.dedent(ex).strip(),
-                    "```",
+            md_lines.extend(
+                [
+                    f"## {header}",
                     "",
-                ])
+                ]
+            )
+            for ex in good_examples:
+                md_lines.extend(
+                    [
+                        "```python",
+                        textwrap.dedent(ex).strip(),
+                        "```",
+                        "",
+                    ]
+                )
     except AttributeError:
         print(f"ERROR: Rule {cls.code} is missing mandatory 'good_examples' field.", file=sys.stderr)
         sys.exit(1)
@@ -82,9 +90,7 @@ def generate_doc(cls: type[ml_lints.rules.Rule], out_dir: Path, check: bool = Fa
     new_content = "\n".join(md_lines)
 
     if check:
-        if not out_file.exists() or out_file.read_text(encoding="utf-8") != new_content:
-            return False
-        return True
+        return out_file.exists() and out_file.read_text(encoding="utf-8") == new_content
 
     out_file.write_text(new_content, encoding="utf-8")
     print(f"Generated {out_file}")

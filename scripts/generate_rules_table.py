@@ -15,9 +15,8 @@ from pathlib import Path
 # Ensure the src layout is on the path when run from the repo root.
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-import ml_lints.rules  # noqa: F401, E402 — triggers auto-import of all rule modules
-
-from ml_lints.rules import all_rules  # noqa: E402
+import ml_lints.rules  # noqa: F401 — triggers auto-import of all rule modules
+from ml_lints.rules import all_rules
 
 _START = "<!-- rules-table-start -->"
 _END = "<!-- rules-table-end -->"
@@ -53,7 +52,7 @@ def main() -> None:
         sys.exit(1)
 
     new_table = _build_table()
-    new_content = content[:start_idx] + new_table + content[end_idx + len(_END):]
+    new_content = content[:start_idx] + new_table + content[end_idx + len(_END) :]
 
     if args.check:
         if new_content != content:
