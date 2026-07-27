@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 # Standard imports to ensure examples are valid Python and focus on the rule logic.
 # We include
 PRELUDE = textwrap.dedent("""\
-    # ruff: noqa: F401, I001
+    # ruff: noqa: F401, I001, TC
     from __future__ import annotations
 
     import collections.abc
@@ -81,7 +81,7 @@ def test_rule_examples_are_valid_and_accurate(rule_cls: type[Rule], tmp_path: Pa
         path = tmp_path / f"example_{rule_cls.code}_{i}.py"
         path.write_text(code + "\n", encoding="utf-8")
         result = subprocess.run(  # noqa: S603
-            ["uv", "run", "ruff", "check", "--ignore", "ANN201,RUF100", str(path)],  # noqa: S607
+            ["uv", "run", "ruff", "check", "--ignore", "ANN201,RUF100,TC", str(path)],  # noqa: S607
             capture_output=True,
             text=True,
             check=False,

@@ -5,14 +5,17 @@ from __future__ import annotations
 import contextlib
 import io
 import sys
-from pathlib import Path
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 import pytest
 
 from ml_lints import cli
 from ml_lints.runner import check_paths
-from ml_lints.violation import RuleCode, Violation
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from ml_lints.violation import RuleCode, Violation
 
 
 class LintResult(NamedTuple):

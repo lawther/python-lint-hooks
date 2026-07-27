@@ -5,10 +5,12 @@ See CONTRIBUTING_RULES.md for the full rule-writing guide.
 
 from __future__ import annotations
 
-import ast
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from ml_lints.rules import CheckContext, Rule, RuleCategory, RuleCode, register
+
+if TYPE_CHECKING:
+    import ast
 
 
 @register

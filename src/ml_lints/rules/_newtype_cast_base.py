@@ -11,10 +11,13 @@ Filename is prefixed with `_` so the rule auto-discovery in
 
 from __future__ import annotations
 
-import ast
+from typing import TYPE_CHECKING
 
 from ml_lints.analyzers.newtype_casts import CastFinding, NewTypeCastAnalyzer
 from ml_lints.rules import CheckContext, Rule
+
+if TYPE_CHECKING:
+    import ast
 
 
 class NewTypeCastRuleBase(Rule):

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-import ast
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from ml_lints.analyzers.forbidden_types import ForbiddenTypeAnalyzer
 from ml_lints.rules import CheckContext, Rule, RuleCategory, RuleCode, annotation_noqa_lines, register
+
+if TYPE_CHECKING:
+    import ast
 
 _SERIALISATION_METHOD_NAMES: frozenset[str] = frozenset({"to_dict", "as_dict"})
 

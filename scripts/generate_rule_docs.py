@@ -14,8 +14,12 @@ from pathlib import Path
 # Ensure the src layout is on the path when run from the repo root.
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-import ml_lints.rules
+from typing import TYPE_CHECKING
+
 from ml_lints.rules import all_rules
+
+if TYPE_CHECKING:
+    import ml_lints.rules
 
 
 def generate_doc(cls: type[ml_lints.rules.Rule], out_dir: Path, check: bool = False) -> bool:

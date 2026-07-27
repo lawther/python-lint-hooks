@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from tests.conftest import LintResult, run_lint
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def run_explain(cwd: Path, code: str) -> LintResult:

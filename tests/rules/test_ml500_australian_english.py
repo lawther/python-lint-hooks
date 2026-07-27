@@ -5,11 +5,13 @@ from __future__ import annotations
 import pathlib
 import textwrap
 from pathlib import Path
-
-import pytest
+from typing import TYPE_CHECKING
 
 from ml_lints.rules.ml500_australian_english import ML500
 from tests.conftest import check, codes
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def test_ml500_flagged_in_variable(tmp_path: Path) -> None:

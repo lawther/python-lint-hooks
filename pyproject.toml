@@ -51,6 +51,7 @@ select = [
     "ASYNC",
     "SIM",
     "LOG",
+    "TC",
 ]
 ignore = [
     "D100",  # missing docstring in public module

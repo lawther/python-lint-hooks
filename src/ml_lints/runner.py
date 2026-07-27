@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import ast
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ml_lints.analyzers.newtype_index import NewTypeIndex
 from ml_lints.rules import CheckContext, Rule, all_rules
-from ml_lints.violation import RuleCode, Violation
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from ml_lints.violation import RuleCode, Violation
 
 
 def check_file(

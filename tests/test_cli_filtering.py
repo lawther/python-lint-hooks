@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import textwrap
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from tests.conftest import run_lint
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture

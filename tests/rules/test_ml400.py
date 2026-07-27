@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import textwrap
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from tests.conftest import check, codes
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_unvalidated_external_data_flagged(tmp_path: Path) -> None:

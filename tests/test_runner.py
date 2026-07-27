@@ -7,9 +7,12 @@ rather than a single rule.
 from __future__ import annotations
 
 import textwrap
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from tests.conftest import check, codes
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_dict_and_tuple_violations_separate_codes(tmp_path: Path) -> None:

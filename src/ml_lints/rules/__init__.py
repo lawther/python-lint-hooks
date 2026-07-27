@@ -7,7 +7,6 @@ inside it to be added to the registry.
 
 from __future__ import annotations
 
-import ast
 import importlib
 import pkgutil
 from enum import Enum
@@ -17,6 +16,7 @@ from ml_lints.noqa import has_noqa
 from ml_lints.violation import RuleCode, Violation
 
 if TYPE_CHECKING:
+    import ast
     from pathlib import Path
 
     from ml_lints.analyzers.newtype_index import NewTypeIndex
