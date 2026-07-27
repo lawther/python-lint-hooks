@@ -53,6 +53,7 @@ select = [
     "LOG",
     "TC",
     "PT",
+    "W",
 ]
 ignore = [
     "D100",  # missing docstring in public module

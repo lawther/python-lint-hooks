@@ -16,11 +16,11 @@ def temp_project(tmp_path: Path) -> Path:
     (tmp_path / "main.py").write_text(
         textwrap.dedent("""\
         from dataclasses import dataclass
-        
+
         @dataclass
         class Point:
             x: int
-            
+
         def get_data() -> dict[str, str]:
             return {"x": "1"}
     """),

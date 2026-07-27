@@ -98,7 +98,7 @@ def test_ml501_ignored_in_docstrings(tmp_path: Path) -> None:
     code = textwrap.dedent('''\
         def fn():
             """Normalize this version(s) function.
-            
+
             It manages key(s) and secrets.
             """
             pass
