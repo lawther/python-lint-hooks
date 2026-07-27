@@ -58,7 +58,7 @@ def main() -> None:
         print(
             f"{name:<{name_width}}  {s.num_branches:>8}  {s.covered_branches:>7}  "
             f"{s.num_partial_branches:>7}  {s.missing_branches:>6}  "
-            f"{_pct(s):>5.0f}%"
+            f"{_pct(s):>5.0f}%",
         )
 
     t = report.totals
@@ -66,7 +66,7 @@ def main() -> None:
     print(
         f"{'TOTAL':<{name_width}}  {t.num_branches:>8}  {t.covered_branches:>7}  "
         f"{t.num_partial_branches:>7}  {t.missing_branches:>6}  "
-        f"{_pct(t):>5.0f}%"
+        f"{_pct(t):>5.0f}%",
     )
 
 

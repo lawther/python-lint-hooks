@@ -46,7 +46,8 @@ def test_rule_metadata_is_complete(rule_cls: type[Rule]) -> None:
     """Verify that every rule subclass has its own unique rationale and examples."""
     # Ensure docstring is not inherited from the base class (Rule)
     doc = rule_cls.__dict__.get("__doc__")
-    assert doc and doc.strip(), f"Rule {rule_cls.code} is missing a unique rationale (class docstring)."
+    assert doc, f"Rule {rule_cls.code} is missing a unique rationale (class docstring)."
+    assert doc.strip(), f"Rule {rule_cls.code} is missing a unique rationale (class docstring)."
 
     assert rule_cls.bad_example.strip(), f"Rule {rule_cls.code} is missing a 'bad_example'."
     assert len(rule_cls.good_examples) > 0, f"Rule {rule_cls.code} is missing 'good_examples'."

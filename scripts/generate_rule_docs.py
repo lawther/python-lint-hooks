@@ -47,7 +47,7 @@ def generate_doc(cls: type[ml_lints.rules.Rule], out_dir: Path, check: bool = Fa
                 "",
                 exemptions,
                 "",
-            ]
+            ],
         )
 
     try:
@@ -61,7 +61,7 @@ def generate_doc(cls: type[ml_lints.rules.Rule], out_dir: Path, check: bool = Fa
                     textwrap.dedent(bad_example).strip(),
                     "```",
                     "",
-                ]
+                ],
             )
     except AttributeError:
         print(f"ERROR: Rule {cls.code} is missing mandatory 'bad_example' field.", file=sys.stderr)
@@ -75,7 +75,7 @@ def generate_doc(cls: type[ml_lints.rules.Rule], out_dir: Path, check: bool = Fa
                 [
                     f"## {header}",
                     "",
-                ]
+                ],
             )
             for ex in good_examples:
                 md_lines.extend(
@@ -84,7 +84,7 @@ def generate_doc(cls: type[ml_lints.rules.Rule], out_dir: Path, check: bool = Fa
                         textwrap.dedent(ex).strip(),
                         "```",
                         "",
-                    ]
+                    ],
                 )
     except AttributeError:
         print(f"ERROR: Rule {cls.code} is missing mandatory 'good_examples' field.", file=sys.stderr)
