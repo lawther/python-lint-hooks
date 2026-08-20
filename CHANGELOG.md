@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.13.0](https://github.com/lawther/python-lint-hooks/compare/v0.12.5...v0.13.0) (2026-08-20)
+
+
+### Features
+
+* exempt designated converter functions from ML109 ([01df403](https://github.com/lawther/python-lint-hooks/commit/01df4037892ea4d4766df5a38b3079d74daa44ed))
+
+
+### Bug Fixes
+
+* ingest definitions inside conditional blocks ([7b7f04e](https://github.com/lawther/python-lint-hooks/commit/7b7f04e87e1bcfec7f9f37caf5fc76e505d8b9ca))
+* require a directory boundary when matching an import to a module ([951dbdc](https://github.com/lawther/python-lint-hooks/commit/951dbdc24caa9f74648152064db6a81c44b1553e))
+* resolve NewType identities through re-export chains ([aa54991](https://github.com/lawther/python-lint-hooks/commit/aa54991a0bcd30497527e4be7d7b9c159340f3b5))
+
+
+### Documentation
+
+* Clarify AI agent development focus ([b8ff1d9](https://github.com/lawther/python-lint-hooks/commit/b8ff1d97e047f65e84d1a656d70d89e999ee2a7a))
+* spell out the converter shape in ML109's hint ([36a18c7](https://github.com/lawther/python-lint-hooks/commit/36a18c77d42c1936bed4b9641dffd8c9bcba0a95))
+* Update project description ([355351c](https://github.com/lawther/python-lint-hooks/commit/355351cfdc85d131aa3043bb22331289d119ce68))
+
 ## [0.12.5](https://github.com/lawther/python-lint-hooks/compare/v0.12.4...v0.12.5) (2026-07-27)
 
 
