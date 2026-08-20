@@ -199,8 +199,6 @@ class NewTypeIndex:
         those imported from a plain module. Returns None when there is no match
         or when multiple candidates exist (ambiguous import).
         """
-        if dotted_name in self._modules:
-            return dotted_name
         base = dotted_name.replace(".", "/")
         stems = (base + ".py", base + "/__init__.py")
         # `path == stem` covers a relative path that is exactly the module; otherwise a
@@ -258,31 +256,6 @@ class NewTypeIndex:
         defining_module, original_name = resolved
         return NewTypeId(defining_module, original_name)
 
-    def resolve_annotation(self, module: str, expr: ast.expr) -> NewTypeId | None:
-        """Return the NewType identity for an annotation expression.
-
-        Only bare `Name` annotations are considered. Subscripted, attribute,
-        callable, and string annotations all return None — the rule treats
-        those as unresolved and stays silent.
-        """
-        if isinstance(expr, ast.Name):
-            return self.resolve_local_name(module, expr.id)
-        return None
-
-    def lookup_class_field(self, class_module: str, class_name: str, field_name: str) -> NewTypeId | None:
-        """Return the NewType identity of `ClassName.field` defined in `class_module`."""
-        annotation = self.get_class_field_annotation(class_module, class_name, field_name)
-        if annotation is None:
-            return None
-        return self.resolve_annotation(class_module, annotation)
-
-    def lookup_function_return(self, module: str, function_name: str) -> NewTypeId | None:
-        """Return the NewType identity of `function_name`'s return annotation."""
-        annotation = self.get_function_return_annotation(module, function_name)
-        if annotation is None:
-            return None
-        return self.resolve_annotation(module, annotation)
-
     def get_class_field_annotation(self, class_module: str, class_name: str, field_name: str) -> ast.expr | None:
         """Return the raw annotation expression of `ClassName.field` defined in `class_module`."""
         info = self._modules.get(class_module)
@@ -311,9 +284,6 @@ class NewTypeIndex:
     def find_function_module(self, calling_module: str, function_name: str) -> tuple[str, str] | None:
         """Resolve `function_name` in `calling_module` to (defining_module, original_name)."""
         return self._resolve_symbol(calling_module, function_name, "function_returns")
-
-    def is_newtype(self, identity: NewTypeId) -> bool:
-        return identity in self._newtype_bases
 
     def canonical_base(self, identity: NewTypeId) -> BuiltinBase:
         return self._newtype_bases.get(identity, BuiltinBase.UNKNOWN)
