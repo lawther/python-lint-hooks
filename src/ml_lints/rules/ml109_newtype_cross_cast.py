@@ -44,7 +44,7 @@ class ML109(NewTypeCastRuleBase):
     code: ClassVar[RuleCode] = RuleCode.ML109
     category: ClassVar[RuleCategory] = RuleCategory.TYPE_HYGIENE
     summary: ClassVar[str] = "Cast between two `NewType`s of the same base"
-    suggestion: ClassVar[str] = "Unify the two NewTypes, or route the conversion through one named converter function"
+    suggestion: ClassVar[str] = "Unify the two NewTypes, or name the conversion once: `def f(x: U) -> T: return T(x)`"
 
     def _handle_finding(self, finding: CastFinding) -> None:
         if finding.kind is not CastKind.CROSS_SAME_BASE:
@@ -54,8 +54,9 @@ class ML109(NewTypeCastRuleBase):
             finding.col,
             (
                 f"Cast between NewTypes '{finding.arg_newtype.name}' and "
-                f"'{finding.constructor.name}' over the same base; consider unifying them "
-                f"into a single NewType"
+                f"'{finding.constructor.name}' over the same base; unify them into a single "
+                f"NewType, or name the conversion once: 'def f(x: {finding.arg_newtype.name}) -> "
+                f"{finding.constructor.name}: return {finding.constructor.name}(x)'"
             ),
         )
 
