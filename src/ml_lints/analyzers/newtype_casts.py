@@ -5,6 +5,9 @@ Tracks the static type of names visible at a call site and decides whether
 when the static type of the argument cannot be resolved, the call is left
 alone and the consuming rule emits no violation.
 
+A cast is also exempt when it *is* a function's declared conversion —
+`def f(x: U) -> T: return T(x)`. See `_is_designated_converter_return`.
+
 Internally, the analyzer keeps a stack of scopes (one per function or
 comprehension layer). Each scope maps a local name to a `ResolvedType`
 that records what the name statically refers to: a NewType identity, a
@@ -70,6 +73,40 @@ def _extract_homogeneous_tuple_element(slice_expr: ast.expr) -> ast.expr | None:
     return None
 
 
+@dataclass(frozen=True)
+class _FunctionFrame:
+    """What the analyzer remembers about the function it is currently inside.
+
+    Used to recognise a designated converter: a function whose signature declares
+    the very conversion its body performs.
+    """
+
+    return_annotation: ast.expr | None
+    param_names: frozenset[str]
+    return_call_ids: frozenset[int]
+    """`id()` of every Call that is a direct `return <call>` value of this function."""
+
+
+def _direct_return_call_ids(node: ast.FunctionDef | ast.AsyncFunctionDef) -> frozenset[int]:
+    """Collect `id()` of each Call returned directly by `node`, ignoring nested functions."""
+    found: set[int] = set()
+    stack: list[ast.AST] = list(node.body)
+    while stack:
+        current = stack.pop()
+        if isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda | ast.ClassDef):
+            continue
+        if isinstance(current, ast.Return) and isinstance(current.value, ast.Call):
+            found.add(id(current.value))
+        stack.extend(ast.iter_child_nodes(current))
+    return frozenset(found)
+
+
+def _parameter_names(node: ast.FunctionDef | ast.AsyncFunctionDef) -> frozenset[str]:
+    args = node.args
+    names = {arg.arg for arg in itertools.chain(args.posonlyargs, args.args, args.kwonlyargs)}
+    return frozenset(names)
+
+
 class CastKind(Enum):
     """How a `T(x)` call relates to the static type of its argument."""
 
@@ -123,6 +160,8 @@ class NewTypeCastAnalyzer:
         self._index = index
         # Stack of {name: ResolvedType}. Bottom layer is module scope.
         self._scopes: list[dict[str, ResolvedType]] = [{}]
+        # Stack of enclosing function frames; empty at module level.
+        self._function_frames: list[_FunctionFrame] = []
 
     # ------------------------------------------------------------------
     # Scope tracking — driven by the rule's AST hooks
@@ -142,9 +181,17 @@ class NewTypeCastAnalyzer:
         if node.args.kwarg is not None:
             self._bind_arg(node.args.kwarg, scope)
         self._scopes.append(scope)
+        self._function_frames.append(
+            _FunctionFrame(
+                return_annotation=node.returns,
+                param_names=_parameter_names(node),
+                return_call_ids=_direct_return_call_ids(node),
+            ),
+        )
 
     def leave_function(self, _node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self._scopes.pop()
+        self._function_frames.pop()
 
     def record_ann_assign(self, node: ast.AnnAssign) -> None:
         if not isinstance(node.target, ast.Name):
@@ -205,8 +252,36 @@ class NewTypeCastAnalyzer:
             arg_base = self._index.canonical_base(arg_identity)
             if ctor_base == BuiltinBase.UNKNOWN or ctor_base != arg_base:
                 return None
+            if self._is_designated_converter_return(node, arg, constructor):
+                return None
             kind = CastKind.CROSS_SAME_BASE
         return CastFinding(kind, constructor, arg_identity, node.lineno, node.col_offset + 1)
+
+    def _is_designated_converter_return(self, node: ast.Call, arg: ast.expr, constructor: NewTypeId) -> bool:
+        """Is this cast the whole point of the function it sits in?
+
+        True for `def f(x: U) -> T: return T(x)` — a function whose signature *is* the
+        conversion, converting one of its own parameters into the NewType it declares it
+        returns. Cross-casts are worth flagging because they are scattered and unexplained;
+        a named converter is the deliberate opposite, and is what a project should be
+        pushed towards when two NewTypes genuinely must stay distinct. Flagging it too
+        would leave `# noqa` as the only way to express the intent.
+
+        Deliberately narrow: the cast must be the function's direct return value, and its
+        argument must be a parameter of that same function. A cast buried mid-body, or one
+        converting something the function fetched from elsewhere, stays reportable.
+        """
+        if not self._function_frames:
+            return False
+        frame = self._function_frames[-1]
+        if id(node) not in frame.return_call_ids:
+            return False
+        if not isinstance(arg, ast.Name) or arg.id not in frame.param_names:
+            return False
+        if frame.return_annotation is None:
+            return False
+        declared = self._resolve_in_module(self._module, frame.return_annotation)
+        return declared.newtype == constructor
 
     # ------------------------------------------------------------------
     # Binding helpers

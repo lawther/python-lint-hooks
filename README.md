@@ -18,7 +18,7 @@ These rules are aimed at optimising AI agent development. A common failure mode 
 | [`ML106`](docs/rules/ML106.md) | Function returns a bare `Mapping` | Use a dataclass instead |
 | [`ML107`](docs/rules/ML107.md) | Function returns a `Mapping` of primitives | Use a dataclass or `NewType` for keys/values |
 | [`ML108`](docs/rules/ML108.md) | No-op `NewType` cast (value already of that type) | Drop the redundant cast |
-| [`ML109`](docs/rules/ML109.md) | Cast between two `NewType`s of the same base | Unify the two NewTypes — they model the same concept |
+| [`ML109`](docs/rules/ML109.md) | Cast between two `NewType`s of the same base | Unify the two NewTypes, or route the conversion through one named converter function |
 | [`ML110`](docs/rules/ML110.md) | Function parameter has variable-length `tuple` annotation | Use `list[T]`, `Sequence[T]`, or a NamedTuple instead |
 | [`ML200`](docs/rules/ML200.md) | Dataclass is not frozen | Use `@dataclass(frozen=True)` |
 | [`ML201`](docs/rules/ML201.md) | Class contains only forbidden types | Use a proper abstraction with well-typed fields |

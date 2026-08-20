@@ -352,3 +352,202 @@ def test_circular_reexport_terminates(tmp_path: Path) -> None:
     }
     violations = check_project(files, tmp_path)
     assert violations == []
+
+
+def test_designated_converter_not_flagged(tmp_path: Path) -> None:
+    # A function whose signature *is* the conversion is the sanctioned way to keep two
+    # NewTypes distinct while still crossing between them. Flagging it would make `# noqa`
+    # the only way to express a deliberate, documented conversion.
+    files = {
+        "pkg/app.py": textwrap.dedent("""\
+            from typing import NewType
+
+            GoogleEventId = NewType("GoogleEventId", str)
+            GCalEventId = NewType("GCalEventId", str)
+
+            def adopt_google_event_id(google: GoogleEventId) -> GCalEventId:
+                return GCalEventId(google)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    assert violations == []
+
+
+def test_designated_converter_with_docstring_and_guard_not_flagged(tmp_path: Path) -> None:
+    # A converter is still a converter when it has a docstring and validates its input
+    # first — the exemption keys off the return statement, not a single-statement body.
+    files = {
+        "pkg/app.py": textwrap.dedent('''\
+            from typing import NewType
+
+            GoogleEventId = NewType("GoogleEventId", str)
+            GCalEventId = NewType("GCalEventId", str)
+
+            def adopt_google_event_id(google: GoogleEventId) -> GCalEventId:
+                """Legacy events have no GCal id of their own."""
+                if not google:
+                    msg = "empty id"
+                    raise ValueError(msg)
+                return GCalEventId(google)
+        '''),
+    }
+    violations = check_project(files, tmp_path)
+    assert violations == []
+
+
+def test_converter_across_modules_not_flagged(tmp_path: Path) -> None:
+    # The declared return type resolves through an import like any other annotation.
+    files = {
+        "pkg/ids.py": textwrap.dedent("""\
+            from typing import NewType
+
+            GoogleEventId = NewType("GoogleEventId", str)
+            GCalEventId = NewType("GCalEventId", str)
+        """),
+        "pkg/convert.py": textwrap.dedent("""\
+            from pkg.ids import GCalEventId, GoogleEventId
+
+            def adopt(google: GoogleEventId) -> GCalEventId:
+                return GCalEventId(google)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    assert violations == []
+
+
+def test_cast_mid_body_still_flagged(tmp_path: Path) -> None:
+    # Only the direct return value is exempt. A cast buried mid-body is exactly the
+    # scattered, unexplained crossing the rule exists to catch, even inside a function
+    # that happens to declare the right return type.
+    files = {
+        "pkg/app.py": textwrap.dedent("""\
+            from typing import NewType
+
+            GoogleEventId = NewType("GoogleEventId", str)
+            GCalEventId = NewType("GCalEventId", str)
+
+            def sink(eid: GCalEventId) -> None: ...
+
+            def adopt(google: GoogleEventId) -> GCalEventId:
+                sink(GCalEventId(google))
+                return GCalEventId(google)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    ml109 = [v for v in violations if v.code == "ML109"]
+    assert len(ml109) == 1
+    # The mid-body call, not the returned one.
+    assert ml109[0].line == 9
+
+
+def test_converter_returning_non_parameter_still_flagged(tmp_path: Path) -> None:
+    # Converting something the function fetched from elsewhere is not "this function's
+    # job is converting its input" — it is an ordinary crossing that needs justifying.
+    files = {
+        "pkg/app.py": textwrap.dedent("""\
+            from typing import NewType
+
+            GoogleEventId = NewType("GoogleEventId", str)
+            GCalEventId = NewType("GCalEventId", str)
+
+            def adopt(unrelated: str) -> GCalEventId:
+                current: GoogleEventId = GoogleEventId(unrelated)
+                return GCalEventId(current)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    assert codes(violations) == ["ML109"]
+
+
+def test_converter_with_mismatched_return_annotation_still_flagged(tmp_path: Path) -> None:
+    # The exemption requires the declared return type to be the NewType being constructed.
+    # A function returning something else is not declaring this conversion.
+    files = {
+        "pkg/app.py": textwrap.dedent("""\
+            from typing import NewType
+
+            GoogleEventId = NewType("GoogleEventId", str)
+            GCalEventId = NewType("GCalEventId", str)
+            OtherId = NewType("OtherId", str)
+
+            def adopt(google: GoogleEventId) -> OtherId:
+                return GCalEventId(google)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    assert codes(violations) == ["ML109"]
+
+
+def test_unannotated_converter_still_flagged(tmp_path: Path) -> None:
+    # Without a return annotation the function declares nothing, so there is no
+    # signature-level statement of intent to defer to.
+    files = {
+        "pkg/app.py": textwrap.dedent("""\
+            from typing import NewType
+
+            GoogleEventId = NewType("GoogleEventId", str)
+            GCalEventId = NewType("GCalEventId", str)
+
+            def adopt(google: GoogleEventId):
+                return GCalEventId(google)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    assert codes(violations) == ["ML109"]
+
+
+def test_nested_function_return_does_not_exempt_outer_cast(tmp_path: Path) -> None:
+    # The exemption belongs to the function that owns the return statement. A cast in an
+    # enclosing function must not inherit a nested function's declared conversion.
+    files = {
+        "pkg/app.py": textwrap.dedent("""\
+            from typing import NewType
+
+            GoogleEventId = NewType("GoogleEventId", str)
+            GCalEventId = NewType("GCalEventId", str)
+
+            def outer(google: GoogleEventId) -> GCalEventId:
+                def inner(nested: GoogleEventId) -> GCalEventId:
+                    return GCalEventId(nested)
+                _ = GCalEventId(google)
+                return inner(google)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    ml109 = [v for v in violations if v.code == "ML109"]
+    # Only the outer, mid-body cast; the nested function's return is its own converter.
+    assert len(ml109) == 1
+    assert ml109[0].line == 9
+
+
+def test_self_cast_in_converter_shape_still_flagged_as_ml108(tmp_path: Path) -> None:
+    # The exemption is for crossings that must stay distinct. A function that "converts" a
+    # NewType to itself is pure ceremony, so ML108 must still fire.
+    files = {
+        "pkg/app.py": textwrap.dedent("""\
+            from typing import NewType
+
+            EventId = NewType("EventId", str)
+
+            def passthrough(eid: EventId) -> EventId:
+                return EventId(eid)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    assert codes(violations) == ["ML108"]
+
+
+def test_async_converter_not_flagged(tmp_path: Path) -> None:
+    files = {
+        "pkg/app.py": textwrap.dedent("""\
+            from typing import NewType
+
+            GoogleEventId = NewType("GoogleEventId", str)
+            GCalEventId = NewType("GCalEventId", str)
+
+            async def adopt(google: GoogleEventId) -> GCalEventId:
+                return GCalEventId(google)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    assert violations == []
