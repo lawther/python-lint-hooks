@@ -216,3 +216,139 @@ def test_noqa_suppresses(tmp_path: Path) -> None:
     }
     violations = check_project(files, tmp_path)
     assert violations == []
+
+
+def test_cross_cast_via_module_reexport_flagged(tmp_path: Path) -> None:
+    # The argument's NewType is imported from a module that itself only re-exports it.
+    # Resolution must follow the alias chain through to the defining module, otherwise
+    # the identical cast fires or stays silent depending purely on which import the
+    # call site happened to use.
+    files = {
+        "pkg/common.py": textwrap.dedent("""\
+            from typing import NewType
+
+            GCalEventId = NewType("GCalEventId", str)
+        """),
+        "pkg/interval_ops.py": textwrap.dedent("""\
+            from pkg.common import GCalEventId
+
+            __all__ = ["GCalEventId"]
+        """),
+        "pkg/app.py": textwrap.dedent("""\
+            from typing import NewType
+
+            from pkg.interval_ops import GCalEventId
+
+            CaseyEventId = NewType("CaseyEventId", str)
+
+            def caller(gcal: GCalEventId) -> None:
+                _ = CaseyEventId(gcal)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    ml109 = [v for v in violations if v.code == "ML109"]
+    assert len(ml109) == 1
+    assert ml109[0].path.name == "app.py"
+
+
+def test_cross_cast_via_package_init_reexport_flagged(tmp_path: Path) -> None:
+    # Same as above, but the re-exporting module is a package's __init__.py, which the
+    # dotted-name → path mapping must also recognise.
+    files = {
+        "pkg/db/__init__.py": textwrap.dedent("""\
+            from pkg.db.common import GCalEventId
+
+            __all__ = ["GCalEventId"]
+        """),
+        "pkg/db/common.py": textwrap.dedent("""\
+            from typing import NewType
+
+            GCalEventId = NewType("GCalEventId", str)
+        """),
+        "pkg/app.py": textwrap.dedent("""\
+            from typing import NewType
+
+            from pkg.db import GCalEventId
+
+            CaseyEventId = NewType("CaseyEventId", str)
+
+            def caller(gcal: GCalEventId) -> None:
+                _ = CaseyEventId(gcal)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    ml109 = [v for v in violations if v.code == "ML109"]
+    assert len(ml109) == 1
+    assert ml109[0].path.name == "app.py"
+
+
+def test_reexport_chain_gives_same_identity_as_direct_import(tmp_path: Path) -> None:
+    # A cast through a re-export must resolve to the *same* NewType identity as the
+    # direct import, so casting a value to its own NewType is a self-cast (ML108),
+    # never a cross-cast (ML109).
+    files = {
+        "pkg/common.py": textwrap.dedent("""\
+            from typing import NewType
+
+            GCalEventId = NewType("GCalEventId", str)
+        """),
+        "pkg/reexport.py": textwrap.dedent("""\
+            from pkg.common import GCalEventId
+
+            __all__ = ["GCalEventId"]
+        """),
+        "pkg/app.py": textwrap.dedent("""\
+            from pkg.common import GCalEventId
+            from pkg.reexport import GCalEventId as AliasedGCalEventId
+
+            def caller(gcal: GCalEventId) -> None:
+                _ = AliasedGCalEventId(gcal)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    assert codes(violations) == ["ML108"]
+
+
+def test_reexport_of_unknown_symbol_stays_silent(tmp_path: Path) -> None:
+    # The chain walk must not resolve a name that no module in the chain actually
+    # defines as a NewType — an unresolvable argument type means no violation.
+    files = {
+        "pkg/hop.py": textwrap.dedent("""\
+            from pkg.missing import SomeId
+
+            __all__ = ["SomeId"]
+        """),
+        "pkg/app.py": textwrap.dedent("""\
+            from typing import NewType
+
+            from pkg.hop import SomeId
+
+            CaseyEventId = NewType("CaseyEventId", str)
+
+            def caller(value: SomeId) -> None:
+                _ = CaseyEventId(value)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    assert violations == []
+
+
+def test_circular_reexport_terminates(tmp_path: Path) -> None:
+    # Two modules importing the same name from each other must not send the chain
+    # walk into an infinite loop.
+    files = {
+        "pkg/a.py": 'from pkg.b import Spinning\n\n__all__ = ["Spinning"]\n',
+        "pkg/b.py": 'from pkg.a import Spinning\n\n__all__ = ["Spinning"]\n',
+        "pkg/app.py": textwrap.dedent("""\
+            from typing import NewType
+
+            from pkg.a import Spinning
+
+            CaseyEventId = NewType("CaseyEventId", str)
+
+            def caller(value: Spinning) -> None:
+                _ = CaseyEventId(value)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    assert violations == []

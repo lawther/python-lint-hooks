@@ -10,7 +10,7 @@ cast — those rules need to know:
   elsewhere.
 
 The index stays deliberately conservative. If a name cannot be resolved
-through direct imports, top-level definitions, or simple `Name`-form
+through import chains, top-level definitions, or simple `Name`-form
 annotations, the index returns `None` and the rule stays silent.
 """
 
@@ -166,13 +166,18 @@ class NewTypeIndex:
         """Map a dotted import name (e.g. 'pkg.models') to an ingested module path.
 
         Returns the unique ingested module whose path ends with `<dotted>.py`
-        (with dots translated to path separators). Returns None when there is
-        no match or when multiple candidates exist (ambiguous import).
+        or `<dotted>/__init__.py` (with dots translated to path separators), so
+        that names re-exported from a package's `__init__.py` resolve as well as
+        those imported from a plain module. Returns None when there is no match
+        or when multiple candidates exist (ambiguous import).
         """
         if dotted_name in self._modules:
             return dotted_name
-        path_form = dotted_name.replace(".", "/") + ".py"
-        matches = [path for path in self._modules if path.endswith(("/" + path_form, path_form))]
+        base = dotted_name.replace(".", "/")
+        suffixes = tuple(
+            candidate for stem in (base + ".py", base + "/__init__.py") for candidate in ("/" + stem, stem)
+        )
+        matches = [path for path in self._modules if path.endswith(suffixes)]
         if len(matches) == 1:
             return matches[0]
         return None
@@ -212,7 +217,8 @@ class NewTypeIndex:
 
         Handles three cases:
           * `name` is defined locally as a NewType in `module`.
-          * `name` is imported from another tracked module that defines it as a NewType.
+          * `name` is imported — directly or via any number of re-exporting
+            modules — from a tracked module that defines it as a NewType.
           * Anything else → None.
         """
         resolved = self._resolve_symbol(module, name, "newtype_base_expr")
@@ -307,20 +313,30 @@ class NewTypeIndex:
         `attr` is the _ModuleInfo dict to consult: one of "newtype_base_expr",
         "class_field_annotations", or "function_returns". Returns (defining_module,
         original_name) or None.
+
+        Follows the alias chain as far as it goes, so a name reached through one or
+        more re-exporting modules resolves to the same identity as one imported
+        straight from the module that defines it. The walk stops at the first module
+        that defines the name, at an untracked or external origin, or on revisiting a
+        (module, name) pair — circular re-exports terminate rather than spin.
         """
-        info = self._modules.get(calling_module)
-        if info is None:
-            return None
-        if name in getattr(info, attr):
-            return (calling_module, name)
-        alias = info.aliases.get(name)
-        if alias is None or alias[0] == "<external>":
-            return None
-        origin_dotted, original_name = alias
-        origin_module = self._resolve_origin_module(origin_dotted)
-        if origin_module is None:
-            return None
-        origin_info = self._modules.get(origin_module)
-        if origin_info is None or original_name not in getattr(origin_info, attr):
-            return None
-        return (origin_module, original_name)
+        current_module: str = calling_module
+        current_name: str = name
+        visited: set[tuple[str, str]] = set()
+        while (current_module, current_name) not in visited:
+            visited.add((current_module, current_name))
+            info = self._modules.get(current_module)
+            if info is None:
+                return None
+            if current_name in getattr(info, attr):
+                return (current_module, current_name)
+            alias = info.aliases.get(current_name)
+            if alias is None or alias[0] == "<external>":
+                return None
+            origin_dotted, original_name = alias
+            origin_module = self._resolve_origin_module(origin_dotted)
+            if origin_module is None:
+                return None
+            current_module = origin_module
+            current_name = original_name
+        return None
