@@ -581,3 +581,34 @@ def test_sibling_package_ending_in_the_imported_package_name_does_not_mask_the_i
     }
     violations = check_project(files, tmp_path)
     assert codes(violations) == ["ML109"]
+
+
+def test_newtype_imported_under_type_checking_still_resolves(tmp_path: Path) -> None:
+    # `from __future__ import annotations` plus an `if TYPE_CHECKING:` import block is the
+    # standard way to keep typing-only imports out of the runtime import graph — ml_lints'
+    # own modules are written this way. The names it binds are ordinary module-level names,
+    # because an `if` introduces no scope. Ingesting only the statements directly in
+    # `Module.body` skips the block entirely, so every NewType a file imports that way is
+    # unresolvable and the rule goes silent across that whole file.
+    files = {
+        "pkg/common.py": textwrap.dedent("""\
+            from typing import NewType
+
+            GCalEventId = NewType("GCalEventId", str)
+        """),
+        "pkg/app.py": textwrap.dedent("""\
+            from __future__ import annotations
+
+            from typing import TYPE_CHECKING, NewType
+
+            if TYPE_CHECKING:
+                from pkg.common import GCalEventId
+
+            CaseyEventId = NewType("CaseyEventId", str)
+
+            def caller(gcal: GCalEventId) -> None:
+                _ = CaseyEventId(gcal)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    assert codes(violations) == ["ML109"]

@@ -74,9 +74,13 @@ class _ModuleInfo:
 class _ModuleIngestor(ast.NodeVisitor):
     """Single-pass visitor that fills a _ModuleInfo from a parsed AST.
 
-    Only top-level definitions are recorded. Nested NewTypes, classes, and
+    Only module-level definitions are recorded. Nested NewTypes, classes, and
     functions are deliberately ignored — they are implementation details
     and cannot participate in cross-module resolution.
+
+    "Module-level" means bound in the module namespace, not merely written at
+    the outermost indent: `if`/`try` introduce no scope, so a conditional import
+    binds a module-level name and is descended into.
     """
 
     def __init__(self, info: _ModuleInfo) -> None:
@@ -97,6 +101,30 @@ class _ModuleIngestor(ast.NodeVisitor):
             self._record_class(node)
         elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.returns is not None:
             self._info.function_returns[node.name] = node.returns
+        elif isinstance(node, ast.If | ast.Try | ast.TryStar):
+            self._handle_conditional(node)
+
+    def _handle_conditional(self, node: ast.If | ast.Try | ast.TryStar) -> None:
+        """Record definitions inside a conditional block, which bind module-level names.
+
+        `if TYPE_CHECKING:` and `try: import x / except ImportError:` are the standard
+        ways to write a conditional import, and neither introduces a scope — a NewType
+        imported or defined inside one is a module-level name like any other. Skipping
+        these blocks left the index blind to every file written in the TYPE_CHECKING
+        idiom, which is most of them once a project adopts `from __future__ import
+        annotations`.
+
+        Every branch is walked, including the ones that would not run together: the index
+        only needs to know which module a name comes from, and the alternatives of a
+        conditional import are by construction the same name from equivalent sources.
+        """
+        branches: list[list[ast.stmt]] = [node.body, node.orelse]
+        if isinstance(node, ast.Try | ast.TryStar):
+            branches.extend(handler.body for handler in node.handlers)
+            branches.append(node.finalbody)
+        for branch in branches:
+            for child in branch:
+                self._handle_top_level(child)
 
     def _record_plain_import(self, node: ast.Import) -> None:
         for alias in node.names:
