@@ -551,3 +551,33 @@ def test_async_converter_not_flagged(tmp_path: Path) -> None:
     }
     violations = check_project(files, tmp_path)
     assert violations == []
+
+
+def test_sibling_package_ending_in_the_imported_package_name_does_not_mask_the_import(tmp_path: Path) -> None:
+    # `from db.models.common import ...` must resolve to db/models/common.py even when the
+    # project also contains mydb/models/common.py. Matching an import's dotted name against
+    # ingested paths by suffix has to respect directory boundaries: "mydb/models/common.py"
+    # ends with the characters "db/models/common.py" without being that module at all. Treat
+    # it as a candidate and the import looks ambiguous, so the index resolves nothing and the
+    # rule goes quiet — the same silent, import-shape-dependent coverage loss this rule was
+    # already fixed for once, but triggered by an unrelated package merely being named badly.
+    files = {
+        "db/models/common.py": textwrap.dedent("""\
+            from typing import NewType
+
+            GCalEventId = NewType("GCalEventId", str)
+        """),
+        "mydb/models/common.py": "UNRELATED = 1\n",
+        "app.py": textwrap.dedent("""\
+            from typing import NewType
+
+            from db.models.common import GCalEventId
+
+            CaseyEventId = NewType("CaseyEventId", str)
+
+            def caller(gcal: GCalEventId) -> None:
+                _ = CaseyEventId(gcal)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    assert codes(violations) == ["ML109"]

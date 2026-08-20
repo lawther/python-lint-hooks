@@ -174,10 +174,13 @@ class NewTypeIndex:
         if dotted_name in self._modules:
             return dotted_name
         base = dotted_name.replace(".", "/")
-        suffixes = tuple(
-            candidate for stem in (base + ".py", base + "/__init__.py") for candidate in ("/" + stem, stem)
-        )
-        matches = [path for path in self._modules if path.endswith(suffixes)]
+        stems = (base + ".py", base + "/__init__.py")
+        # `path == stem` covers a relative path that is exactly the module; otherwise a
+        # separator must precede it, so that `mydb/models/common.py` is not mistaken for
+        # `db.models.common` just because it ends with those characters. Without the
+        # boundary such a module looks like a second candidate, the import reads as
+        # ambiguous, and the index resolves nothing at all.
+        matches = [path for path in self._modules if any(path == stem or path.endswith("/" + stem) for stem in stems)]
         if len(matches) == 1:
             return matches[0]
         return None
