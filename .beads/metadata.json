@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "python_lint_hooks",
+  "project_id": "86d1d7e7-8eee-4fa6-b239-89678289a179"
+}
