@@ -23,7 +23,9 @@ dev = [
     "pytest>=8.0",
     "pytest-cov>=7.1.0",
     "pytest-randomly>=4.1.0",
+    "rich>=15.0.0",
     "ruff>=0.15.16",
+    "tiktoken>=0.14.0",
     "ty>=0.0.44",
 ]
 
@@ -66,7 +68,7 @@ ignore-names = ["enter_*", "leave_*"]
 "tests/**/*.py" = ["S101", "S105", "S106", "PLC0415", "PLR2004", "PGH003"]
 "tests/**" = ["RUF003"]
 "src/**" = ["S603", "S607"]
-"scripts/**" = ["T201", "INP001"]
+"scripts/**" = ["T201", "INP001", "S603", "S607"]
 "src/ml_lints/cli.py" = ["T201"]
 "**/_template.py" = ["ERA001", "TD002", "TD003", "FIX002"]
 

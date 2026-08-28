@@ -129,3 +129,17 @@ _check-lock:
     #!/usr/bin/env bash
     set -euo pipefail
     uv lock --check
+
+# BEGIN SHARED RECIPES (AI_READINESS) sha256:9bdd5ae99b5ea3df
+# Generated from agent_rules/snippets/ai_readiness.just. Do not edit inside this block:
+#      edit snippets/ai_readiness.just, then run `just sync-justfile-recipes` in agent_rules.
+
+# Analyse project source files to evaluate AI agent readiness
+analyse-ai-readiness *args:
+    @uv run python scripts/analyse_ai_readiness.py {{args}}
+
+# Check source file size thresholds for AI agent readiness (fails if threshold breached)
+check-ai-readiness *args:
+    @uv run python scripts/analyse_ai_readiness.py --fail-on {{args}}
+
+# END SHARED RECIPES (AI_READINESS)
