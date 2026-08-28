@@ -129,7 +129,7 @@ Gates were selected on one criterion: **the work can pass CI while proving nothi
 | Gate | Reviews | Instrument | Then unblocks |
 |---|---|---|---|
 | RV0 | This document | `/adversarial-design-review` | F1, F2, T1, T4 |
-| RV1 | T1 manifest schema | `/adversarial-design-review` | T3, T6 |
+| RV1 | T1 manifest schema **and** `categories.json` | `/adversarial-design-review` | T3, T6 |
 | RV2 | T7 example harness | `/adversarial-review` | T10, K1, K2 |
 | RV3 | T8 **and** T12 — both conformance gates | `/adversarial-review` ×2 | A1 |
 | RV4 | K1 exemption set | `/adversarial-review` | K3 |
@@ -186,6 +186,36 @@ Per rule: `id`, `category`, `concept`, `summary`, `suggestion`, `rationale`, `me
 
 Deliberately out of v1: message *templates*, severity, fixability. `manifestVersion` exists so they can be added later. The message **identifiers** are in — they are cheap to share and they are what stops a language reporting a code under a different message identity; see *Behavioural conformance* for `messageIds` and `neutralData`, and **F5** for the Python side.
 
+#### `shared/categories.json`
+
+`category` is the one drift-checked rule field that legitimately survives D1. All eight current categories — `return-types`, `type-hygiene`, `parameter-types`, `class-shape`, `scope`, `data-trust`, `localisation`, `testing` — name a kind of smell, not a Python construct, so a TypeScript rule joins an existing category rather than minting a parallel one. That is what lets T8 diff `category` byte-for-byte while leaving `summary` free.
+
+The file is an envelope, `categoriesVersion`, plus a `categories` array sorted by `id`. Per category:
+
+| Field | |
+|---|---|
+| `id` | Kebab-case slug matching `^[a-z][a-z0-9-]*$`. This is the value each manifest entry's `category` carries |
+| `block` | Integer 1-9. The hundreds digit of every code in the category |
+| `title` | Human phrasing, for the doc and README grouping T9 generates |
+| `description` | One sentence stating what the category covers, so a new rule can be placed without reading the existing rules |
+
+Blocks today:
+
+| Block | Categories |
+|---|---|
+| 1xx | `return-types`, `type-hygiene`, `parameter-types` |
+| 2xx | `class-shape` |
+| 3xx | `scope` |
+| 4xx | `data-trust` |
+| 5xx | `localisation` |
+| 6xx | `testing` |
+
+A block hosts one or more categories; a category lives in exactly one block. `block` is what makes **A1** answerable for a category that has no codes yet: next-free is per-block, and the block of an empty category cannot be inferred from codes that do not exist. It also makes the mapping falsifiable rather than conventional — **T8** checks each rule's hundreds digit against its category's `block`, so filing a `testing` rule as ML111 fails.
+
+`title` and `description` are presentation, but unlike `summary`/`suggestion` they are not per-language and D1 does not apply: there is one shared copy, so there is nothing to diff. Adding a category is a deliberate edit to a committed shared file, reviewed like a schema change — that friction is intended, and is what stops `localization` and `naming` appearing beside `localisation`.
+
+**Acceptance:** `shared/schema/categories.schema.json` plus a Pydantic model in `scripts/manifest_model.py`, serialised by the same byte-stable rules as the manifest. The eight rows above are committed, and a test asserts the category-to-block mapping against the live Python registry, so a ninth category cannot be added in code without the file being updated.
+
 #### `concept` versus `summary`/`suggestion`
 
 `concept` states what the code *means*, naming no language's constructs. It MUST be byte-identical in every manifest that implements the code — it is what "`ML###` names a concept" is cashed out as, and it is the only rule text T8 diffs.
@@ -216,11 +246,11 @@ Sourcing: Python declares `concept` as a `ClassVar` beside `summary`; TypeScript
 
 Both are rules whose remedy genuinely differs by language, and in both the shared field is writable without strain. Neither TypeScript rule is scheduled here — these examples exist to show the split holds outside the four rules that happen to share wording, not to commit to a port order.
 
-**Acceptance:** rules sorted by code; serialised with `indent=2, sort_keys=True` and a trailing newline, because byte-stability is what makes `--check` work. `concept`, `summary`, `suggestion` and `messageIds` are all required and non-empty, and `messageIds` is sorted. Schema validates a hand-written ML500 example, plus the ML400 and ML100 pairs above. Must survive the question *"what breaks when Rust is added"*.
+**Acceptance:** rules sorted by code; serialised with `indent=2, sort_keys=True` and a trailing newline, because byte-stability is what makes `--check` work. `concept`, `summary`, `suggestion` and `messageIds` are all required and non-empty, and `messageIds` is sorted. Schema validates a hand-written ML500 example, plus the ML400 and ML100 pairs above; the categories schema validates the committed `categories.json`. Must survive the question *"what breaks when Rust is added"*.
 
-### RV1 · Design review: manifest schema
-Run `/adversarial-design-review` on T1's schema.
-**Acceptance:** verdict recorded before T3 and T6 encode the schema.
+### RV1 · Design review: manifest schema and categories
+Run `/adversarial-design-review` on **both** of T1's schemas — the rule manifest and `categories.json`. Both are in scope because both are un-gated specs that downstream work encodes: `categories.json` fixes the closed category set, the category-to-block mapping T8 enforces and A1 reads, and the vocabulary every future rule in either language is filed under. Reviewing only the manifest would ship the harder-to-change file un-reviewed.
+**Acceptance:** one verdict covering both files, recorded before T3 and T6 encode them. A REJECT on either file rejects RV1.
 
 ### T2 · shared/ directory, sync script and justfile wiring
 A wheel and an npm tarball must each *contain* the spelling map; neither can reach `../../shared/` after install. Symlinks are unreliable on Windows and in `npm pack`. Hatchling `force-include` of `../../` breaks `uv build --sdist` and editable installs.
@@ -276,11 +306,11 @@ Three buckets, not two:
 
 The middle bucket is the point of D1: presentation is checked for *presence*, never for equality.
 
-Also checked: every category ∈ `categories.json`; no duplicate `id`s; every `id` matches `^ML\d{3}$`; every `id` has a `docs/rules/<ID>.md`; `docUrl` matches the canonical template exactly, or ESLint's `meta.docs.url` 404s silently.
+Also checked: every category ∈ `categories.json`, and every `id`'s hundreds digit equals that category's `block`; no duplicate `id`s; every `id` matches `^ML\d{3}$`; every `id` has a `docs/rules/<ID>.md`; `docUrl` matches the canonical template exactly, or ESLint's `meta.docs.url` 404s silently.
 
 Do **not** assert TypeScript ⊆ Python — that would block a future TypeScript-only rule.
 
-**Acceptance:** must demonstrably **fail** when a shared code's `concept` is altered in one manifest, when a `messageId` is renamed in one manifest, when a category is misspelt `localization`, and when a `summary` is emptied. It must **pass** when one language's `summary` is reworded to a different non-empty string — that case is what proves the split is real rather than decorative. Failure messages quote both sides verbatim. Wired into `just ci` as its own recipe, demonstrated by a hand-edited manifest failing the recipe.
+**Acceptance:** must demonstrably **fail** when a shared code's `concept` is altered in one manifest, when a `messageId` is renamed in one manifest, when a category is misspelt `localization`, when a rule is filed under a category belonging to another block, and when a `summary` is emptied. It must **pass** when one language's `summary` is reworded to a different non-empty string — that case is what proves the split is real rather than decorative. Failure messages quote both sides verbatim. Wired into `just ci` as its own recipe, demonstrated by a hand-edited manifest failing the recipe.
 
 ### T12 · Behavioural conformance corpus for naive ML500
 *Behavioural conformance* instantiated for the tracer's one shared rule. Tier 1: a scenario set covering span classification — identifier, comment, doc comment, plain string literal — with both polarities, realised in each language. Tier 2: an answer key covering word-splitting, case restoration, whole-name reconstruction, URL and dotted-name skipping, and offsets across newlines. Plus the two runners and the two adapters. Scoped to naive ML500: no exemptions, because those are K1 and divergent by design.
