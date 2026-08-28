@@ -10,7 +10,7 @@ Adversarial reviews bind against it: `/adversarial-review T7 from docs/typescrip
 
 The goal is a TypeScript implementation that does not fork the project's real asset: the **self-describing contract**. A rule declares `code`/`category`/`summary`/`suggestion`/`bad_example`/`good_examples` plus a docstring rationale, and that metadata is *enforced* — `tests/test_rule_examples.py` asserts every `bad_example` fires its own code and every `good_example` fires zero violations of any rule and passes ruff. It then feeds `--explain`, `docs/rules/*.md` and the README table. That contract must survive into a second language and be cheap to extend to a third.
 
-**Outcome:** one repo, two published artefacts, one shared code space, one doc set, and a machine-checkable guarantee that both implementations agree on what each `ML###` code means.
+**Outcome:** one repo, two published artefacts, one shared code space, one doc set, and a machine-checkable guarantee that both implementations agree on what each `ML###` code means — in metadata *and* in behaviour. Those are separate gates, because agreeing on the words is not agreeing on the answers.
 
 ## Decisions
 
@@ -18,7 +18,7 @@ The goal is a TypeScript implementation that does not fork the project's real as
 |---|---|
 | **Topology** | Monorepo, native tooling per language: `packages/py` (PyPI `ml-lints`) + `packages/ts` (npm `@ml-lints/eslint-plugin`, on typescript-eslint). The justfile stays the single source of truth. |
 | **Codes** | Shared concept codes. `ML###` names a *concept*; each language implements a subset. No breaking rename. The concept is a literal manifest field (T1) and is the thing the conformance gate diffs; `summary`/`suggestion` are per-language phrasing and are deliberately not diffed. |
-| **Contract** | Code is truth. Each package exports a committed `rule-manifest.json`; a conformance test diffs them. |
+| **Contract** | Code is truth. Each package exports a committed `rule-manifest.json`; a metadata gate diffs them, and a fixture corpus pins behaviour. Metadata agreement is not behavioural agreement — see *Behavioural conformance*. |
 | **First TS release** | ML500 + ML501 only. |
 | **Delivery** | Tracer bullet: naive ML500 driven through *every* layer including a real npm publish, then thickened. |
 | **Foundation** | Foundation stays thin: the two ML500 blockers plus the F4 `id` rename that T3 depends on. `packages/ts` is built **alongside** `src/ml_lints`; the `packages/py` move comes later. Path rework accepted. |
@@ -32,12 +32,85 @@ ESLint already supplies traversal, file discovery, config, suppression, severity
 | `shared/spelling_map.json` | Rule engine / traversal |
 | The metadata contract (fields, not implementation) | Suppression syntax (`# noqa:` vs `eslint-disable`) |
 | `rule-manifest.json` schema + both manifests | Exemption sets — TypeScript's genuinely differ |
-| Conformance test | Examples (per-language by definition) |
+| Metadata conformance gate | Examples (per-language by definition) |
+| Behavioural conformance: the scenario catalogue and the answer keys | Fixture realisations — per-language source by definition |
 | Doc + README generation | Config format (pyproject vs flat config) |
 | `ML###` code space, `RuleCategory` vocabulary | `summary`/`suggestion` phrasing — most rules name one language's constructs |
-| The `concept` text behind each `ML###` | |
+| The `concept` text behind each `ML###`, and each rule's `messageIds` | Message wording — only the ids and any declared neutral data are shared |
 
-Three divergences are **declared rather than discovered**: suppression syntax is not unifiable; the `💡 Tip:` line at `cli.py:478` cannot be reproduced from inside an ESLint plugin, because ESLint owns stdout; and `summary`/`suggestion` wording, which names the constructs of the language it is advising about (see T1).
+Four divergences are **declared rather than discovered**: suppression syntax is not unifiable; the `💡 Tip:` line at `cli.py:478` cannot be reproduced from inside an ESLint plugin, because ESLint owns stdout; `summary`/`suggestion` wording, which names the constructs of the language it is advising about (see T1); and the rendered text of a violation message, of which only the `messageId` and any declared neutral data are shared (see *Behavioural conformance*).
+
+## Behavioural conformance
+
+Agreeing on the manifest is not agreeing on the answers. Both manifests can carry a byte-identical `concept` for ML500 while the two implementations split identifiers differently, restore case differently, scan different spans and report different things — and a gate that reads only the manifests calls that conformance. ML500's meaning mostly does not live in the manifest or in `spelling_map.json`; it lives in `WORDS_RE` (`ml500_australian_english.py:46`), `_match_case` (`:70-81`), the URL-span skip (`:85`), the dotted-name skip (`:89`), and the docstring-versus-string-literal split.
+
+Behaviour is therefore pinned by fixtures, in two tiers. **Tier 1 applies to every rule.** **Tier 2 is opt-in**, and qualifies only where a rule's meaning is a transformation of a text span so that both languages can consume the same input — true of ML500 and ML501, false of ML400.
+
+Both tiers drive the **real linter end to end**, never a rule-internal helper. A helper-level corpus would pin a private API in both languages, and for a structural rule there is no helper to call.
+
+### Tier 1 · Scenario catalogue
+
+The shared artefact is the *situation*, not the source. `shared/conformance/scenarios.json` names each situation, its polarity, and the languages that claim it:
+
+```json
+{ "code": "ML400",
+  "scenario": "external-data-used-unvalidated",
+  "polarity": "must-fire",
+  "languages": ["python", "typescript"],
+  "describes": "A value read from an external source reaches a use without passing through a declared schema." }
+```
+
+Each claiming language commits its own realisation at `packages/<lang>/conformance/<ID>.json`: source in that language plus the exact findings expected from it — `line`, `col`, `id`, `messageId`, `data` — sorted by position. ML400's two realisations share no bytes (`json.load` and Pydantic on one side, `JSON.parse` and Zod on the other) yet answer the same question, which is the thing that cannot otherwise be checked. **This is why the shared unit is the scenario and not the source**: a format built around shared input would cover the 500-class and nothing else, which is the failure mode `summary` had.
+
+The gate fails when a claimed scenario has no realisation, when a realisation names a scenario absent from the catalogue, when the findings do not match exactly, and when a code implemented by both languages lacks a must-fire *and* a must-not-fire scenario claimed by both. That last check is what stops a language claiming a code on the strength of one positive case.
+
+### Tier 2 · Answer key
+
+Tier 1 compares polarity only, because the two languages run different source. For ML500 that is not enough: `my_favorite_color → my_favourite_colour` and `myFavoriteColor → myFavoriteColour` both count as "fires", and the two splitters disagree unnoticed.
+
+Where the input can be a shared string, the rule adds an answer key at `shared/conformance/answers/<ID>.json` — one input, one expected result, both implementations graded against it rather than against each other's yes/no:
+
+```json
+{ "case": "camel-case-two-words",
+  "kind": "identifier",
+  "input": "myFavoriteColor",
+  "expected": [{ "offset": 0,
+                 "messageId": "useAustralianEnglish",
+                 "data": { "found": "myFavoriteColor", "suggestion": "myFavouriteColour" } }] }
+```
+
+`kind` is one of `identifier`, `comment`, `doc`, `plainString`. Each language ships a small adapter that wraps `input` into a real construct of that kind, runs the linter over it, and maps each reported position back to an offset within `input`. The adapter is the only per-language code in this tier, and it is itself pinned: at least one case must expect a non-zero offset, so an adapter that returns a constant fails.
+
+Offsets are 0-based within `input`. Tier 1's `line`/`col` are 1-based in the source, matching what both linters already emit. An input must be valid in every language the answer key claims.
+
+### Message identity
+
+`messageIds` is a manifest field (T1): the sorted, non-empty set of message identifiers a rule can emit, diffed byte-identically by the metadata gate for any code both languages implement. Message *templates* stay out of v1 as T1 says — sharing the identifiers alone is what stops a language quietly reporting a code under a different message identity.
+
+A rule may additionally declare `neutralData`, the data keys whose values are language-neutral. ML500 declares `["found", "suggestion"]`. ML400 declares none, because its payload names Pydantic on one side and Zod on the other. Declared keys are compared inside the answer key, where a shared input makes the comparison meaningful; tier 1 asserts `data` against each language's own realisation and never across languages.
+
+The rendered sentence is never compared, in either tier. Python has no message-id concept today, so **F5** adds one.
+
+### Scope for v1
+
+Pinned for naive ML500, in one tier or both:
+
+- which spans are scanned — identifiers (bindings, references, parameters, function and class names), comments and doc comments; plain string literals are **not**
+- identifier word-splitting, including camelCase, snake_case and kebab-case boundaries and digit runs
+- case restoration per replaced part: ALL CAPS → ALL CAPS, Title → Title, otherwise lower
+- one finding per identifier, carrying the whole reconstructed name as its suggestion
+- one finding per offending word in free text, each at its own position, including across newlines
+- URL spans and dotted names skipped in free text
+- the rule `id`, the `messageId`, and the `found` / `suggestion` data values
+
+**Accepted divergences**, stated so they are not mistaken for oversights:
+
+- **exemption sets** — K1's differ by design; the corpus is naive ML500 and exercises none
+- **suppression syntax** — no fixture carries `# noqa:` or `eslint-disable`
+- **the rendered message sentence** — only the id and the declared neutral data are compared
+- **severity and fixability** — already deferred by T1
+- **file discovery and configuration** — ESLint's, not ours
+- **non-ASCII identifiers and text** — unspecified in both implementations; out of scope until a rule needs them
 
 ## Delivery shape
 
@@ -58,7 +131,7 @@ Gates were selected on one criterion: **the work can pass CI while proving nothi
 | RV0 | This document | `/adversarial-design-review` | F1, F2, T1, T4 |
 | RV1 | T1 manifest schema | `/adversarial-design-review` | T3, T6 |
 | RV2 | T7 example harness | `/adversarial-review` | T10, K1, K2 |
-| RV3 | T8 conformance gate | `/adversarial-review` | A1 |
+| RV3 | T8 **and** T12 — both conformance gates | `/adversarial-review` ×2 | A1 |
 | RV4 | K1 exemption set | `/adversarial-review` | K3 |
 | RV5 | M2 monorepo move | `/adversarial-review` | M3, R1, A1 |
 
@@ -95,6 +168,13 @@ The manifest field is `id` (T1). Renaming the Python side keeps one word everywh
 
 **Acceptance:** grep finds no rule-identifier `code` left in `src/`, `scripts/` or `tests/`. `just new-rule ML999` still scaffolds a working rule and injects the enum member. Suppression syntax and output format byte-unchanged, asserted by test. Lands **before T3**, so the emitter reads `rule.id` with no mapping line.
 
+### F5 · Structured reporting and message ids in Python
+`messageIds` is a manifest field (T1) and the conformance corpus asserts a `messageId` and a `data` payload per finding, so Python must report structurally instead of pre-formatting a sentence at the call site. `report()` gains a message-id-plus-data form and each rule declares the ids it can emit. Wide but shallow: 20 `self.report` call sites plus ML400's direct `Violation` construction, and 17 of 19 rules emit exactly one message.
+
+**Untouched:** `Violation.format`'s `path:line:col: ML100 message` output. The rendered sentence is still what users see — it is now produced from the id and the data rather than passed in.
+
+**Acceptance:** every rule declares a non-empty `messageIds`, asserted by a test rather than left to review. Rendered output byte-unchanged for every rule's `bad_example`, asserted by test. Lands **before T3**, which serialises the field.
+
 ## E2 · Tracer bullet
 
 Naive ML500 means spelling-map lookup over identifiers and comments, with **no exemption logic**. The slice ends publishable.
@@ -102,9 +182,9 @@ Naive ML500 means spelling-map lookup over identifiers and comments, with **no e
 ### T1 · Manifest JSON schema, Pydantic model and categories.json
 `shared/schema/rule-manifest.schema.json` plus `scripts/manifest_model.py` (GEMINI.md mandates Pydantic for file-loaded data) plus `shared/categories.json`.
 
-Per rule: `id`, `category`, `concept`, `summary`, `suggestion`, `rationale`, `exemptions?`, `badExample`, `goodExamples`, `docUrl`. Envelope: `manifestVersion`, `language` (closed enum), `package`, `version`.
+Per rule: `id`, `category`, `concept`, `summary`, `suggestion`, `rationale`, `messageIds`, `neutralData?`, `exemptions?`, `badExample`, `goodExamples`, `docUrl`. Envelope: `manifestVersion`, `language` (closed enum), `package`, `version`.
 
-Deliberately out of v1: message templates, severity, fixability. `manifestVersion` exists so they can be added later.
+Deliberately out of v1: message *templates*, severity, fixability. `manifestVersion` exists so they can be added later. The message **identifiers** are in — they are cheap to share and they are what stops a language reporting a code under a different message identity; see *Behavioural conformance* for `messageIds` and `neutralData`, and **F5** for the Python side.
 
 #### `concept` versus `summary`/`suggestion`
 
@@ -136,7 +216,7 @@ Sourcing: Python declares `concept` as a `ClassVar` beside `summary`; TypeScript
 
 Both are rules whose remedy genuinely differs by language, and in both the shared field is writable without strain. Neither TypeScript rule is scheduled here — these examples exist to show the split holds outside the four rules that happen to share wording, not to commit to a port order.
 
-**Acceptance:** rules sorted by code; serialised with `indent=2, sort_keys=True` and a trailing newline, because byte-stability is what makes `--check` work. `concept`, `summary` and `suggestion` are all required and non-empty. Schema validates a hand-written ML500 example, plus the ML400 and ML100 pairs above. Must survive the question *"what breaks when Rust is added"*.
+**Acceptance:** rules sorted by code; serialised with `indent=2, sort_keys=True` and a trailing newline, because byte-stability is what makes `--check` work. `concept`, `summary`, `suggestion` and `messageIds` are all required and non-empty, and `messageIds` is sorted. Schema validates a hand-written ML500 example, plus the ML400 and ML100 pairs above. Must survive the question *"what breaks when Rust is added"*.
 
 ### RV1 · Design review: manifest schema
 Run `/adversarial-design-review` on T1's schema.
@@ -162,7 +242,7 @@ Rule ID is the bare code (`@ml-lints/ML500`) so `RuleCreator`'s `urlCreator` gen
 
 ### T5 · TypeScript ML500, naive
 Spelling-map lookup over identifiers and comments via `sourceCode.getAllComments()`. **No exemption logic** — that is K1.
-**Acceptance:** flags `const color = 1`; reports through `meta.messages`, not a hardcoded string.
+**Acceptance:** flags `const color = 1`; reports through `meta.messages` under the shared `messageId` with `found` and `suggestion` data, not a hardcoded string. Behaviour beyond that single case is pinned by **T12**, not here — this task exists to have something to run the corpus against.
 
 ### T6 · TypeScript manifest emitter and explain bin
 `ml-lints-ts rules [--format json] [--out F] [--check F]` and `ml-lints-ts explain ML500`, the latter printing the same layout as `cli.py:_explain_rule` so agent muscle memory transfers.
@@ -181,14 +261,16 @@ Good examples: run all plugin rules in-process asserting zero, then `eslint:reco
 Run `/adversarial-review T7 from docs/typescript-port.md`.
 **Acceptance:** reviewer confirms both falsification cases above actually fail.
 
-### T8 · Conformance test
+### T8 · Metadata conformance gate (gate 1 of 2)
 Lives at `shared/conformance/`, reads **only the two committed JSON files**, so it needs neither toolchain.
+
+Toolchain-freedom is a *consequence* of what this gate checks, not a constraint imposed on it. Metadata is committed JSON, so diffing it needs no interpreter; behaviour is not, so pinning it needs both. Had the constraint come first — one cheap gate, and whatever it can reach is the guarantee — the guarantee would have shrunk to "the words match", which is why **T12** is a separate task rather than an extension of this one. Neither gate is optional and neither subsumes the other; **RV3** reviews both.
 
 Three buckets, not two:
 
 | Bucket | Fields | Why |
 |---|---|---|
-| Must be byte-identical | `category`, `concept` | This is the guarantee "both implementations agree on what each `ML###` means" reduces to |
+| Must be byte-identical | `category`, `concept`, `messageIds` | This is the guarantee "both implementations agree on what each `ML###` means" reduces to. `messageIds` carries identifiers only — the templates behind them are not compared, and neither is `neutralData`, which is a per-language declaration consumed by T12 |
 | Required non-empty on both, deliberately **not** compared | `summary`, `suggestion`, `rationale` | Each is one language's phrasing and names that language's constructs; comparing them fails on 15 of 19 rules, and forcing a wording that matches would help no author in either language. Python's ML500 rationale likewise discusses import machinery with no TypeScript analogue |
 | Not checked | `exemptions` (TypeScript's differ by design), examples | Per-language by definition |
 
@@ -198,11 +280,19 @@ Also checked: every category ∈ `categories.json`; no duplicate `id`s; every `i
 
 Do **not** assert TypeScript ⊆ Python — that would block a future TypeScript-only rule.
 
-**Acceptance:** must demonstrably **fail** when a shared code's `concept` is altered in one manifest, when a category is misspelt `localization`, and when a `summary` is emptied. It must **pass** when one language's `summary` is reworded to a different non-empty string — that case is what proves the split is real rather than decorative. Failure messages quote both sides verbatim.
+**Acceptance:** must demonstrably **fail** when a shared code's `concept` is altered in one manifest, when a `messageId` is renamed in one manifest, when a category is misspelt `localization`, and when a `summary` is emptied. It must **pass** when one language's `summary` is reworded to a different non-empty string — that case is what proves the split is real rather than decorative. Failure messages quote both sides verbatim. Wired into `just ci` as its own recipe, demonstrated by a hand-edited manifest failing the recipe.
 
-### RV3 · Review: conformance gate
-Run `/adversarial-review T8 from docs/typescript-port.md`.
-**Acceptance:** reviewer confirms the gate bites on deliberately injected drift.
+### T12 · Behavioural conformance corpus for naive ML500
+*Behavioural conformance* instantiated for the tracer's one shared rule. Tier 1: a scenario set covering span classification — identifier, comment, doc comment, plain string literal — with both polarities, realised in each language. Tier 2: an answer key covering word-splitting, case restoration, whole-name reconstruction, URL and dotted-name skipping, and offsets across newlines. Plus the two runners and the two adapters. Scoped to naive ML500: no exemptions, because those are K1 and divergent by design.
+
+Depends on T5 — there has to be a TypeScript ML500 to grade.
+
+**Acceptance:** must demonstrably **fail** when one implementation's word-splitting is changed and the other's is not; when case restoration is dropped in one language; when one language stops scanning doc comments; when a claimed scenario loses its realisation; and when an adapter returns a constant offset. It must **pass** when one language's rendered message sentence is reworded — that case is what proves the sentence is genuinely free rather than accidentally identical. Failure messages quote the input, both expected sides and both actual sides verbatim. Wired into `just ci` as its own recipe — separate from T8's, because this one needs both toolchains and T8's needs neither, and a Python-only contributor should be told which half they cannot run.
+
+### RV3 · Review: both conformance gates
+Run `/adversarial-review T8 from docs/typescript-port.md` **and** `/adversarial-review T12 from docs/typescript-port.md`. One gate covers both halves because passing either alone is the failure this design is guarding against: a green metadata gate with no behavioural corpus is precisely the "agrees on the words, never checked the answers" state, and a behavioural corpus with a decorative metadata gate lets a code drift its `concept` unremarked. Reviewing them together also forces the reviewer to check the seam — that nothing is asserted twice and, more importantly, that nothing falls between them.
+
+**Acceptance:** for T8, reviewer confirms the metadata gate bites on deliberately injected metadata drift, and passes a reworded `summary`. For T12, reviewer confirms the fixture runner bites on a deliberately divergent implementation — not merely on a deliberately broken fixture — and passes a reworded message sentence. Each falsification case named in T8's and T12's acceptance is run and observed to fail, rather than accepted on the strength of a green suite. A REJECT on either half rejects RV3.
 
 ### T9 · Dual-language doc and README generation
 Both generators stop importing `ml_lints` and read the two committed manifests. The generator stays Python: a TypeScript generator would make `just docs-rules` require node, blocking a Python-only contributor.
@@ -277,7 +367,7 @@ Independent versions: Python continues from 0.13.0, TypeScript from wherever E3 
 
 **Used-code set is the union of the committed manifests** — no separate registry file. **Next-free must be per-block, not per-category:** the 1xx block hosts three categories (`return-types` ML100-107, `type-hygiene` ML108-109, `parameter-types` ML110), so a global next-free would hand out ML111 for a testing rule.
 
-**Acceptance:** scaffolding a code that exists in the *other* language prints its `category` and `concept` to be copied **verbatim** (T8 diffs both), alongside that language's `summary` and `suggestion` as reference phrasing to be **adapted**, clearly labelled as such. That turns T8 from a nag into a rarely-firing backstop without tempting the author to paste Python idiom into a TypeScript message.
+**Acceptance:** scaffolding a code that exists in the *other* language prints its `category`, `concept` and `messageIds` to be copied **verbatim** (T8 diffs all three), alongside that language's `summary` and `suggestion` as reference phrasing to be **adapted**, clearly labelled as such. That turns T8 from a nag into a rarely-firing backstop without tempting the author to paste Python idiom into a TypeScript message.
 
 ### A2 · Documentation
 `CONTRIBUTING_RULES.md`, `GEMINI.md`, `README.md`. Includes fixing `GEMINI.md:40,44`, which references a `.pre-commit-config.yaml` that does not exist — the real hook is `.githooks/pre-commit` calling `just precommit`.
