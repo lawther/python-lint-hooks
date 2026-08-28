@@ -17,11 +17,11 @@ The goal is a TypeScript implementation that does not fork the project's real as
 | | |
 |---|---|
 | **Topology** | Monorepo, native tooling per language: `packages/py` (PyPI `ml-lints`) + `packages/ts` (npm `@ml-lints/eslint-plugin`, on typescript-eslint). The justfile stays the single source of truth. |
-| **Codes** | Shared concept codes. `ML###` names a *concept*; each language implements a subset. No breaking rename. |
+| **Codes** | Shared concept codes. `ML###` names a *concept*; each language implements a subset. No breaking rename. The concept is a literal manifest field (T1) and is the thing the conformance gate diffs; `summary`/`suggestion` are per-language phrasing and are deliberately not diffed. |
 | **Contract** | Code is truth. Each package exports a committed `rule-manifest.json`; a conformance test diffs them. |
 | **First TS release** | ML500 + ML501 only. |
 | **Delivery** | Tracer bullet: naive ML500 driven through *every* layer including a real npm publish, then thickened. |
-| **Foundation** | Only the two ML500 blockers precede the tracer. `packages/ts` is built **alongside** `src/ml_lints`; the `packages/py` move comes later. Path rework accepted. |
+| **Foundation** | Foundation stays thin: the two ML500 blockers plus the F4 `id` rename that T3 depends on. `packages/ts` is built **alongside** `src/ml_lints`; the `packages/py` move comes later. Path rework accepted. |
 
 ## There is no shared engine
 
@@ -34,9 +34,10 @@ ESLint already supplies traversal, file discovery, config, suppression, severity
 | `rule-manifest.json` schema + both manifests | Exemption sets — TypeScript's genuinely differ |
 | Conformance test | Examples (per-language by definition) |
 | Doc + README generation | Config format (pyproject vs flat config) |
-| `ML###` code space, `RuleCategory` vocabulary | |
+| `ML###` code space, `RuleCategory` vocabulary | `summary`/`suggestion` phrasing — most rules name one language's constructs |
+| The `concept` text behind each `ML###` | |
 
-Two divergences are **declared rather than discovered**: suppression syntax is not unifiable, and the `💡 Tip:` line at `cli.py:478` cannot be reproduced from inside an ESLint plugin, because ESLint owns stdout.
+Three divergences are **declared rather than discovered**: suppression syntax is not unifiable; the `💡 Tip:` line at `cli.py:478` cannot be reproduced from inside an ESLint plugin, because ESLint owns stdout; and `summary`/`suggestion` wording, which names the constructs of the language it is advising about (see T1).
 
 ## Delivery shape
 
@@ -85,6 +86,15 @@ Six of 1763 keys are capitalised (`Africanization`, `Africanize`, `Americanizati
 `ml500_australian_english.py:56-60` assigns `{}` when the map is absent, so a packaging regression yields zero violations and every negative test still passes. This is exactly the failure mode T2's vendoring introduces.
 **Acceptance:** a missing map raises; a test asserts `len(spelling_map) > 1000`; deleting the map makes the suite fail loudly.
 
+### F4 · Rename `Rule.code` to `Rule.id` across the Python package
+The manifest field is `id` (T1). Renaming the Python side keeps one word everywhere instead of a permanent seam. Covers the `RuleCode` StrEnum (→ `RuleId`), `Violation.code`, the `Rule.code` `ClassVar` and its 19 assignments, `has_noqa`'s parameter, both rule templates, both generators, and the README / CONTRIBUTING_RULES prose.
+
+**Untouched**, because they carry the *value* rather than the field name: the `# noqa: ML100` suppression syntax and `Violation.format`'s `path:line:col: ML100 message` output. Renaming those would be a user-visible break for no gain.
+
+`justfile:101`'s inline `python3 -c` hardcodes the `violation.py` sentinel and prints `RuleCode.<code>`, so it moves in lockstep; A1 extracts that same one-liner into `scripts/scaffold_rule.py`, and whichever lands second rebases onto the first.
+
+**Acceptance:** grep finds no rule-identifier `code` left in `src/`, `scripts/` or `tests/`. `just new-rule ML999` still scaffolds a working rule and injects the enum member. Suppression syntax and output format byte-unchanged, asserted by test. Lands **before T3**, so the emitter reads `rule.id` with no mapping line.
+
 ## E2 · Tracer bullet
 
 Naive ML500 means spelling-map lookup over identifiers and comments, with **no exemption logic**. The slice ends publishable.
@@ -92,11 +102,41 @@ Naive ML500 means spelling-map lookup over identifiers and comments, with **no e
 ### T1 · Manifest JSON schema, Pydantic model and categories.json
 `shared/schema/rule-manifest.schema.json` plus `scripts/manifest_model.py` (GEMINI.md mandates Pydantic for file-loaded data) plus `shared/categories.json`.
 
-Per rule: `code`, `category`, `summary`, `suggestion`, `rationale`, `exemptions?`, `badExample`, `goodExamples`, `docUrl`. Envelope: `manifestVersion`, `language` (closed enum), `package`, `version`.
+Per rule: `id`, `category`, `concept`, `summary`, `suggestion`, `rationale`, `exemptions?`, `badExample`, `goodExamples`, `docUrl`. Envelope: `manifestVersion`, `language` (closed enum), `package`, `version`.
 
 Deliberately out of v1: message templates, severity, fixability. `manifestVersion` exists so they can be added later.
 
-**Acceptance:** rules sorted by code; serialised with `indent=2, sort_keys=True` and a trailing newline, because byte-stability is what makes `--check` work. Schema validates a hand-written ML500 example. Must survive the question *"what breaks when Rust is added"*.
+#### `concept` versus `summary`/`suggestion`
+
+`concept` states what the code *means*, naming no language's constructs. It MUST be byte-identical in every manifest that implements the code — it is what "`ML###` names a concept" is cashed out as, and it is the only rule text T8 diffs.
+
+`summary` and `suggestion` are **presentation**: one language's phrasing of the symptom and of the remedy. They name that language's constructs, and mostly cannot match. Of the 19 current rules only four (ML201, ML300, ML500, ML501) have summaries that could be byte-identical across languages; the other 15 name `NamedTuple`, `NewType`, `Mapping`, `dataclass(frozen=True)`, `dataclasses.replace`, Pydantic or `patch(new=Mock())`. A gate that diffs `summary` therefore looks healthy for exactly as long as the tracer lasts — ML500 and ML501 are two of the four — and breaks on the third rule ported, which the note after K3 nominates as ML400 or the ML100 family. Both are in the un-shareable set. `concept` is the field that stays writable for all 19.
+
+The field is `id`, not `code`. ESLint's own word for `@ml-lints/ML500` is the rule *ID*, and inside a manifest entry `code` collides with `badExample`/`goodExamples`, which hold literal source code. Python's `Rule.code` / `RuleCode` / `Violation.code` are renamed to match in **F4** rather than mapped at the emitter boundary, so one word holds across both implementations and the shared artefact.
+
+Sourcing: Python declares `concept` as a `ClassVar` beside `summary`; TypeScript as `meta.docs.concept`. `summary` continues to map to the standard `meta.docs.description` (T4), which is *why* it cannot also carry the concept — that field is what editors surface and what `eslint-plugin/require-meta-docs-description` polices, so it has to read as advice to a TypeScript author.
+
+`concept` is not user-facing. Violation messages, `--explain` and the per-language doc sections keep using `summary`/`suggestion`, so T9's byte-identical doc requirement is unaffected.
+
+#### Worked examples
+
+**ML100** — category `return-types`. `concept` (must match, both manifests): *"Function returns an unstructured key-value mapping instead of a named type with declared fields"*.
+
+| | Python | TypeScript |
+|---|---|---|
+| `summary` | Function returns a bare `dict` | Function returns a bare `Record` |
+| `suggestion` | Use a dataclass instead | Use an interface with named fields instead |
+
+**ML400** — category `data-trust`. `concept` (must match, both manifests): *"Data from an external source is used without being validated against a declared schema"*.
+
+| | Python | TypeScript |
+|---|---|---|
+| `summary` | Unvalidated external data used without Pydantic validation | `JSON.parse` result used without schema validation |
+| `suggestion` | Validate with a Pydantic model before use | Validate with a Zod schema before use |
+
+Both are rules whose remedy genuinely differs by language, and in both the shared field is writable without strain. Neither TypeScript rule is scheduled here — these examples exist to show the split holds outside the four rules that happen to share wording, not to commit to a port order.
+
+**Acceptance:** rules sorted by code; serialised with `indent=2, sort_keys=True` and a trailing newline, because byte-stability is what makes `--check` work. `concept`, `summary` and `suggestion` are all required and non-empty. Schema validates a hand-written ML500 example, plus the ML400 and ML100 pairs above. Must survive the question *"what breaks when Rust is added"*.
 
 ### RV1 · Design review: manifest schema
 Run `/adversarial-design-review` on T1's schema.
@@ -111,12 +151,12 @@ So `shared/spelling_map.json` is truth, vendored copies are **committed** into e
 
 ### T3 · Python manifest export
 `ml-lints --list-rules --format json [--out PATH] [--check PATH]`, mirroring `generate_rule_docs.py`'s `--check` semantics. Extend the CLI rather than adding a script: the installed artefact should be interrogable (`uvx ml-lints --list-rules --format json`), which is the same self-describing thesis as `--explain`.
-**Acceptance:** `packages/py/rule-manifest.json` committed and byte-stable across runs; `--check` fails on drift.
+**Acceptance:** `packages/py/rule-manifest.json` committed and byte-stable across runs; `--check` fails on drift. All 19 rules declare a non-empty `concept`, asserted by a test rather than left to review.
 
 ### T4 · packages/ts skeleton
 `package.json`, `tsconfig.json`, `createRule` helper, flat-config `recommended` preset, `index.ts` with the two scaffolding sentinels.
 
-Rule ID is the bare code (`@ml-lints/ML500`) so `RuleCreator`'s `urlCreator` generates the doc URL mechanically. `summary` maps to the **standard** `meta.docs.description` field, so `eslint-plugin/require-meta-docs-description` enforces its presence for free.
+Rule ID is the bare code (`@ml-lints/ML500`) so `RuleCreator`'s `urlCreator` generates the doc URL mechanically. `summary` maps to the **standard** `meta.docs.description` field, so `eslint-plugin/require-meta-docs-description` enforces its presence for free. `concept` rides alongside it as a custom `meta.docs.concept`, typed as required by `createRule`, because it is the shared field T8 diffs and must not be optional to forget.
 
 **Acceptance:** `npx eslint` loads the plugin. Confirm whether `eslint-plugin-eslint-plugin` objects to non-kebab rule names, and record the answer.
 
@@ -144,13 +184,21 @@ Run `/adversarial-review T7 from docs/typescript-port.md`.
 ### T8 · Conformance test
 Lives at `shared/conformance/`, reads **only the two committed JSON files**, so it needs neither toolchain.
 
-Drift-checked: `category`, `summary`, `suggestion`. Not drift-checked: `exemptions` (TypeScript's differ by design), examples, `docUrl`, `rationale` — the last required non-empty on both, but Python's ML500 rationale discusses import machinery with no TypeScript analogue.
+Three buckets, not two:
 
-Also checked: every category ∈ `categories.json`; no duplicate codes; every code matches `^ML\d{3}$`; every code has a `docs/rules/<CODE>.md`; `docUrl` matches the canonical template exactly, or ESLint's `meta.docs.url` 404s silently.
+| Bucket | Fields | Why |
+|---|---|---|
+| Must be byte-identical | `category`, `concept` | This is the guarantee "both implementations agree on what each `ML###` means" reduces to |
+| Required non-empty on both, deliberately **not** compared | `summary`, `suggestion`, `rationale` | Each is one language's phrasing and names that language's constructs; comparing them fails on 15 of 19 rules, and forcing a wording that matches would help no author in either language. Python's ML500 rationale likewise discusses import machinery with no TypeScript analogue |
+| Not checked | `exemptions` (TypeScript's differ by design), examples | Per-language by definition |
+
+The middle bucket is the point of D1: presentation is checked for *presence*, never for equality.
+
+Also checked: every category ∈ `categories.json`; no duplicate `id`s; every `id` matches `^ML\d{3}$`; every `id` has a `docs/rules/<ID>.md`; `docUrl` matches the canonical template exactly, or ESLint's `meta.docs.url` 404s silently.
 
 Do **not** assert TypeScript ⊆ Python — that would block a future TypeScript-only rule.
 
-**Acceptance:** must demonstrably **fail** when a shared code's summary is altered in one manifest, and when a category is misspelt `localization`. Failure messages quote both sides verbatim.
+**Acceptance:** must demonstrably **fail** when a shared code's `concept` is altered in one manifest, when a category is misspelt `localization`, and when a `summary` is emptied. It must **pass** when one language's `summary` is reworded to a different non-empty string — that case is what proves the split is real rather than decorative. Failure messages quote both sides verbatim.
 
 ### RV3 · Review: conformance gate
 Run `/adversarial-review T8 from docs/typescript-port.md`.
@@ -229,7 +277,7 @@ Independent versions: Python continues from 0.13.0, TypeScript from wherever E3 
 
 **Used-code set is the union of the committed manifests** — no separate registry file. **Next-free must be per-block, not per-category:** the 1xx block hosts three categories (`return-types` ML100-107, `type-hygiene` ML108-109, `parameter-types` ML110), so a global next-free would hand out ML111 for a testing rule.
 
-**Acceptance:** scaffolding a code that exists in the *other* language prints its category, summary and suggestion so the author copies them verbatim, which turns T8 from a nag into a rarely-firing backstop.
+**Acceptance:** scaffolding a code that exists in the *other* language prints its `category` and `concept` to be copied **verbatim** (T8 diffs both), alongside that language's `summary` and `suggestion` as reference phrasing to be **adapted**, clearly labelled as such. That turns T8 from a nag into a rarely-firing backstop without tempting the author to paste Python idiom into a TypeScript message.
 
 ### A2 · Documentation
 `CONTRIBUTING_RULES.md`, `GEMINI.md`, `README.md`. Includes fixing `GEMINI.md:40,44`, which references a `.pre-commit-config.yaml` that does not exist — the real hook is `.githooks/pre-commit` calling `just precommit`.
