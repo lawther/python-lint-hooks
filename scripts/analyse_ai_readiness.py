@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 import subprocess
 import sys
 from enum import Enum
@@ -141,10 +142,18 @@ def count_tokens(file_path: Path) -> int:
         return 0
 
 
+def git_executable() -> str:
+    """Absolute path to git, so subprocess never resolves a partial path (ruff S607)."""
+    git = shutil.which("git")
+    if git is None:
+        raise FileNotFoundError("git not found on PATH")
+    return git
+
+
 def get_tracked_files(root: Path) -> list[Path]:
     try:
         result = subprocess.run(
-            ["git", "ls-files"],
+            [git_executable(), "ls-files"],
             cwd=str(root),
             capture_output=True,
             text=True,
@@ -158,7 +167,7 @@ def get_tracked_files(root: Path) -> list[Path]:
 def get_staged_files(root: Path) -> list[Path]:
     try:
         result = subprocess.run(
-            ["git", "diff", "--cached", "--name-only", "--diff-filter=d"],
+            [git_executable(), "diff", "--cached", "--name-only", "--diff-filter=d"],
             cwd=str(root),
             capture_output=True,
             text=True,
