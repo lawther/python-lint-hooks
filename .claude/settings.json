@@ -15,7 +15,7 @@
             "statusMessage": "Checking bead model label..."
           },
           {
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/reject_blocked_by_dependency_type.py",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/validate_dep_type.py",
             "type": "command",
             "statusMessage": "Checking dependency type..."
           }
