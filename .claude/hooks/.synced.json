@@ -19,6 +19,7 @@
     }
   ],
   "files": [
+    "_shell_tokenise.py",
     "block-override-flags.sh",
     "block_override_flags.py",
     "check_bead_model.py",

@@ -49,42 +49,29 @@ is what ultimately runs. Closing those needs interposing on `bd` itself (a wrapp
 PATH) rather than parsing the shell string -- tracked as a follow-up, deliberately not
 attempted here. This hook remains a nudge, not a boundary.
 
-A NEWLINE IS A SEPARATOR TOO, and recovering it is why `tokenise()` works a line at a
-time rather than handing shlex the whole command. shlex treats a newline as ordinary
-whitespace, so `bd show x` + newline + `bd create y` collapsed into one segment beginning
-`bd show` and the unlabelled create on the second line was never examined. Splitting on
-lines and splicing a synthetic `;` between them restores the boundary, but only once the
-three things that legitimately span lines are stitched back together first:
+Tokenising and command-segmenting are shared with the other Bash guards -- see
+`_shell_tokenise.py` for how a newline, a heredoc body and a multi-line quoted value are
+told apart, and for the fail-open policy `tokenise()` applies here: an unparseable tail is
+dropped rather than checked, consistent with the rest of this hook (see `main`'s
+exception guard) -- this is a policy nudge, not a safety boundary, so a false block costs
+more than an occasional unlabelled bead slipping past it.
 
-  * a quoted value -- a line that fails to parse is held and retried joined to the next
-    with its newline intact, so a multi-line `--notes` reaches the checks byte-for-byte
-    rather than being mangled or split into a bogus second command;
-  * a backslash continuation -- distinguished from the above by `ends_mid_escape()`, and
-    dropped the way a shell drops it, so a `bd create` whose `-l model:opus` sits on a
-    continuation line is no longer read as a create with no label at all and denied;
-  * a heredoc body -- its lines are data, not commands, so a document being written with
-    `cat <<EOF` that quotes `bd create` in its text is not mistaken for running one.
-
-What newline segmentation still does not see: a heredoc whose delimiter never appears
-swallows the rest of the command, and a quoted word that survives quote-stripping looking
-exactly like an operator (`echo "<<EOF"`) starts a body that is not there -- both fail
-open, consistent with the rest of the hook. A backslash-newline *inside* double quotes
-keeps a literal newline where a shell would remove it, which can only ever alter the
-inside of a quoted value, never where a command boundary falls.
-
-Standard library only, and no project imports: the hook runs under the system
-interpreter before any project environment is guaranteed.
+Standard library only, and no third-party imports: the hook runs under the system
+interpreter before any project environment is guaranteed. `_shell_tokenise` is a sibling
+file in this same directory, always synced alongside this one (see hooks.toml), so
+importing it is not a third-party dependency.
 """
 
 from __future__ import annotations
 
 import json
 import re
-import shlex
 import subprocess
 import sys
 from pathlib import Path
 from typing import NamedTuple
+
+from _shell_tokenise import command_segments, tokenise
 
 _MODEL_LABEL_RE = re.compile(r"^model:(?P<family>\w+)$")
 _MODEL_FAMILY_RE = re.compile(r"opus|sonnet|haiku|fable", re.IGNORECASE)
@@ -101,34 +88,10 @@ _BATCH_CREATE_FLAGS = frozenset({"-f", "--file", "--graph"})
 _LABEL_FLAGS = frozenset({"-l", "--labels"})
 _PARENT_FLAGS = frozenset({"--parent"})
 
-# Shell control operators that separate one command from the next. shlex.split
-# returns these as their own unquoted tokens, so a segment boundary is just "this
-# token, verbatim, outside quotes". A lone "&" backgrounds the command before it and
-# is therefore a separator too; "&&", "&>" and "2>&1" tokenise whole, so including it
-# does not split them.
-_COMMAND_SEPARATORS = frozenset({"&&", "||", ";", "|", "&"})
-
-# The separator spliced in where a newline ended a command, so the segmenter above sees
-# a boundary that shlex would otherwise have swallowed as ordinary whitespace.
-_SYNTHETIC_SEPARATOR = ";"
-
-# A heredoc redirection: an optional fd, `<<` or `<<-`, and the delimiter word, which may
-# instead be the next token. `[^<]` keeps `<<<` (a here-string, which has no body) out.
-_HEREDOC_OPERATOR_RE = re.compile(r"^\d*<<(?P<dash>-?)(?P<delimiter>[^<].*)?$")
-
-# Any ordinary character will do: it is only ever appended to a chunk that already failed
-# to parse, to tell a dangling backslash apart from an unterminated quote.
-_ESCAPE_PROBE_CHAR = "x"
-
 _HOW_TO_LABEL = (
     "Every bead needs exactly one model label: `model:sonnet` for mechanical work, "
     "`model:opus` for work needing design decisions. Add `-l model:<family>`."
 )
-
-
-class Heredoc(NamedTuple):
-    delimiter: str
-    strips_tabs: bool
 
 
 class ClaimCommand(NamedTuple):
@@ -162,101 +125,6 @@ def deny(reason: str) -> None:
         sys.stdout,
     )
     sys.exit(0)
-
-
-def heredocs_opened(tokens: list[str]) -> list[Heredoc]:
-    """The heredoc bodies `tokens` queues up, in the order the shell will consume them."""
-    opened = []
-    awaiting_delimiter = False
-    awaited_strips_tabs = False
-    for token in tokens:
-        if awaiting_delimiter:
-            opened.append(Heredoc(delimiter=token, strips_tabs=awaited_strips_tabs))
-            awaiting_delimiter = False
-            continue
-        match = _HEREDOC_OPERATOR_RE.match(token)
-        if not match:
-            continue
-        awaited_strips_tabs = bool(match.group("dash"))
-        delimiter = match.group("delimiter") or ""
-        if delimiter:
-            opened.append(Heredoc(delimiter=delimiter, strips_tabs=awaited_strips_tabs))
-        else:
-            awaiting_delimiter = True
-    return opened
-
-
-def ends_mid_escape(chunk: str) -> bool:
-    """True if `chunk` breaks off on a backslash outside any quote -- a line continuation.
-
-    shlex cannot answer this directly: an unterminated quote and a dangling backslash both
-    raise ValueError. Appending one ordinary character separates them, because it satisfies
-    a dangling escape but leaves an open quote just as open.
-    """
-    try:
-        shlex.split(chunk + _ESCAPE_PROBE_CHAR)
-    except ValueError:
-        return False
-    return True
-
-
-def tokenise(command: str) -> list[str]:
-    """`command` as tokens, with a synthetic `;` marking each newline that ends a command.
-
-    Tokenising the whole string at once loses newlines entirely -- shlex treats one as
-    ordinary whitespace, so `bd show x` + newline + `bd create y` reads as a single
-    command. Tokenising each physical line instead recovers the boundary, provided three
-    things that span lines are stitched back together first: a quoted value, a backslash
-    continuation, and a heredoc body (whose lines are data, not commands).
-    """
-    tokens: list[str] = []
-    pending = ""
-    holding = False
-    unread_heredocs: list[Heredoc] = []
-
-    for line in command.split("\n"):
-        if unread_heredocs:
-            body_line = line.lstrip("\t") if unread_heredocs[0].strips_tabs else line
-            if body_line == unread_heredocs[0].delimiter:
-                unread_heredocs.pop(0)
-            continue
-        chunk = pending + line if holding else line
-        try:
-            line_tokens = shlex.split(chunk)
-        except ValueError:
-            # The line stops inside something that continues below: drop a continuation's
-            # backslash-newline the way a shell does, and keep a quoted value's newline.
-            pending = chunk[:-1] if ends_mid_escape(chunk) else chunk + "\n"
-            holding = True
-            continue
-        pending, holding = "", False
-        unread_heredocs = heredocs_opened(line_tokens)
-        if not line_tokens:
-            continue
-        if tokens:
-            tokens.append(_SYNTHETIC_SEPARATOR)
-        tokens.extend(line_tokens)
-
-    # Anything still held here never balanced, so the quote is genuinely unterminated, and
-    # the remainder is deliberately dropped rather than tokenised. Splitting it on whitespace
-    # -- the old fallback -- turned prose into tokens: one apostrophe in a commit message
-    # left a quote open, shredded the whole command, and let the words "bd create" inside
-    # the message read as a real command, denying the commit. Prose containing an apostrophe
-    # is ordinary, so that fired constantly. Not checking what cannot be parsed is the
-    # fail-open this hook promises everywhere else: better to miss a create than to invent
-    # one that was never run.
-    return tokens
-
-
-def command_segments(tokens: list[str]) -> list[list[str]]:
-    """`tokens` split into per-command segments at bare `&&`/`||`/`;`/`|` tokens."""
-    segments: list[list[str]] = [[]]
-    for token in tokens:
-        if token in _COMMAND_SEPARATORS:
-            segments.append([])
-        else:
-            segments[-1].append(token)
-    return [segment for segment in segments if segment]
 
 
 def bd_segments(tokens: list[str]) -> list[list[str]]:

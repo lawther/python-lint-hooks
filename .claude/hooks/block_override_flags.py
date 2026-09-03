@@ -6,20 +6,31 @@ exist to silence a refusal, and silencing one is the user's decision, not the ag
 script is the decision half of the ``PreToolUse`` guard: the wrapper hands it one command
 string as ``argv[1]``, and it prints the deny payload, or nothing at all.
 
-Matching is on shell **tokens**, via :mod:`shlex`, not on the raw command string. A flag
-inside a quoted argument — a commit message, a ``bd --append-notes`` body, this file's own
-prose — is data, not a flag, and must not trip the guard.
+Matching is on shell **tokens**, produced by :mod:`_shell_tokenise`, not on the raw command
+string. A flag inside a quoted argument — a commit message, a ``bd --append-notes`` body,
+this file's own prose — is data, not a flag, and must not trip the guard.
 
-Standard library only, and no project imports: the hook runs under the system interpreter
-before any project environment is guaranteed.
+Matching is also scoped to a single **command segment** — the tokens between one `;`/`&&`/
+`||`/`|`/`&`/newline and the next. `git`, `push` and a force flag must all name the same
+piece of work, not merely all appear somewhere in a longer compound command: a heredoc body
+that happens to discuss pushing, sitting beside an unrelated `git add` and a `[ -f file ]`
+test in the same command string, must not be read as a force push. Segment-scoping still
+does not require adjacency *within* a segment — `git push origin main --force` is caught
+however its tokens are ordered — it only stops tokens from unrelated segments colliding.
+
+Standard library only, and no third-party imports: the hook runs under the system
+interpreter before any project environment is guaranteed. `_shell_tokenise` is a sibling
+file in this same directory, always synced alongside this one (see hooks.toml), so
+importing it is not a third-party dependency.
 """
 
 from __future__ import annotations
 
 import json
-import shlex
 import sys
 from typing import NamedTuple
+
+from _shell_tokenise import command_segments, parse
 
 _FORCE_FLAG = "--force"
 _SHORT_FORCE_FLAG = "-f"
@@ -57,37 +68,40 @@ SKIPPED_VERIFICATION = Rule(
     ),
 )
 
+UNPARSEABLE = Rule(
+    name="unparseable command",
+    reason=(
+        "Blocked: this command's quoting could not be fully parsed, so it cannot be checked "
+        "for override flags — and a shell would most likely choke on it too, for the same "
+        "reason. Fix the quoting (an apostrophe outside double quotes is the usual cause) and "
+        "try again."
+    ),
+)
 
-def tokenise(command: str) -> list[str]:
-    """Shell tokens of ``command``, falling back to a whitespace split on unparseable input.
 
-    The fallback errs towards blocking: it can only ever expose *more* bare tokens than
-    :func:`shlex.split` would, so a command this script cannot parse is more likely to be
-    denied than waved through.
+def violated_rule(segments: list[list[str]]) -> Rule | None:
+    """The rule some segment of ``segments`` breaks, or ``None`` when none is an override.
+
+    Each segment is one command in the chain — the tokens between one `;`/`&&`/`||`/`|`/`&`/
+    newline and the next — checked on its own, so a force flag in one piece of a compound
+    command cannot combine with a `git`/`push` pair from an unrelated piece.
     """
-    try:
-        return shlex.split(command)
-    except ValueError:
-        return command.split()
+    for tokens in segments:
+        present = set(tokens)
+        forced = (
+            _FORCE_FLAG in present
+            or _SHORT_FORCE_FLAG in present
+            or any(token.startswith(_LEASE_FLAG_PREFIX) for token in tokens)
+        )
 
-
-def violated_rule(tokens: list[str]) -> Rule | None:
-    """The rule ``tokens`` breaks, or ``None`` when the command is not an override."""
-    present = set(tokens)
-    forced = (
-        _FORCE_FLAG in present
-        or _SHORT_FORCE_FLAG in present
-        or any(token.startswith(_LEASE_FLAG_PREFIX) for token in tokens)
-    )
-
-    if "bd" in present and _FORCE_FLAG in present:
-        return BD_FORCE
-    # Deliberately loose: any command naming both 'git' and 'push' alongside a force flag.
-    # Over-blocking costs one question; under-blocking costs rewritten remote history.
-    if "git" in present and "push" in present and forced:
-        return FORCE_PUSH
-    if _NO_VERIFY_FLAG in present:
-        return SKIPPED_VERIFICATION
+        if "bd" in present and _FORCE_FLAG in present:
+            return BD_FORCE
+        # Deliberately loose: any segment naming both 'git' and 'push' alongside a force
+        # flag. Over-blocking costs one question; under-blocking costs rewritten history.
+        if "git" in present and "push" in present and forced:
+            return FORCE_PUSH
+        if _NO_VERIFY_FLAG in present:
+            return SKIPPED_VERIFICATION
     return None
 
 
@@ -95,7 +109,13 @@ def main(argv: list[str]) -> None:
     """Print the PreToolUse deny payload when ``argv[1]`` overrides a refusal."""
     if len(argv) < 2:  # noqa: PLR2004 - argv[0] is the script; argv[1] is the command under test
         return
-    rule = violated_rule(tokenise(argv[1]))
+    result = parse(argv[1])
+    # Fail closed, unlike `_shell_tokenise.tokenise()`'s default: this guard is a boundary,
+    # not a nudge, so a command this script cannot fully account for is denied rather than
+    # checked on whatever partial tokens it managed to produce. What remains unparseable
+    # after the shared tokeniser's line/quote/heredoc stitching is genuinely broken shell
+    # syntax that a real shell would reject too, not ordinary prose slipping through.
+    rule = UNPARSEABLE if result.truncated else violated_rule(command_segments(result.tokens))
     if rule is None:
         return
     json.dump(
