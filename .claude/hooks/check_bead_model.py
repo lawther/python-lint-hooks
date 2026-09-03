@@ -290,8 +290,14 @@ def create_commands(tokens: list[str]) -> list[CreateCommand]:
         subcommand = next((token for token in call[1:] if not token.startswith("-")), "")
         if subcommand not in _CREATE_SUBCOMMANDS:
             continue
-        # --dry-run creates nothing, and batch forms carry their labels in a payload file.
-        if "--dry-run" in call or any(token.partition("=")[0] in _BATCH_CREATE_FLAGS for token in call):
+        # --dry-run and --help/-h create nothing, and batch forms carry their labels in a
+        # payload file.
+        if (
+            "--dry-run" in call
+            or "--help" in call
+            or "-h" in call
+            or any(token.partition("=")[0] in _BATCH_CREATE_FLAGS for token in call)
+        ):
             continue
         explicit_labels = [
             label for value in flag_values(call, _LABEL_FLAGS) for label in value.split(",") if label.strip()
