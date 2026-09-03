@@ -23,5 +23,12 @@
     "block_override_flags.py",
     "check_bead_model.py",
     "validate_dep_type.py"
+  ],
+  "commands": [
+    {
+      "event": "SessionStart",
+      "matcher": "",
+      "command": "bd prime --memories-only --hook-json"
+    }
   ]
 }
