@@ -58,20 +58,50 @@ more than an occasional unlabelled bead slipping past it.
 
 Standard library only, and no third-party imports: the hook runs under the system
 interpreter before any project environment is guaranteed. `_shell_tokenise` is a sibling
-file in this same directory, always synced alongside this one (see hooks.toml), so
-importing it is not a third-party dependency.
+file in this same directory, always synced alongside this one (see hooks.toml), so it is
+not a third-party dependency -- but it is loaded by path (`_load_shell_tokenise()`) rather
+than a plain `import _shell_tokenise`: this file is synced standalone into `.claude/hooks/`
+in several repos, and some run a static type checker whose module-resolution roots do not
+include that directory, so a literal import naming a sibling module reads as unresolved
+there even though the runtime import (Python always puts a script's own directory on
+`sys.path`) works fine. Loading by path has no import name for a static checker to flag,
+which avoids asking every consuming repo to configure around this file.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
-from _shell_tokenise import command_segments, tokenise
+if TYPE_CHECKING:
+    from types import ModuleType
+
+
+def _load_shell_tokenise() -> ModuleType:
+    """The sibling `_shell_tokenise.py`, loaded by path -- see the module docstring.
+
+    Typed as a plain `ModuleType` rather than the sibling's own type: naming that type
+    would itself require an import statement, reintroducing the unresolved-import problem
+    this whole function exists to avoid.
+    """
+    path = Path(__file__).resolve().parent / "_shell_tokenise.py"
+    spec = importlib.util.spec_from_file_location("_shell_tokenise", path)
+    if spec is None or spec.loader is None:
+        message = f"cannot load the shell tokeniser from {path}"
+        raise RuntimeError(message)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_shell_tokenise = _load_shell_tokenise()
+command_segments = _shell_tokenise.command_segments
+tokenise = _shell_tokenise.tokenise
 
 _MODEL_LABEL_RE = re.compile(r"^model:(?P<family>\w+)$")
 _MODEL_FAMILY_RE = re.compile(r"opus|sonnet|haiku|fable", re.IGNORECASE)
