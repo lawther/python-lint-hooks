@@ -146,3 +146,21 @@ check-ai-readiness *args:
     @{{uv_run}} scripts/analyse_ai_readiness.py --fail-on {{args}}
 
 # END SHARED RECIPES (AI_READINESS)
+
+# BEGIN SHARED RECIPES (CHECK_HOOKS_DRIFT) sha256:b59ea25e66824683
+# Generated from agent_rules/snippets/check_hooks_drift.just. Do not edit inside this block:
+#      edit snippets/check_hooks_drift.just, then run `just sync-justfile-recipes` in agent_rules.
+
+# Verify .claude/hooks/ still matches agent_rules/hooks/. Requires the
+# agent_rules repo as a sibling checkout; local/pre-commit only for now.
+# Wiring this into CI needs agent_rules reachable there — see agent_rules-403.
+check-hooks-drift:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -x ../agent_rules/sync_hooks.py ]]; then
+        echo "error: ../agent_rules/sync_hooks.py not found — clone the agent_rules repo as a sibling" >&2
+        exit 2
+    fi
+    ../agent_rules/sync_hooks.py check .
+
+# END SHARED RECIPES (CHECK_HOOKS_DRIFT)
