@@ -9,6 +9,6 @@
 #
 # check-hooks-drift runs here, not inside `just precommit`, because CI calls
 # `just precommit` directly with no ../agent_rules sibling checkout to check
-# against -- see agent_rules-8ym.
+# against -- see agent_rules-8ym, agent_rules-bwr.
 just check-hooks-drift
 just precommit
