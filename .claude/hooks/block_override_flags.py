@@ -136,11 +136,15 @@ def violated_rule(segments: list[list[str]]) -> Rule | None:
     return None
 
 
+_COMMAND_ARGV_INDEX = 1  # argv[1] is the command under test; argv[0] is the script path
+_MIN_ARGC = _COMMAND_ARGV_INDEX + 1
+
+
 def main(argv: list[str]) -> None:
     """Print the PreToolUse deny payload when ``argv[1]`` overrides a refusal."""
-    if len(argv) < 2:  # noqa: PLR2004 - argv[0] is the script; argv[1] is the command under test
+    if len(argv) < _MIN_ARGC:
         return
-    result = parse(argv[1])
+    result = parse(argv[_COMMAND_ARGV_INDEX])
     # Fail closed, unlike `_shell_tokenise.tokenise()`'s default: this guard is a boundary,
     # not a nudge, so a command this script cannot fully account for is denied rather than
     # checked on whatever partial tokens it managed to produce. What remains unparseable

@@ -295,8 +295,8 @@ def bead_model_labels(issue_ids: list[str]) -> dict[str, list[str]]:
         # issue_ids come from shlex-tokenised argv positions (never a raw shell string), passed
         # as separate argv elements with shell=False; "bd" is resolved via PATH deliberately,
         # matching how the SessionStart hook already invokes it project-wide.
-        result = subprocess.run(  # noqa: S603
-            ["bd", "show", *issue_ids, "--json"],  # noqa: S607
+        result = subprocess.run(
+            ["bd", "show", *issue_ids, "--json"],
             capture_output=True,
             text=True,
             timeout=_BD_SHOW_TIMEOUT_SECS,
