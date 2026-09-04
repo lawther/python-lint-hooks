@@ -87,18 +87,6 @@ check-rules-docs:
     @uv run python scripts/generate_rules_table.py --check
     @uv run python scripts/generate_rule_docs.py --check
 
-# Verify .claude/hooks/ still matches agent_rules/hooks/. Requires the
-# agent_rules repo as a sibling checkout; local/pre-commit only for now.
-# Wiring this into CI needs agent_rules reachable there — see agent_rules-403.
-check-hooks-drift:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [[ ! -x ../agent_rules/sync_hooks.py ]]; then
-        echo "error: ../agent_rules/sync_hooks.py not found — clone the agent_rules repo as a sibling" >&2
-        exit 2
-    fi
-    ../agent_rules/sync_hooks.py check .
-
 # Scaffold a new rule. Usage: just new-rule ML150
 new-rule code:
     #!/usr/bin/env bash
