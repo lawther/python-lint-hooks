@@ -71,6 +71,7 @@ ignore-names = ["enter_*", "leave_*"]
 "scripts/**" = ["T201", "INP001", "S603", "S607"]
 "src/ml_lints/cli.py" = ["T201"]
 "**/_template.py" = ["ERA001", "TD002", "TD003", "FIX002"]
+".claude/hooks/**" = ["S603", "S607"]  # check_bead_model.py invokes `bd` via PATH, shell=False, deliberately
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
