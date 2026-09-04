@@ -6,4 +6,9 @@
 #   git config core.hooksPath .githooks
 #
 # Or run: just setup-git-hooks
+#
+# check-hooks-drift runs here, not inside `just precommit`, because CI calls
+# `just precommit` directly with no ../agent_rules sibling checkout to check
+# against -- see agent_rules-8ym.
+just check-hooks-drift
 just precommit
