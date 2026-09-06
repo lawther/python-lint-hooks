@@ -1,0 +1,20 @@
+# python-lint-hooks' own ruff config. `extend` pulls in the fleet's shared config, synced
+# here verbatim by agent_rules' sync_lint_config.py (ar-vlz) -- do not hand-edit
+# ruff_shared.toml. Everything below is python-lint-hooks-only.
+extend = "ruff_shared.toml"
+
+# This repo publishes ml-lints (requires-python >=3.11), so 3.12/3.13-only rewrites the
+# shared py313 pin would suggest are wrong here. Overrides the shared value.
+target-version = "py311"
+
+[lint.pep8-naming]
+# AST visitor hook methods on Rule subclasses are named enter_<ASTNodeName> and leave_<ASTNodeName>
+# (e.g. enter_FunctionDef) to match standard ast.AST PascalCase class names.
+ignore-names = ["enter_*", "leave_*"]
+
+[lint.extend-per-file-ignores]
+"tests/**/*.py" = ["S101", "S105", "S106", "PLC0415", "PLR2004", "PGH003"]
+"tests/**" = ["RUF003"]
+"src/**" = ["S603", "S607"]
+"src/ml_lints/cli.py" = ["T201"]
+"**/_template.py" = ["ERA001", "TD002", "TD003", "FIX002"]
