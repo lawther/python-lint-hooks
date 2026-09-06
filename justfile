@@ -1,3 +1,13 @@
+# BEGIN SHARED RECIPES (DEFAULT) sha256:18670817947290ab
+# Generated from agent_rules/snippets/default.just. Do not edit inside this block:
+#      edit snippets/default.just, then run `just sync-justfile-recipes` in agent_rules.
+
+# List available recipes
+default:
+    @just --list
+
+# END SHARED RECIPES (DEFAULT)
+
 # The runner the shared ai_readiness recipes call; declared in agent_rules/repos.toml.
 uv_run := "uv run"
 
@@ -9,10 +19,6 @@ reset   := `tput sgr0 2>/dev/null || true`
 
 success := bold + green + "✔︎ "
 err     := bold + red + "❌ "
-
-# List available recipes
-default:
-    @just --list
 
 # Run all lints and formatting
 lint:
