@@ -1,4 +1,4 @@
-<!-- BEGIN GLOBAL RULES sha256:eca2598af79c95d3 -->
+<!-- BEGIN GLOBAL RULES sha256:c9c4c18fdb8efe1b -->
 <!-- Generated from agent_rules/global.md. Do not edit inside this block:
      edit global.md, then run `just sync-rules` in agent_rules. -->
 
@@ -78,6 +78,8 @@ The **justfile is the single source of truth** for all check commands. Pre-commi
     once, about a moment, and is chronological by nature. Leave them as written -- and when
     you want to record how the work changed, put that account in the close reason rather
     than back into the body.
+- When the deliverable is an issue, the issue is the deliverable: report what changed and
+  where, and do not restate its contents back to me.
 - Before saying a piece of work is done, close its issue (`bd close <id>`) and file issues
   for anything left over.
 - This section and the Committing Code section below are the only statements of this
