@@ -1,4 +1,4 @@
-<!-- BEGIN GLOBAL RULES sha256:e36e24bfffc51b1a -->
+<!-- BEGIN GLOBAL RULES sha256:eca2598af79c95d3 -->
 <!-- Generated from agent_rules/global.md. Do not edit inside this block:
      edit global.md, then run `just sync-rules` in agent_rules. -->
 
@@ -61,6 +61,23 @@ The **justfile is the single source of truth** for all check commands. Pre-commi
   agent_rules/hooks.toml, `[commands.bd-prime]`.
 - Use `bd remember` for knowledge that should outlive the session. Do not create MEMORY.md
   or similar files.
+- An issue is a description of the work as it now stands, not a diary of how it got there.
+  When the shape of the work changes, rewrite the issue so it reads as though it had always
+  said the new thing. Never append a delta: no "Update:" paragraphs, no "previously we
+  thought...", no struck-through text, no changelog at the bottom. Rewriting *is* the edit,
+  not a tidy-up you do afterwards.
+  - Why: the next reader acts on the first thing they read. A diary forces them to
+    reconstruct the live answer out of a stack of dead ones, and that is exactly how
+    information gets lost. Git and `bd` history already hold the deltas -- the body does not
+    need to.
+  - The only exception: superseded material may stay as an explicit "Alternatives
+    considered" note, and only where knowing why it was rejected stops someone proposing it
+    again. If it is not doing that job, delete it.
+  - This governs the title, description, design, notes and acceptance criteria. Discussion
+    comments and close reasons are the one place history legitimately lives: each is written
+    once, about a moment, and is chronological by nature. Leave them as written -- and when
+    you want to record how the work changed, put that account in the close reason rather
+    than back into the body.
 - Before saying a piece of work is done, close its issue (`bd close <id>`) and file issues
   for anything left over.
 - This section and the Committing Code section below are the only statements of this
