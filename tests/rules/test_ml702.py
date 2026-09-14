@@ -170,6 +170,39 @@ def test_ml702_flags_a_floor_after_converting_to_a_constructed_offset(tmp_path: 
 # ---------------------------------------------------------------------------
 
 
+def test_ml702_ignores_a_non_zero_hour(tmp_path: Path) -> None:
+    # `.replace(hour=16, ...)` is not a floor. It means "run at 4pm" — scheduling, and
+    # scheduling against a fixed offset is deliberate rather than mistaken.
+    code = textwrap.dedent("""\
+        def next_run(now: str) -> str:
+            return now.replace(hour=16, minute=0, second=0, microsecond=0)
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml702_ignores_a_named_hour_constant(tmp_path: Path) -> None:
+    # A constant reads as scheduling at the call site even if it happens to equal zero.
+    code = textwrap.dedent("""\
+        EXPORT_HOUR_UTC = 16
+
+
+        def next_run(now: str) -> str:
+            return now.replace(hour=EXPORT_HOUR_UTC, minute=0)
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml702_ignores_a_configured_hour_attribute(tmp_path: Path) -> None:
+    code = textwrap.dedent("""\
+        def next_run(now: str, config: str) -> str:
+            return now.replace(day=config.day_of_month, hour=config.hour_utc, minute=0)
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
 def test_ml702_ignores_offset_stripping(tmp_path: Path) -> None:
     # Deliberate, common, and the opposite of this defect: comparing two values with
     # their offsets removed on purpose.

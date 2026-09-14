@@ -13,10 +13,13 @@ from ml_lints.rules import CheckContext, Rule, RuleCategory, RuleCode, register
 _REPLACE: str = "replace"
 _ASTIMEZONE: str = "astimezone"
 
-# Presence of `hour` is the whole trigger. Flooring the hour is the point at which the
-# expression starts meaning "local midnight"; minute, second and microsecond are
-# sub-hour and offset-independent on their own.
+# `hour=0` is the whole trigger. Flooring the hour to zero is the point at which the
+# expression starts meaning "the start of this day"; minute, second and microsecond are
+# sub-hour and offset-independent on their own. A *non-zero* hour is not a floor at all —
+# `.replace(hour=16, minute=0, ...)` means "run at 4pm", which is scheduling, and
+# scheduling in a fixed offset is a legitimate thing to want.
 _MIDNIGHT_KEYWORD: str = "hour"
+_MIDNIGHT_HOUR: int = 0
 
 # Converting *to a fixed offset* is not a conversion for this rule's purposes — it
 # produces precisely the value the rule exists to catch. `.astimezone(UTC)` is the
@@ -52,8 +55,19 @@ def _is_astimezone_call(node: ast.expr) -> bool:
     return not any(_is_fixed_offset(arg) for arg in node.args)
 
 
-def _floors_the_hour(node: ast.Call) -> bool:
-    return any(keyword.arg == _MIDNIGHT_KEYWORD for keyword in node.keywords)
+def _floors_to_midnight(node: ast.Call) -> bool:
+    """True for `.replace(hour=0, ...)` — a literal zero, not merely an `hour` keyword.
+
+    A named constant that happens to equal zero reads as scheduling at the call site and is
+    left alone, which is the precision-first trade this rule family makes everywhere else.
+    """
+    return any(
+        keyword.arg == _MIDNIGHT_KEYWORD
+        and isinstance(keyword.value, ast.Constant)
+        and keyword.value.value == _MIDNIGHT_HOUR
+        and not isinstance(keyword.value.value, bool)
+        for keyword in node.keywords
+    )
 
 
 @register
@@ -75,8 +89,10 @@ class ML702(Rule):
 
     Flooring to midnight is the one datetime operation that can only ever be calendar
     intent — unlike ``+ timedelta(days=1)``, which is just as often a duration and so
-    cannot be judged from its shape. That is why this rule keys on ``hour`` and says
-    nothing about arithmetic.
+    cannot be judged from its shape. That is why this rule keys on a literal ``hour=0``
+    and says nothing about arithmetic. A non-zero hour is the other thing ``replace`` is
+    used for: ``.replace(hour=16, minute=0, ...)`` schedules a run at 4pm, and scheduling
+    against a fixed offset is deliberate rather than mistaken.
     """
 
     code: ClassVar[RuleCode] = RuleCode.ML702
@@ -85,7 +101,11 @@ class ML702(Rule):
     suggestion: ClassVar[str] = "Call `.astimezone(tz)` with a real `ZoneInfo` before flooring"
 
     exemptions: ClassVar[str] = (
-        "Only a `.replace()` whose keywords include `hour` is flagged. `.replace(tzinfo=...)` is "
+        "Only a `.replace()` carrying a literal `hour=0` is flagged. A non-zero hour is not a floor at "
+        'all — `.replace(hour=16, minute=0, ...)` means "run at 4pm", which is scheduling, and '
+        "scheduling in a fixed offset is a legitimate thing to want. A named constant that happens to "
+        "equal zero is left alone too, because it reads as scheduling at the call site.\n\n"
+        "`.replace(tzinfo=...)` is "
         "deliberate offset-stripping and is never flagged; `.replace(minute=0)` floors the hour, which "
         "is sub-day and offset-independent; `.replace(day=...)`, `.replace(month=...)` and "
         "`.replace(year=...)` are the same hazard one scale up but are left alone, because bumping a "
@@ -160,7 +180,7 @@ class ML702(Rule):
     def enter_Call(self, node: ast.Call) -> None:
         if not isinstance(node.func, ast.Attribute) or node.func.attr != _REPLACE:
             return
-        if not _floors_the_hour(node):
+        if not _floors_to_midnight(node):
             return
 
         receiver = node.func.value
