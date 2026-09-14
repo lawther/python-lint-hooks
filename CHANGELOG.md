@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.14.0](https://github.com/lawther/python-lint-hooks/compare/v0.13.0...v0.14.0) (2026-09-14)
+
+
+### Features
+
+* add shared analyse-ai-readiness script and recipes ([d03e3ce](https://github.com/lawther/python-lint-hooks/commit/d03e3ce343e0f463b4280ffb7b9ff8d0b2ce5b52))
+* enforce shared reject-blocked-by-dependency-type hook ([b4506d4](https://github.com/lawther/python-lint-hooks/commit/b4506d43839c7ffed0abb7bf27f234625554fb99))
+* **hooks:** add check-hooks-drift, wired into .githooks/pre-commit ([0bb4522](https://github.com/lawther/python-lint-hooks/commit/0bb45221b5bb0ea514b9e6fc3afc416d3cda13b5))
+* **rules:** add ML700 for widened timezone annotations ([b8e2437](https://github.com/lawther/python-lint-hooks/commit/b8e2437255e5e8019cfdf4f95b5d5cc9057e38ef))
+* **rules:** add ML701 for silent timezone substitution ([160ec30](https://github.com/lawther/python-lint-hooks/commit/160ec30d2a1f3f212c1e04e7bacb7d249cdbfb54))
+* **rules:** add ML702 for midnight floors without a zone conversion ([bc63d3b](https://github.com/lawther/python-lint-hooks/commit/bc63d3b2993c2eee59f850c4f44a494ed21f876c))
+
+
+### Bug Fixes
+
+* **check-bead-model:** exempt bd create --help/-h from the label guard ([774dd1c](https://github.com/lawther/python-lint-hooks/commit/774dd1cda1e4b4fc284cc35491c31c3c6301a321))
+* **hooks:** scope block_override_flags.py's match to one command segment ([52c5db7](https://github.com/lawther/python-lint-hooks/commit/52c5db7559193d8936e23bfc85a93b9ebe64f740))
+* **hooks:** scope block_override_flags.py's match to one command segment ([1404bac](https://github.com/lawther/python-lint-hooks/commit/1404bac2b864909753cf87afd16091d82167a629))
+* **ML702:** require a literal hour=0 for the midnight-floor sink ([961c91e](https://github.com/lawther/python-lint-hooks/commit/961c91e9edc0a0685df0760307800953a7809099))
+* remove potentially wrong 'license' suggestion ([2d5d149](https://github.com/lawther/python-lint-hooks/commit/2d5d149fe5da9fe6db60eaa7cdd95bfd21b6c5e0))
+* resolve git via an absolute path in analyse_ai_readiness ([8e6a0ec](https://github.com/lawther/python-lint-hooks/commit/8e6a0ecca9d27b0068268bec25343c0ebe6d0122))
+
+
+### Reverts
+
+* remove ML702 pending the mlp-bfy decision ([2be10e4](https://github.com/lawther/python-lint-hooks/commit/2be10e4c3764b293a07b41ad9494f956e6bf0c85))
+
+
+### Documentation
+
+* add TypeScript port specification ([e51f710](https://github.com/lawther/python-lint-hooks/commit/e51f7109f6534f2128609120ac81cccc5054416f))
+* **rules:** enrol in the agent_rules rules family ([3a2bd43](https://github.com/lawther/python-lint-hooks/commit/3a2bd4332100358dec779b036e8a8bd3293ed89e))
+* specify behavioural conformance and split T8 into two gates ([1ba7073](https://github.com/lawther/python-lint-hooks/commit/1ba70734cfd75cf1ec56d5f9947268453c577bd9))
+* specify shared/categories.json and widen RV1 to cover it ([3861846](https://github.com/lawther/python-lint-hooks/commit/386184607af1efdb69a1b3587c43114a205962ce))
+* split manifest concept from per-language summary and suggestion ([e0e2e52](https://github.com/lawther/python-lint-hooks/commit/e0e2e529276fb07bb1ad01dd39c66a9e644b1fdf))
+
 ## [0.13.0](https://github.com/lawther/python-lint-hooks/compare/v0.12.5...v0.13.0) (2026-08-20)
 
 
