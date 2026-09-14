@@ -33,7 +33,6 @@ class RuleCode(StrEnum):
     ML600 = "ML600"
     ML700 = "ML700"
     ML701 = "ML701"
-    ML702 = "ML702"
     # -- add new codes above this line --
 
 
