@@ -30,6 +30,7 @@ These rules are aimed at optimising AI agent development. A common failure mode 
 | [`ML600`](docs/rules/ML600.md) | `@patch(new=Mock(...))` shares one mock instance across tests | Use `new_callable=Mock` (or `MagicMock`/`AsyncMock`) instead |
 | [`ML700`](docs/rules/ML700.md) | Timezone parameter or attribute is not typed as a real IANA zone | Annotate it `ZoneInfo` so date arithmetic stays wall-clock |
 | [`ML701`](docs/rules/ML701.md) | Timezone silently substituted instead of rejected | Raise when the zone is missing or not a `ZoneInfo` rather than inventing one |
+| [`ML702`](docs/rules/ML702.md) | Datetime floored to midnight without a zone conversion | Call `.astimezone(tz)` with a real `ZoneInfo` before flooring |
 <!-- rules-table-end -->
 
 **ML100 - ML107** catch violations related to return types. Unlike standard linting, these rules are **recursive** and will catch bare or primitive dicts/tuples even when nested inside other types like `list[...]` or `Optional[...]`.
