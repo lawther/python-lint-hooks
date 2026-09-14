@@ -31,6 +31,7 @@ class RuleCategory(Enum):
     LOCALISATION = "localisation"
     TYPE_HYGIENE = "type-hygiene"
     TESTING = "testing"
+    TIME_CORRECTNESS = "time-correctness"
 
 
 class CheckContext:

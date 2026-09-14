@@ -28,6 +28,7 @@ These rules are aimed at optimising AI agent development. A common failure mode 
 | [`ML500`](docs/rules/ML500.md) | American English spelling detected | Use Australian English spelling instead |
 | [`ML501`](docs/rules/ML501.md) | Hacky pluralisation in string literal | Avoid hacky parenthetical or bracketed plurals like '(s)'. Use proper pluralisation or rephrase the sentence. Remember to also check and update verb agreements (e.g. 'is/are', 'need/needs', 'has/have') in surrounding text. |
 | [`ML600`](docs/rules/ML600.md) | `@patch(new=Mock(...))` shares one mock instance across tests | Use `new_callable=Mock` (or `MagicMock`/`AsyncMock`) instead |
+| [`ML700`](docs/rules/ML700.md) | Timezone parameter or attribute is not typed as a real IANA zone | Annotate it `ZoneInfo` so date arithmetic stays wall-clock |
 <!-- rules-table-end -->
 
 **ML100 - ML107** catch violations related to return types. Unlike standard linting, these rules are **recursive** and will catch bare or primitive dicts/tuples even when nested inside other types like `list[...]` or `Optional[...]`.
