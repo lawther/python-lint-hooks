@@ -33,6 +33,7 @@ just precommit   # lint, type-check, tests, README update
 | ML4xx | Data trust / external data | `RuleCategory.DATA_TRUST` |
 | ML5xx | Localisation / Spelling | `RuleCategory.LOCALISATION` |
 | ML6xx | Testing pitfalls | `RuleCategory.TESTING` |
+| ML7xx | Time correctness | `RuleCategory.TIME_CORRECTNESS` |
 
 Pick the next unused code in the appropriate range.
 
