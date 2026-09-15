@@ -234,10 +234,10 @@ def _build_index(files: Iterable[Path]) -> NewTypeIndex:
     """Build a NewType index over one root's files.
 
     One index per root, never one over the whole corpus. The index resolves an import
-    by matching its dotted name against every module path it holds, and gives up when
-    more than one matches. Pooled across unrelated checkouts almost every name is
-    ambiguous, so ML108/ML109 fall silent anyway — and the rare name that does match
-    exactly once can resolve into a different project entirely, inventing findings
+    by matching its dotted name against the modules sharing its final component, and
+    gives up when more than one matches. Pooled across unrelated checkouts almost every
+    name is ambiguous, so ML108/ML109 fall silent anyway — and the rare name that does
+    match exactly once can resolve into a different project entirely, inventing findings
     that no real run would ever produce.
     """
     index = NewTypeIndex()

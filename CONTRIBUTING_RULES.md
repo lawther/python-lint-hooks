@@ -211,12 +211,10 @@ just corpus-lint ML701     # one rule
 just corpus-lint           # every rule
 ```
 
-> **Sweep one rule at a time for now.** A single-rule sweep of ~60,000 files takes
-> about three minutes. Enabling every rule brings ML108/ML109 into play, and those
-> resolve imports by scanning the whole module index, which makes a sweep quadratic
-> in the size of each root — an all-rules sweep of the same corpus was killed at 52
-> minutes unfinished. Tracked as mlp-kzi; until that lands, name the rule you care
-> about.
+Over a corpus of ~60,000 files, naming one rule takes about three minutes and sweeping
+every rule takes about seven. The difference is the other twenty rules walking each tree;
+neither is expensive enough to plan around. Name the rule you are working on when you have
+one, because a report of one rule's findings is the one you can actually read through.
 
 This prints a per-rule hit count and rate, a spread of sampled findings with their
 source lines, and writes the complete set to `.corpus-out/latest.txt`. Read the samples
