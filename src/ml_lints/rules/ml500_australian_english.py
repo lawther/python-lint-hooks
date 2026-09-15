@@ -34,6 +34,10 @@ class ML500(Rule):
     - Attribute access (e.g., `obj.attr`)
     - Keyword arguments in calls (e.g., `func(key="value")`)
     - String literals that are not docstrings.
+
+    The spelling map itself has been audited for homographs, sense changes and archaic
+    values. `docs/ml500-spelling-audit.md` records what was removed and, for the entries
+    that look wrong but are not, why they were kept.
     """
 
     code: ClassVar[RuleCode] = RuleCode.ML500
