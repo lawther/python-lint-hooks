@@ -33,6 +33,7 @@ class RuleCategory(Enum):
     TYPE_HYGIENE = "type-hygiene"
     TESTING = "testing"
     TIME_CORRECTNESS = "time-correctness"
+    FILE_INTEGRITY = "file-integrity"
 
 
 class CheckContext:

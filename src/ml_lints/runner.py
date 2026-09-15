@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import ast
+import tokenize
 from typing import TYPE_CHECKING
 
 from ml_lints.analyzers.newtype_index import NewTypeIndex
 from ml_lints.rules import CheckContext, Rule, all_rules
+from ml_lints.violation import RuleCode, Violation
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    from ml_lints.violation import RuleCode, Violation
 
 
 def check_file(
@@ -26,8 +26,16 @@ def check_file(
 
     project_index is an optional pre-built cross-file index. Rules that need cross-module
     type resolution (ML108, ML109) consume it; without one, they stay silent.
+
+    Reads via `tokenize.open`, which honours a PEP 263 encoding declaration (or a UTF-8
+    BOM) instead of assuming UTF-8, so correctly-declared non-UTF-8 source is read as
+    Python itself would read it. Raises OSError, SyntaxError (a malformed encoding
+    declaration, or a genuine syntax error) or UnicodeDecodeError if the file still
+    cannot be read or parsed; `check_paths` is responsible for catching these and
+    reporting the skip as an ML000 violation instead of letting the run abort.
     """
-    source = path.read_text(encoding="utf-8")
+    with tokenize.open(path) as f:
+        source = f.read()
     source_lines = tuple(source.splitlines())
     tree = ast.parse(source, filename=str(path))
     context = CheckContext(path, source_lines, project_index=project_index)
@@ -50,14 +58,15 @@ def check_paths(
     field annotations, and function return annotations. Then runs the per-file
     rule pass with that index available in CheckContext.
 
-    Files that fail to parse during the pre-pass are silently skipped from the
-    index; check_file will surface the parse error when the per-file pass tries
-    to re-parse them.
+    Files that fail to read or parse during the pre-pass are silently skipped from the
+    index; the per-file pass below reports each one once, as an ML000 violation,
+    instead of letting the failure abort the whole run.
     """
     index = NewTypeIndex()
     for path in paths:
         try:
-            source = path.read_text(encoding="utf-8")
+            with tokenize.open(path) as f:
+                source = f.read()
             tree = ast.parse(source, filename=str(path))
         except (OSError, SyntaxError, UnicodeDecodeError):
             continue
@@ -66,14 +75,32 @@ def check_paths(
 
     violations: list[Violation] = []
     for path in paths:
-        if isinstance(enabled_codes, dict):
-            codes = enabled_codes.get(path)
-        elif isinstance(enabled_codes, frozenset):
-            codes = enabled_codes
-        else:
-            codes = None
-        violations.extend(check_file(path, codes, project_index=index))
+        codes = _resolve_codes(enabled_codes, path)
+        try:
+            violations.extend(check_file(path, codes, project_index=index))
+        except (OSError, SyntaxError, UnicodeDecodeError) as exc:
+            if codes is None or RuleCode.ML000 in codes:
+                violations.append(
+                    Violation(
+                        code=RuleCode.ML000,
+                        message=f"could not read or parse this file ({type(exc).__name__}): {exc}",
+                        path=path,
+                        line=1,
+                        col=1,
+                    )
+                )
     return violations
+
+
+def _resolve_codes(
+    enabled_codes: frozenset[RuleCode] | dict[Path, frozenset[RuleCode]] | None,
+    path: Path,
+) -> frozenset[RuleCode] | None:
+    if isinstance(enabled_codes, dict):
+        return enabled_codes.get(path)
+    if isinstance(enabled_codes, frozenset):
+        return enabled_codes
+    return None
 
 
 def _walk(node: ast.AST, rules: list[Rule]) -> None:

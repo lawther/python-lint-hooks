@@ -25,6 +25,7 @@ just precommit   # lint, type-check, tests, README update
 
 | Range | Category | Enum value |
 |-------|----------|------------|
+| ML000 | File could not be read/parsed at all | `RuleCategory.FILE_INTEGRITY` |
 | ML1xx | Return type / signature shape | `RuleCategory.RETURN_TYPES` |
 | ML1xx | Parameter type shape | `RuleCategory.PARAMETER_TYPES` |
 | ML1xx | Type hygiene (NewType casts) | `RuleCategory.TYPE_HYGIENE` |
@@ -106,6 +107,33 @@ Async functions are a separate node type (`ast.AsyncFunctionDef`). If your rule 
 enter_AsyncFunctionDef = enter_FunctionDef  # type: ignore[assignment]
 leave_AsyncFunctionDef = leave_FunctionDef  # type: ignore[assignment]
 ```
+
+---
+
+## File-level rules (ML000 is the one exception)
+
+Every rule above assumes the file parsed: `check_file` builds one AST, then dispatches
+`enter_*`/`leave_*` hooks to every registered rule over that single tree. A file that
+cannot be decoded or parsed produces no tree, so nothing in that model can express
+"this file itself is the problem" — there is nothing to walk.
+
+`ML000` (`src/ml_lints/rules/ml000_file_integrity.py`) is that one exception. It is
+still a normal `@register`-decorated `Rule` with the usual metadata (`code`, `category`,
+`summary`, `suggestion`, `bad_example`, `good_examples`) — so `--explain`, the README
+table, and `--select`/`--ignore` all treat it like any other rule — but it defines no
+`enter_*`/`leave_*` hooks. It is inert during a normal walk; instead, `check_paths`
+catches `check_file`'s `OSError` / `SyntaxError` / `UnicodeDecodeError` and constructs
+its `Violation` directly, bypassing the AST dispatch entirely.
+
+One consequence: the generic `bad_example` harness in `tests/test_rule_examples.py`
+writes the example as UTF-8 text, so it can only exercise the `SyntaxError` branch (a
+snippet with a genuine syntax error). It cannot exercise the `UnicodeDecodeError` or
+`OSError` branches — those need dedicated tests in `tests/rules/test_ml000.py` that
+write raw bytes or point at a path that cannot be opened.
+
+Do not use ML000 as a precedent for a new rule that merely wants to skip its own
+AST walk — it exists solely because there is no tree to walk. Every other rule must
+use `enter_*`/`leave_*` hooks as described above.
 
 ---
 
