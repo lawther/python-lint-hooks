@@ -325,7 +325,7 @@ class ML701(Rule):
         self._arm_stack.pop()
 
     def enter_Return(self, node: ast.Return) -> None:
-        if not self._function_stack or not self._is_zone(node.value) or node.value is None:
+        if node.value is None or not self._function_stack or not self._is_zone(node.value):
             return
         if not any(span.contains(node.lineno) for arms in self._arm_stack for span in arms):
             return
