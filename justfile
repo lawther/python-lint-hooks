@@ -139,6 +139,19 @@ _check-lock:
     set -euo pipefail
     uv lock --check
 
+# Usage: just corpus-lint (every rule) or just corpus-lint ML701 (one rule).
+# Needs .corpus.toml — see .corpus.toml.example. Developer tool, not a gate.
+# Sweep rules across the external corpus looking for false positives
+corpus-lint *codes:
+    @{{uv_run}} scripts/corpus_lint.py {{codes}}
+
+# Usage: just corpus-diff ML701. Answers the review-time question: what did my
+# rule change add or remove? Sweeps HEAD in a temporary worktree — your working
+# tree is never touched.
+# Sweep the corpus twice, HEAD vs working tree, and report only what changed
+corpus-diff *codes:
+    @{{uv_run}} scripts/corpus_lint.py --diff {{codes}}
+
 # BEGIN SHARED RECIPES (AI_READINESS) sha256:925735e38c225a7b
 # Generated from agent_rules/snippets/ai_readiness.just. Do not edit inside this block:
 #      edit snippets/ai_readiness.just, then run `just sync-justfile-recipes` in agent_rules.

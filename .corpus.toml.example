@@ -1,0 +1,35 @@
+# Corpus configuration for `just corpus-lint` and `just corpus-diff`.
+#
+# Copy to .corpus.toml (gitignored) and edit the roots to match your machine.
+# The corpus is a set of Python checkouts OUTSIDE this repo, swept to measure a
+# rule's false-positive rate against a large volume of real code. It is a
+# developer tool, not a gate: no CI step and no precommit hook depends on it.
+#
+# Each root is one project. Roots are indexed separately, so cross-module
+# NewType resolution (ML108, ML109) stays within a project rather than
+# resolving across unrelated checkouts. List each project individually — do
+# not point a root at a directory that merely contains several checkouts.
+#
+# Paths are relative to this repo's root, or absolute. A root that does not
+# exist is reported and skipped, so one config can serve several machines.
+#
+# Virtualenvs are swept by default: most third-party code on a machine lives in
+# site-packages, and it is the code least like your own, which makes it the
+# best false-positive detector. Set include-venvs = false to sweep only the
+# projects' own source.
+
+include-venvs = true
+
+roots = [
+    "../casey_ai",
+    "../enphase_curtailer",
+    "../fomo",
+    "../voltarbi",
+    "../ha-scripts",
+    "../sig-cloud-control",
+    "../smoke-optimiser",
+    "../vaultscribe",
+    "../agent_rules",
+    "../forks/actron-air-esphome",
+    "../forks/tuya-local",
+]

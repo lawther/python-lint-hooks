@@ -17,3 +17,7 @@ coverage.xml
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+# Corpus sweep configuration and output (see .corpus.toml.example)
+.corpus.toml
+.corpus-out/

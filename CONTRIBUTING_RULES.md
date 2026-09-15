@@ -197,6 +197,58 @@ def test_something_flagged(tmp_path: Path) -> None:
 
 ---
 
+## Checking a rule against real code
+
+Unit tests prove a rule fires on the snippet you wrote for it. They cannot tell you
+how often it fires on code nobody wrote for it — and a rule with a high false-positive
+rate is worse than no rule, because people learn to ignore it.
+
+Before shipping a new rule, or widening an existing one, sweep it across a corpus of
+Python checkouts outside this repo:
+
+```sh
+just corpus-lint ML701     # one rule
+just corpus-lint           # every rule
+```
+
+This prints a per-rule hit count and rate, a spread of sampled findings with their
+source lines, and writes the complete set to `.corpus-out/latest.txt`. Read the samples
+and judge each one: a true positive is code you would actually want changed, a false
+positive is the rule misfiring.
+
+When you are **changing** a rule that already fires, the useful question is not what it
+finds but what your change changed:
+
+```sh
+just corpus-diff ML701
+```
+
+That sweeps twice — once with HEAD's copy of the rule, once with your working tree —
+and reports only the findings that appeared, disappeared, or were reworded. HEAD is
+swept in a temporary git worktree, so your uncommitted work is never touched.
+
+### Setting up the corpus
+
+The corpus lives in sibling checkouts, which not every machine has, so its location is
+per-machine and not committed:
+
+```sh
+cp .corpus.toml.example .corpus.toml
+```
+
+Then edit the roots. Each root is one project, indexed independently — do not point a
+root at a directory that merely contains several checkouts, or cross-module NewType
+resolution (ML108, ML109) will resolve across projects that never import each other.
+
+Virtualenvs are swept by default. That is deliberate: `site-packages` is the code least
+like your own, which makes it the harshest and most useful false-positive detector. Set
+`include-venvs = false` to sweep only first-party source.
+
+Neither recipe is a gate. They depend on checkouts outside this repo, so `just precommit`
+and CI do not call them, and neither fails on findings — findings are the point.
+
+---
+
 ## README table
 
 The rules table in `README.md` is generated automatically from the `summary` and `suggestion` fields on each rule class. It is regenerated during `just precommit` (auto-staged). You can also regenerate manually:
