@@ -19,6 +19,15 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from typing import TYPE_CHECKING, NewType
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+ModuleComponent = NewType("ModuleComponent", str)
+"""Final dotted component of a module name, e.g. 'models' for `pkg.models`."""
+
+_NO_CANDIDATES: tuple[str, ...] = ()
 
 
 class BuiltinBase(Enum):
@@ -164,6 +173,19 @@ class _ModuleIngestor(ast.NodeVisitor):
             self._info.class_field_annotations[node.name] = fields
 
 
+def _path_component(path: str) -> ModuleComponent:
+    """Final dotted component of the module `path` holds.
+
+    A package's `__init__.py` is filed under the package's own name, so that
+    `pkg.models` finds `<...>/models/__init__.py` alongside `<...>/models.py`.
+    Filing it under '__init__' instead would put every package in the project into
+    a single bucket that every lookup has to consult, which leaves the scan linear
+    in project size for exactly the imports packages are used for.
+    """
+    trimmed = path.removesuffix("/__init__.py") if path.endswith("/__init__.py") else path.removesuffix(".py")
+    return ModuleComponent(trimmed.rpartition("/")[2])
+
+
 def _call_is_newtype(node: ast.Call) -> bool:
     func = node.func
     if isinstance(func, ast.Name):
@@ -187,8 +209,21 @@ class NewTypeIndex:
 
     def __init__(self) -> None:
         self._modules: dict[str, _ModuleInfo] = {}
+        self._paths_by_component: dict[ModuleComponent, list[str]] = {}
         self._newtype_bases: dict[NewTypeId, BuiltinBase] = {}
         self._finalised = False
+
+    def candidates_for(self, dotted_name: str) -> Sequence[str]:
+        """Ingested module paths that could be `dotted_name`, before the exact stem test.
+
+        Every path that can satisfy either stem of a dotted name shares that name's
+        final component: `pkg.models` can only be `<...>/models.py` or
+        `<...>/models/__init__.py`, and both are filed under 'models'. So the
+        candidate set is the handful of modules in the project that happen to carry
+        the same name, and it does not grow with the size of the project.
+        """
+        component = ModuleComponent(dotted_name.rpartition(".")[2])
+        return self._paths_by_component.get(component, _NO_CANDIDATES)
 
     def _resolve_origin_module(self, dotted_name: str) -> str | None:
         """Map a dotted import name (e.g. 'pkg.models') to an ingested module path.
@@ -198,6 +233,11 @@ class NewTypeIndex:
         that names re-exported from a package's `__init__.py` resolve as well as
         those imported from a plain module. Returns None when there is no match
         or when multiple candidates exist (ambiguous import).
+
+        The candidates come from an index keyed on the module's final component
+        rather than from a scan of every ingested module: this is called tens of
+        times per file checked, so a scan made the cost of checking a project grow
+        with the square of its file count.
         """
         base = dotted_name.replace(".", "/")
         stems = (base + ".py", base + "/__init__.py")
@@ -206,7 +246,11 @@ class NewTypeIndex:
         # `db.models.common` just because it ends with those characters. Without the
         # boundary such a module looks like a second candidate, the import reads as
         # ambiguous, and the index resolves nothing at all.
-        matches = [path for path in self._modules if any(path == stem or path.endswith("/" + stem) for stem in stems)]
+        matches = [
+            path
+            for path in self.candidates_for(dotted_name)
+            if any(path == stem or path.endswith("/" + stem) for stem in stems)
+        ]
         if len(matches) == 1:
             return matches[0]
         return None
@@ -221,6 +265,7 @@ class NewTypeIndex:
         info = _ModuleInfo(path=module_path)
         _ModuleIngestor(info).visit_Module(tree)
         self._modules[module_path] = info
+        self._paths_by_component.setdefault(_path_component(module_path), []).append(module_path)
 
     def finalise(self) -> None:
         """Resolve every NewType's base to a canonical BuiltinBase.
