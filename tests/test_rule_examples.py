@@ -56,9 +56,11 @@ def test_rule_metadata_is_complete(rule_cls: type[Rule]) -> None:
 @pytest.mark.parametrize("rule_cls", all_rules(), ids=lambda cls: cls.code)
 def test_rule_examples_are_valid_and_accurate(rule_cls: type[Rule], tmp_path: Path) -> None:
     """Verify that the rule's examples behave as documented."""
+    prelude = PRELUDE + "\n\n" if rule_cls.uses_prelude else ""
+
     # Test Bad Example: must trigger at least one violation of THIS rule code.
     if rule_cls.bad_example:
-        code = PRELUDE + "\n\n" + textwrap.dedent(rule_cls.bad_example).strip()
+        code = prelude + textwrap.dedent(rule_cls.bad_example).strip()
         violations = check(code, tmp_path)
         relevant_violations = [v for v in violations if v.code == rule_cls.code]
 
@@ -69,7 +71,7 @@ def test_rule_examples_are_valid_and_accurate(rule_cls: type[Rule], tmp_path: Pa
 
     # Test Good Examples: must trigger zero violations of ANY rule.
     for i, example_code in enumerate(rule_cls.good_examples):
-        code = PRELUDE + "\n\n" + textwrap.dedent(example_code).strip()
+        code = prelude + textwrap.dedent(example_code).strip()
         violations = check(code, tmp_path)
         # Check against our own ML rules (ALL of them)
         assert len(violations) == 0, (

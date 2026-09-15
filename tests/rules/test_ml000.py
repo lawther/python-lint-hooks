@@ -55,13 +55,17 @@ def test_ml000_ok_for_valid_file(tmp_path: Path) -> None:
 
 
 def test_ml000_ok_for_declared_non_utf8_encoding(tmp_path: Path) -> None:
-    """A PEP 263 coding declaration makes a non-UTF-8 file legitimately valid Python."""
+    """A PEP 263 coding declaration makes a non-UTF-8 file legitimately valid Python.
+
+    It still isn't clean UTF-8, so ML001 fires (see tests/rules/test_ml001.py) — but
+    ML000 specifically, "could not be read/parsed at all", must not.
+    """
     path = tmp_path / "sample.py"
     path.write_bytes('# -*- coding: latin-1 -*-\nx = "caf\xe9"\n'.encode("latin-1"))
 
     violations = check_paths([path])
 
-    assert violations == []
+    assert RuleCode.ML000 not in codes(violations)
 
 
 # ---------------------------------------------------------------------------

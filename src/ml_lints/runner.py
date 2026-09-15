@@ -36,9 +36,10 @@ def check_file(
     """
     with tokenize.open(path) as f:
         source = f.read()
+        encoding = f.encoding
     source_lines = tuple(source.splitlines())
     tree = ast.parse(source, filename=str(path))
-    context = CheckContext(path, source_lines, project_index=project_index)
+    context = CheckContext(path, source_lines, project_index=project_index, encoding=encoding)
 
     rules: list[Rule] = [cls(context) for cls in all_rules() if enabled_codes is None or cls.code in enabled_codes]
 

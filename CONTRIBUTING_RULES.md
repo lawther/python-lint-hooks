@@ -25,7 +25,7 @@ just precommit   # lint, type-check, tests, README update
 
 | Range | Category | Enum value |
 |-------|----------|------------|
-| ML000 | File could not be read/parsed at all | `RuleCategory.FILE_INTEGRITY` |
+| ML000, ML001 | File-level integrity / encoding | `RuleCategory.FILE_INTEGRITY` |
 | ML1xx | Return type / signature shape | `RuleCategory.RETURN_TYPES` |
 | ML1xx | Parameter type shape | `RuleCategory.PARAMETER_TYPES` |
 | ML1xx | Type hygiene (NewType casts) | `RuleCategory.TYPE_HYGIENE` |
@@ -134,6 +134,16 @@ write raw bytes or point at a path that cannot be opened.
 Do not use ML000 as a precedent for a new rule that merely wants to skip its own
 AST walk — it exists solely because there is no tree to walk. Every other rule must
 use `enter_*`/`leave_*` hooks as described above.
+
+`ML001` (`src/ml_lints/rules/ml001_utf8_clean.py`) is a normal AST-walking rule — it
+does get a tree, since the file parsed — but it's still a whole-file property: it
+fires once, from `enter_Module`, checking `CheckContext.encoding` (the codec
+`tokenize.open()` actually used) rather than any node's structure. Its trigger is a
+PEP 263 declaration or a UTF-8 BOM, which PEP 263 only recognises on the file's first
+two physical lines — so the shared `PRELUDE` in `test_rule_examples.py`, which is
+always prepended ahead of `bad_example`, would put that content past line 2 and the
+example could never fire. Set `uses_prelude: ClassVar[bool] = False` on a rule like
+this to have the harness test its `bad_example`/`good_examples` standalone instead.
 
 ---
 

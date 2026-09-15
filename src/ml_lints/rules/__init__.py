@@ -42,19 +42,25 @@ class CheckContext:
     project_index is the optional cross-file NewType / annotation index built by the
     project-wide pre-pass. Rules that need cross-module type resolution (ML108, ML109)
     consume it; single-file rules ignore it.
+
+    encoding is the codec `tokenize.open()` actually used to decode the file (e.g.
+    "utf-8", "utf-8-sig" for a BOM, or a PEP 263 declaration like "iso-8859-1"). ML001
+    consumes it; other rules ignore it.
     """
 
-    __slots__ = ("path", "project_index", "source_lines")
+    __slots__ = ("encoding", "path", "project_index", "source_lines")
 
     def __init__(
         self,
         path: Path,
         source_lines: Sequence[str],
         project_index: NewTypeIndex | None = None,
+        encoding: str = "utf-8",
     ) -> None:
         self.path = path
         self.source_lines = source_lines
         self.project_index = project_index
+        self.encoding = encoding
 
 
 class Rule:
@@ -76,6 +82,12 @@ class Rule:
     bad_example: ClassVar[str]
     good_examples: ClassVar[list[str]]
     exemptions: ClassVar[str]  # optional prose; rendered as "## Automatic Exemptions" in docs
+
+    # Whole-file rules whose trigger depends on the file's first lines (e.g. ML001,
+    # which reads a PEP 263 encoding declaration) can't be tested with the shared
+    # PRELUDE, since that always comes first. Set False to test bad_example /
+    # good_examples standalone instead. See test_rule_examples.py.
+    uses_prelude: ClassVar[bool] = True
 
     def __init__(self, context: CheckContext) -> None:
         self._context = context

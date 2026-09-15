@@ -10,6 +10,7 @@ These rules are aimed at optimising AI agent development. A common failure mode 
 | Code | Description | Suggestion |
 |------|-------------|------------|
 | [`ML000`](docs/rules/ML000.md) | File could not be read or parsed | Fix the file's syntax or encoding, or exclude it from linting |
+| [`ML001`](docs/rules/ML001.md) | File is not clean UTF-8 (declared encoding or BOM) | Re-save the file as UTF-8 without a BOM and drop the coding declaration |
 | [`ML100`](docs/rules/ML100.md) | Function returns a bare `dict` | Use a dataclass instead |
 | [`ML101`](docs/rules/ML101.md) | Function returns a bare `tuple` | Use a NamedTuple instead |
 | [`ML102`](docs/rules/ML102.md) | Function returns a `dict` of primitives | Use a dataclass or `NewType` for keys/values |
