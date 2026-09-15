@@ -543,3 +543,31 @@ def test_ml701_flags_a_name_bound_to_both_a_derived_and_a_constant_zone(tmp_path
     """)
     violations = check(code, tmp_path)
     assert codes(violations) == ["ML701"]
+
+
+def test_ml701_reads_the_zone_identity_through_the_key_keyword(tmp_path: Path) -> None:
+    # `ZoneInfo(key=name)` is the same call as `ZoneInfo(name)`, so the derived-zone
+    # exemption has to reach it too.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def resolve(name: str, d: str) -> str:
+            fallback = zoneinfo.ZoneInfo(key=name)
+            return d.tzinfo or fallback
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml701_flags_a_constant_zone_named_by_the_key_keyword(tmp_path: Path) -> None:
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def resolve(n: str, d: str) -> str:
+            fallback = zoneinfo.ZoneInfo(key="UTC")
+            return zoneinfo.ZoneInfo(n) if n else fallback
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML701"]

@@ -21,6 +21,10 @@ _ZONE_CONSTANTS: frozenset[str] = frozenset({"UTC", "utc"})
 # fixed offset. Used to recognise the live alternative a fallback branch displaces.
 _IANA_CONSTRUCTORS: frozenset[str] = frozenset({"ZoneInfo"})
 
+# `ZoneInfo(key="UTC")` is the same call as `ZoneInfo("UTC")`, so the zone's identity has
+# to be looked for under both spellings.
+_ZONE_KEYWORD: str = "key"
+
 # Mapping methods whose trailing argument stands in for a lookup that has already
 # failed. A zone there is a substitution, not a default a reader chose up front.
 _LOOKUP_METHODS: frozenset[str] = frozenset({"get", "pop", "setdefault"})
@@ -136,15 +140,25 @@ def _is_a_constant_zone_identity(node: ast.expr, constant_names: set[str]) -> bo
     return isinstance(node, ast.Name) and node.id in constant_names
 
 
+def _zone_identity_argument(node: ast.Call) -> ast.expr | None:
+    """The argument naming the zone, written either positionally or as `key=`."""
+    if node.args:
+        return node.args[0]
+    return next((kw.value for kw in node.keywords if kw.arg == _ZONE_KEYWORD), None)
+
+
 def _builds_zone_from_a_value(node: ast.Call, constant_names: set[str]) -> bool:
     """True for `ZoneInfo(name)` — a real zone derived from something, not a hard-coded one.
 
     Only `ZoneInfo` qualifies. `timezone(offset)` yields a fixed offset however the offset
     was arrived at, and a fixed offset is never the zone the caller had.
     """
-    if _called_name(node) not in _IANA_CONSTRUCTORS or not node.args:
+    if _called_name(node) not in _IANA_CONSTRUCTORS:
         return False
-    return not _is_a_constant_zone_identity(node.args[0], constant_names)
+    identity = _zone_identity_argument(node)
+    if identity is None:
+        return False
+    return not _is_a_constant_zone_identity(identity, constant_names)
 
 
 def _lookup_defaults(node: ast.Call) -> tuple[ast.expr, ...]:
