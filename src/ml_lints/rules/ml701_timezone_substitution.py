@@ -124,11 +124,27 @@ def _called_name(node: ast.Call) -> str:
     return ""
 
 
-def _builds_zone_from_a_value(node: ast.Call) -> bool:
-    """True for `ZoneInfo(name)` — a real zone derived from something, not a hard-coded one."""
+def _is_a_constant_zone_identity(node: ast.expr, constant_names: set[str]) -> bool:
+    """True when the zone a constructor call names was fixed when the code was written.
+
+    `ZoneInfo("UTC")` and `ZoneInfo(_DEFAULT_ZONE_NAME)` over a module-level
+    `_DEFAULT_ZONE_NAME = "UTC"` are the same program, so both count. A name resolved at
+    runtime does not: it carries a zone somebody upstream supplied.
+    """
+    if isinstance(node, ast.Constant):
+        return True
+    return isinstance(node, ast.Name) and node.id in constant_names
+
+
+def _builds_zone_from_a_value(node: ast.Call, constant_names: set[str]) -> bool:
+    """True for `ZoneInfo(name)` — a real zone derived from something, not a hard-coded one.
+
+    Only `ZoneInfo` qualifies. `timezone(offset)` yields a fixed offset however the offset
+    was arrived at, and a fixed offset is never the zone the caller had.
+    """
     if _called_name(node) not in _IANA_CONSTRUCTORS or not node.args:
         return False
-    return not isinstance(node.args[0], ast.Constant)
+    return not _is_a_constant_zone_identity(node.args[0], constant_names)
 
 
 def _lookup_defaults(node: ast.Call) -> tuple[ast.expr, ...]:
@@ -143,9 +159,16 @@ def _lookup_defaults(node: ast.Call) -> tuple[ast.expr, ...]:
     return ()
 
 
-def _is_zone_literal(node: ast.expr) -> bool:
-    """True when *node* is written out as a timezone: a constructor call or a UTC constant."""
+def _is_zone_literal(node: ast.expr, constant_names: set[str]) -> bool:
+    """True when *node* is an invented timezone: a constructor call or a UTC constant.
+
+    A zone built from a value is excluded. `ZoneInfo(tzinfo)` hands back the very zone its
+    caller passed in, so falling back to it is the fix this rule recommends, not the
+    defect it describes.
+    """
     if isinstance(node, ast.Call):
+        if _builds_zone_from_a_value(node, constant_names):
+            return False
         return _called_name(node) in _ZONE_CONSTRUCTORS
     if isinstance(node, ast.Attribute):
         return node.attr in _ZONE_CONSTANTS
@@ -217,9 +240,19 @@ class ML701(Rule):
         "A guarded arm returning a zone is flagged only when the same function can also build a real "
         "zone from a value. A function that only ever hands back a fixed constant — "
         "`def utc() -> ZoneInfo: return ZoneInfo('UTC')` — has substituted nothing.\n\n"
+        "A zone built from a value is not an invented one. `ZoneInfo(tzinfo)` hands back the zone "
+        "its caller supplied, so falling back to it — whether inline or through a name it was bound "
+        "to — is the fix this rule recommends rather than the defect it describes. A zone whose name "
+        "was fixed when the code was written still counts, including through a module-level string "
+        "constant: `ZoneInfo(_DEFAULT_ZONE_NAME)` over `_DEFAULT_ZONE_NAME = 'UTC'` is the same "
+        "program as `ZoneInfo('UTC')`. Only `ZoneInfo` can derive a zone this way — `timezone(...)` "
+        "yields a fixed offset however the offset was arrived at, and a fixed offset is never the "
+        "zone the caller had.\n\n"
         "A name is recognised as a zone only when it is bound in the same file, either at module level "
         "or earlier in the same scope. An alias imported from another module is opaque here, and "
-        "silence is the honest answer when the rule cannot see the binding."
+        "silence is the honest answer when the rule cannot see the binding. The same limit applies to "
+        "the string constants above: only module-level ones are resolved, so an imported name or a "
+        "local string leaves the zone looking derived."
     )
 
     def __init__(self, context: CheckContext) -> None:
@@ -227,6 +260,9 @@ class ML701(Rule):
         # Module-level names bound to a timezone, so `x or _FALLBACK` reads like `x or UTC`.
         # Function-local bindings live on the frame instead, and go out of scope with it.
         self._module_zone_names: set[str] = set()
+        # Module-level names bound to a string literal, so `ZoneInfo(_DEFAULT_ZONE_NAME)`
+        # reads as the invented `ZoneInfo("UTC")` it is.
+        self._module_constant_names: set[str] = set()
         # One frame per enclosing function; the innermost owns any guarded-arm finding.
         self._function_stack: list[_FunctionFrame] = []
         # Line spans of the arms that run when a zone turns out to be unavailable.
@@ -243,7 +279,21 @@ class ML701(Rule):
 
     def enter_Module(self, node: ast.Module) -> None:
         for stmt in node.body:
+            self._note_string_constant(stmt)
+        for stmt in node.body:
             self._note_zone_binding(stmt)
+
+    def _note_string_constant(self, stmt: ast.stmt) -> None:
+        """Record a module-level `NAME = "..."` so a zone built from it counts as invented."""
+        if not isinstance(stmt, (ast.Assign, ast.AnnAssign)):
+            return
+        value = stmt.value
+        if not isinstance(value, ast.Constant) or not isinstance(value.value, str):
+            return
+        targets = [stmt.target] if isinstance(stmt, ast.AnnAssign) else stmt.targets
+        for target in targets:
+            if isinstance(target, ast.Name):
+                self._module_constant_names.add(target.id)
 
     def enter_Assign(self, node: ast.Assign) -> None:
         self._note_zone_binding(node)
@@ -260,7 +310,7 @@ class ML701(Rule):
             value = stmt.value
         else:
             return
-        if value is None or not _is_zone_literal(value):
+        if value is None or not _is_zone_literal(value, self._module_constant_names):
             return
         bound = self._function_stack[-1].zone_names if self._function_stack else self._module_zone_names
         for target in targets:
@@ -278,7 +328,7 @@ class ML701(Rule):
             return False
         if isinstance(node, ast.Name) and self._is_zone_name(node.id):
             return True
-        return _is_zone_literal(node)
+        return _is_zone_literal(node, self._module_constant_names)
 
     # ------------------------------------------------------------------
     # `X if <test> else <zone>` and `X or <zone>` are the same defect written two ways:
@@ -338,7 +388,7 @@ class ML701(Rule):
     # ------------------------------------------------------------------
 
     def enter_Call(self, node: ast.Call) -> None:
-        if self._function_stack and _builds_zone_from_a_value(node):
+        if self._function_stack and _builds_zone_from_a_value(node, self._module_constant_names):
             self._function_stack[-1].reaches_a_real_zone = True
         for default in _lookup_defaults(node):
             if self._is_zone(default):

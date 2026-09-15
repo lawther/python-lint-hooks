@@ -455,3 +455,91 @@ def test_ml701_does_not_leak_a_local_zone_name_into_another_function(tmp_path: P
     """)
     violations = check(code, tmp_path)
     assert codes(violations) == ["ML701"]
+
+
+# ---------------------------------------------------------------------------
+# Derived zones — a zone built from a value is the caller's, not an invented one
+# ---------------------------------------------------------------------------
+
+
+def test_ml701_ignores_a_fallback_to_a_zone_derived_from_a_value(tmp_path: Path) -> None:
+    # Reduced from astral/sun.py. The name is rebound to the zone the *caller* supplied,
+    # so falling back to it is the fix this rule recommends, not the defect it describes.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def dawn(tzinfo: str, date: str) -> str:
+            if isinstance(tzinfo, str):
+                tzinfo = zoneinfo.ZoneInfo(tzinfo)
+            return date.tzinfo or tzinfo
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml701_ignores_an_inline_zone_built_from_a_value(tmp_path: Path) -> None:
+    # The same expression written inline rather than through a name. Reaching for a second
+    # source that genuinely holds the zone is threading it in, not guessing.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def resolve(event: str, user: str) -> str:
+            return event.tz or zoneinfo.ZoneInfo(user.tz_name)
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml701_flags_a_zone_built_from_a_module_string_constant(tmp_path: Path) -> None:
+    # Indirection does not change the trade: `ZoneInfo(_DEFAULT_ZONE_NAME)` over a
+    # module-level literal is the same program as `ZoneInfo("UTC")`.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+        _DEFAULT_ZONE_NAME = "UTC"
+        _FALLBACK = zoneinfo.ZoneInfo(_DEFAULT_ZONE_NAME)
+
+
+        def resolve(n: str) -> str:
+            return zoneinfo.ZoneInfo(n) if n else _FALLBACK
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML701"]
+
+
+def test_ml701_flags_a_fixed_offset_however_its_offset_was_arrived_at(tmp_path: Path) -> None:
+    # `timezone(...)` yields a fixed offset whatever it is handed, and a fixed offset is
+    # never the zone the caller had — so the derived-zone exemption does not reach it.
+    code = textwrap.dedent("""\
+        from datetime import timedelta, timezone
+
+
+        def resolve(tz: str) -> str:
+            fallback = timezone(timedelta(hours=11))
+            return tz or fallback
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML701"]
+
+
+def test_ml701_flags_a_name_bound_to_both_a_derived_and_a_constant_zone(tmp_path: Path) -> None:
+    # Reduced from psycopg/_tz.py: `zi` is bound to `ZoneInfo(sname)` and then, in the
+    # handler, to `timezone.utc`. The constant binding is the one that makes the return a
+    # substitution.
+    code = textwrap.dedent("""\
+        import zoneinfo
+        from datetime import timezone
+
+
+        def get_tzinfo(sname: str) -> str:
+            try:
+                zi = zoneinfo.ZoneInfo(sname)
+            except KeyError:
+                zi = timezone.utc
+                return zi
+            return zi
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML701"]
