@@ -86,6 +86,17 @@ class ML700(Rule):
     ``tzinfo``, or none at all) is where a fixed offset enters the system. Requiring
     ``ZoneInfo`` at the signature stops it at the point of authorship.
 
+    Where the annotation genuinely cannot be narrowed and the reflex is to add a runtime
+    ``isinstance`` guard instead: that guard is not load-bearing on a memoised function.
+    Aware datetimes with equal offsets compare and hash equal —
+    ``datetime(2026, 3, 16, tzinfo=timezone.utc)`` equals the same instant built with
+    ``ZoneInfo("UTC")``, and ``ZoneInfo("Australia/Sydney")`` equals a
+    ``timezone(timedelta(hours=11))`` offset — so an ``lru_cache`` keyed on one cannot
+    tell the two apart, and a warm cache returns the memoised answer without the guard
+    ever running. Tests then pass in a full suite and fail in isolation, which is a very
+    expensive way to learn that the sweep was incomplete. Narrow the annotation, or put
+    the guard at the boundary ahead of the cache; do not rely on it inside.
+
     A ``str`` IANA key such as ``"Australia/Sydney"`` is accepted: a string cannot do
     datetime arithmetic, so it cannot cause this defect, and boundary code legitimately
     carries zones in that form. An annotation this rule cannot resolve — a local alias

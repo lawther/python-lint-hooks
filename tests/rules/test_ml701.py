@@ -166,3 +166,292 @@ def test_noqa_ml701_suppresses(tmp_path: Path) -> None:
     """)
     violations = check(code, tmp_path)
     assert "ML701" not in codes(violations)
+
+
+# ---------------------------------------------------------------------------
+# Fallback hidden behind a name
+# ---------------------------------------------------------------------------
+
+
+def test_ml701_flags_a_fallback_bound_to_a_module_constant(tmp_path: Path) -> None:
+    # The indirection is the only difference from the inline ternary, and it is not a
+    # difference that matters: the zone is still invented.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+        _FALLBACK = zoneinfo.ZoneInfo("UTC")
+
+
+        def alias_fallback(n: str) -> str:
+            return zoneinfo.ZoneInfo(n) if n else _FALLBACK
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML701"]
+
+
+def test_ml701_flags_a_constant_defined_after_the_function_that_uses_it(tmp_path: Path) -> None:
+    # A module-level name is resolved when the function runs, not when it is defined, so
+    # this is legal Python and the rule must not depend on source order.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def alias_fallback(n: str) -> str:
+            return zoneinfo.ZoneInfo(n) if n else _FALLBACK
+
+
+        _FALLBACK = zoneinfo.ZoneInfo("UTC")
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML701"]
+
+
+def test_ml701_flags_a_local_name_bound_to_a_zone(tmp_path: Path) -> None:
+    code = textwrap.dedent("""\
+        from datetime import timezone
+
+
+        def resolve(tz: str) -> str:
+            fallback = timezone.utc
+            return tz or fallback
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML701"]
+
+
+def test_ml701_ignores_a_name_bound_to_something_that_is_not_a_zone(tmp_path: Path) -> None:
+    code = textwrap.dedent("""\
+        _FALLBACK = "unknown"
+
+
+        def label_for(name: str) -> str:
+            return name or _FALLBACK
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml701_ignores_an_imported_alias(tmp_path: Path) -> None:
+    # The binding is in another module, so the rule cannot see it is a zone. Silence is
+    # the honest answer rather than a guess from the spelling of the name.
+    code = textwrap.dedent("""\
+        from other import _FALLBACK
+
+
+        def alias_fallback(n: str) -> str:
+            return n or _FALLBACK
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+# ---------------------------------------------------------------------------
+# Guarded arms — the shape the pattern grows into once it has logging attached
+# ---------------------------------------------------------------------------
+
+
+def test_ml701_flags_an_absence_guard_and_an_except_arm(tmp_path: Path) -> None:
+    # Reduced from casey_ai's get_user_timezone. Two substitutions: the early return and
+    # the except arm. `zoneinfo.ZoneInfo(n)` is the real zone both of them displace.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def get_user_timezone(n: str) -> str:
+            if n is None:
+                return zoneinfo.ZoneInfo("UTC")
+            try:
+                return zoneinfo.ZoneInfo(n)
+            except zoneinfo.ZoneInfoNotFoundError:
+                return zoneinfo.ZoneInfo("UTC")
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML701", "ML701"]
+
+
+def test_ml701_flags_a_falsiness_guard(tmp_path: Path) -> None:
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def resolve(n: str) -> str:
+            if not n:
+                return zoneinfo.ZoneInfo("UTC")
+            return zoneinfo.ZoneInfo(n)
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML701"]
+
+
+def test_ml701_flags_the_else_arm_of_a_presence_test(tmp_path: Path) -> None:
+    # Same guard written the other way round: the fallback is now in the else.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def resolve(n: str) -> str:
+            if n is not None:
+                return zoneinfo.ZoneInfo(n)
+            else:
+                return zoneinfo.ZoneInfo("UTC")
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML701"]
+
+
+def test_ml701_ignores_a_function_with_no_real_zone_to_displace(tmp_path: Path) -> None:
+    # Nothing was substituted: this function never had a real zone in reach.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def utc() -> str:
+            return zoneinfo.ZoneInfo("UTC")
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml701_ignores_a_guarded_constant_when_nothing_builds_a_real_zone(tmp_path: Path) -> None:
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def tz_for(cfg: str) -> str:
+            if not cfg.zone:
+                return zoneinfo.ZoneInfo("UTC")
+            return load(cfg)
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml701_ignores_an_unguarded_return_of_a_zone(tmp_path: Path) -> None:
+    # The zone is chosen unconditionally, not swapped in after a check failed.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def resolve(n: str) -> str:
+            zone = zoneinfo.ZoneInfo(n)
+            return zoneinfo.ZoneInfo("UTC")
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml701_does_not_borrow_a_nested_function_as_the_displaced_zone(tmp_path: Path) -> None:
+    # The real zone is built in the inner function; the outer one never had it in reach.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def outer(n: str) -> str:
+            def inner(m: str) -> str:
+                return zoneinfo.ZoneInfo(m)
+
+            if n is None:
+                return zoneinfo.ZoneInfo("UTC")
+            return inner(n)
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_noqa_ml701_suppresses_a_guarded_arm(tmp_path: Path) -> None:
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def resolve(n: str) -> str:
+            if n is None:
+                return zoneinfo.ZoneInfo("UTC")  # noqa: ML701
+            return zoneinfo.ZoneInfo(n)
+    """)
+    violations = check(code, tmp_path)
+    assert "ML701" not in codes(violations)
+
+
+# ---------------------------------------------------------------------------
+# A lookup papered over by its own default argument
+# ---------------------------------------------------------------------------
+
+
+def test_ml701_flags_a_mapping_get_default(tmp_path: Path) -> None:
+    code = textwrap.dedent("""\
+        from datetime import timezone
+
+
+        def dict_default(zones: dict, k: str) -> str:
+            return zones.get(k, timezone.utc)
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML701"]
+
+
+def test_ml701_flags_pop_setdefault_getattr_and_next_defaults(tmp_path: Path) -> None:
+    code = textwrap.dedent("""\
+        from datetime import timezone
+
+
+        def defaults(zones: dict, k: str, row: str, it: str) -> str:
+            zones.pop(k, timezone.utc)
+            zones.setdefault(k, timezone.utc)
+            getattr(row, "tz", timezone.utc)
+            return next(it, timezone.utc)
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML701"] * 4
+
+
+def test_ml701_ignores_a_zone_passed_as_an_ordinary_argument(tmp_path: Path) -> None:
+    # `tzinfo=` is the zone being used, not a default standing in for a failed lookup.
+    code = textwrap.dedent("""\
+        from datetime import datetime, time, timezone
+
+
+        def midnight(d: str) -> str:
+            return datetime.combine(d, time.min, tzinfo=timezone.utc)
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml701_ignores_a_get_with_no_default(tmp_path: Path) -> None:
+    code = textwrap.dedent("""\
+        def lookup(zones: dict, k: str) -> str:
+            return zones.get(k)
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_noqa_ml701_suppresses_a_lookup_default(tmp_path: Path) -> None:
+    code = textwrap.dedent("""\
+        from datetime import timezone
+
+
+        def dict_default(zones: dict, k: str) -> str:
+            return zones.get(k, timezone.utc)  # noqa: ML701
+    """)
+    violations = check(code, tmp_path)
+    assert "ML701" not in codes(violations)
+
+
+def test_ml701_does_not_leak_a_local_zone_name_into_another_function(tmp_path: Path) -> None:
+    # `fallback` is a zone in one() and a plain string in two(). A name is only a zone
+    # inside the scope that bound it.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def one(n: str) -> str:
+            fallback = zoneinfo.ZoneInfo("UTC")
+            return n or fallback
+
+
+        def two(label: str, fallback: str) -> str:
+            return label or fallback
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML701"]
