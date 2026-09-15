@@ -28,6 +28,13 @@ lint:
     @uv run ty check .
     @echo "{{success}}Lint complete{{reset}}"
 
+# Lint this repo's own src/ and scripts/ with the working-tree ml-lints (tests/ fixtures
+# deliberately violate ML500/ML501 -- excluded via [tool.ml-lints] in pyproject.toml)
+extra-lints:
+    @echo "Running ml-lints over its own source..."
+    @uv run ml-lints src scripts
+    @echo "{{success}}ml-lints self-check complete{{reset}}"
+
 # Run tests
 test:
     #!/usr/bin/env bash
@@ -70,6 +77,7 @@ precommit:
         just _lint-justfile
         just _check-lock
         just lint
+        just extra-lints
         just docs-rules
         xargs -r -0 git add < "$staged_list"
         git add README.md

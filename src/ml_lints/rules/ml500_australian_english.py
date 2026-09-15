@@ -1,3 +1,7 @@
+# ml-lints: noqa: ML500
+# `bad_example` below deliberately contains American spelling in a `#` comment, and
+# enter_Module's comment scan matches that "#" even though it sits inside a string
+# literal. See ml_lints.noqa for the file-level suppression this comment invokes.
 """ML500 — American English spelling detected.
 
 The project requires Australian English spelling in all code and comments.
@@ -10,22 +14,26 @@ import importlib
 import json
 import re
 from pathlib import Path
-from typing import ClassVar, cast
+from typing import ClassVar, NewType, cast
 
 from ml_lints.rules import CheckContext, Rule, RuleCategory, RuleCode, register
+
+AmericanSpelling = NewType("AmericanSpelling", str)
+AustralianSpelling = NewType("AustralianSpelling", str)
 
 
 @register
 class ML500(Rule):
     """Detects American English spelling in code and comments.
 
-    This rule enforces the project mandate to use Australian English (e.g., 'colour'
-    instead of 'color', 'initialise' instead of 'initialize').
+    This rule enforces the project mandate to use Australian English spelling
+    throughout the codebase. See `bad_example` and `good_examples` below for concrete
+    before/after pairs.
 
     To avoid false positives with external APIs, it ignores:
-    - Attribute access (e.g., `obj.color`)
-    - Keyword arguments in calls (e.g., `func(color="red")`)
-    - String literals (e.g., `"color"`) that are not docstrings.
+    - Attribute access (e.g., `obj.attr`)
+    - Keyword arguments in calls (e.g., `func(key="value")`)
+    - String literals that are not docstrings.
     """
 
     code: ClassVar[RuleCode] = RuleCode.ML500
@@ -34,7 +42,7 @@ class ML500(Rule):
     suggestion: ClassVar[str] = "Use Australian English spelling instead"
 
     # Lazy-loaded spelling map from JSON
-    _SPELLING_MAP: ClassVar[dict[str, str] | None] = None
+    _SPELLING_MAP: ClassVar[dict[AmericanSpelling, AustralianSpelling] | None] = None
 
     # Cross-file cache: (module_path, import_attr, getattr_chain) -> frozenset of method
     # names, or None if the module could not be imported.  Shared across instances to avoid
@@ -51,7 +59,7 @@ class ML500(Rule):
             map_path = Path(__file__).parent / "spelling_map.json"
             if map_path.exists():
                 with map_path.open("r", encoding="utf-8") as f:
-                    ML500._SPELLING_MAP = json.load(f)
+                    ML500._SPELLING_MAP = cast("dict[AmericanSpelling, AustralianSpelling]", json.load(f))
             else:
                 ML500._SPELLING_MAP = {}
         self._imported_names: set[str] = set()
@@ -64,7 +72,7 @@ class ML500(Rule):
         self._class_method_stack: list[frozenset[str] | None] = []
 
     @property
-    def spelling_map(self) -> dict[str, str]:
+    def spelling_map(self) -> dict[AmericanSpelling, AustralianSpelling]:
         return self._SPELLING_MAP or {}
 
     def _match_case(self, original: str, replacement: str) -> str:
@@ -93,7 +101,7 @@ class ML500(Rule):
             if any(start <= match.start() < end for start, end in dotted_spans):
                 continue
             word = match.group()
-            lower_word = word.lower()
+            lower_word = AmericanSpelling(word.lower())
             if lower_word in self.spelling_map:
                 # Calculate line and column for multi-line support
                 prefix = text[: match.start()]
@@ -121,7 +129,7 @@ class ML500(Rule):
         def _replace(match: re.Match) -> str:
             nonlocal found_any
             part = match.group()
-            lower_part = part.lower()
+            lower_part = AmericanSpelling(part.lower())
             if lower_part in self.spelling_map:
                 found_any = True
                 return self._match_case(part, self.spelling_map[lower_part])

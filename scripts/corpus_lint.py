@@ -159,7 +159,14 @@ def load_config() -> _CorpusConfig:
     return _CorpusConfig.model_validate(raw)
 
 
-def resolve_roots(config: _CorpusConfig) -> tuple[list[CorpusRoot], list[str]]:
+class RootResolution(NamedTuple):
+    """The configured roots, split into those that exist and those that do not."""
+
+    present: list[CorpusRoot]
+    missing: list[str]
+
+
+def resolve_roots(config: _CorpusConfig) -> RootResolution:
     """Split the configured roots into those that exist and those that do not.
 
     A missing root is reported rather than fatal, so one config file can serve
@@ -173,7 +180,7 @@ def resolve_roots(config: _CorpusConfig) -> tuple[list[CorpusRoot], list[str]]:
             present.append(CorpusRoot(name=entry, path=path))
         else:
             missing.append(entry)
-    return present, missing
+    return RootResolution(present, missing)
 
 
 # ----------------------------------------------------------------------------
@@ -378,7 +385,7 @@ def _print_preamble(result: SweepResult) -> None:
     for root in result.roots_missing:
         print(f"note: corpus root not found, skipped: {root}", file=sys.stderr)
     if result.codes_unknown:
-        print(f"note: unknown rule code(s) ignored: {', '.join(result.codes_unknown)}", file=sys.stderr)
+        print(f"note: unknown rule codes ignored: {', '.join(result.codes_unknown)}", file=sys.stderr)
 
 
 def _print_skips(result: SweepResult) -> None:

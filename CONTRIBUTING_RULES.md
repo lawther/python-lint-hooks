@@ -68,6 +68,12 @@ class Data: ...
 ]
 ```
 
+If your rule scans string/comment *content* rather than AST structure (as ML500 and
+ML501 do), its own `bad_example` will trigger the rule when the rule's own module is
+linted — that's the point of the example, not a bug to work around by rewording it away.
+Add `# ml-lints: noqa: <code>` at the top of the file (see README's "Suppressing a rule
+for a whole file") rather than trying to dodge the trigger.
+
 5. Emit violations **only** via `self.report()` — never by appending to `self.violations` directly.
 5. **Not recurse** inside hook methods — the runner handles tree traversal.
 

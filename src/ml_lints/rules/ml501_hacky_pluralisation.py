@@ -1,3 +1,6 @@
+# ml-lints: noqa: ML501
+# `bad_example` below must contain a hacky plural to demonstrate what this rule
+# detects — there is no way to reword it without gutting the example.
 """ML501 — Hacky pluralisation in string literal.
 
 Hacky plurals like `version(s)` or `item[es]` are visual clutter and represent a lazy

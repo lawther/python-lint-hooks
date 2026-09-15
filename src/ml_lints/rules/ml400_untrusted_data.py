@@ -4,7 +4,7 @@ import ast
 from dataclasses import dataclass
 from typing import ClassVar
 
-from ml_lints.noqa import has_noqa
+from ml_lints.noqa import has_file_noqa, has_noqa
 from ml_lints.rules import CheckContext, Rule, RuleCategory, RuleCode, register
 from ml_lints.violation import Violation
 
@@ -132,7 +132,11 @@ class ML400(Rule):
         report_col = report_node.col_offset
 
         source_lines = list(self._context.source_lines)
-        if has_noqa(source_lines, [usage_lineno], self.code) or has_noqa(source_lines, [report_lineno], self.code):
+        if (
+            has_noqa(source_lines, [usage_lineno], self.code)
+            or has_noqa(source_lines, [report_lineno], self.code)
+            or has_file_noqa(source_lines, self.code)
+        ):
             return
 
         self._flagged_sources.add(report_node)

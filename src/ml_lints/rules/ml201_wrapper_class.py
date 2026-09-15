@@ -47,7 +47,7 @@ class ML201(Rule):
 
         for ann in annotations:
             analyzer = ForbiddenTypeAnalyzer()
-            analyzer.analyze(ann.annotation)
+            analyzer.analyse(ann.annotation)
             if not analyzer.findings:
                 return  # at least one field is fine — class is ok
 

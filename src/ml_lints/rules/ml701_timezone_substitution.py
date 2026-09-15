@@ -6,7 +6,7 @@ See CONTRIBUTING_RULES.md for the full rule-writing guide.
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import ClassVar, NamedTuple
 
 from ml_lints.rules import CheckContext, Rule, RuleCategory, RuleCode, register
@@ -62,13 +62,17 @@ class _Candidate(NamedTuple):
     fallback: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class _FunctionFrame:
     """Per-function accumulator for the guarded-arm shape.
 
     A zone returned from an absence guard or an `except` handler is only a *substitution*
     when the same function can also build a real zone from a value. Both halves are
     discovered as the walker passes them, so the verdict waits until the function closes.
+
+    `reaches_a_real_zone` flips via `dataclasses.replace` rather than assignment, but
+    `candidates` and `zone_names` are still mutated in place — replacing the frame carries
+    the same list/set objects over, so accumulation into them keeps working unchanged.
     """
 
     candidates: list[_Candidate] = field(default_factory=list)
@@ -103,20 +107,20 @@ def _is_presence_test(test: ast.expr) -> bool:
     return _is_single_identity_test(test, ast.IsNot)
 
 
-def _span_of(body: list[ast.stmt]) -> tuple[_LineSpan, ...]:
+def _span_of(body: list[ast.stmt]) -> list[_LineSpan]:
     if not body:
-        return ()
+        return []
     end = body[-1].end_lineno
-    return (_LineSpan(body[0].lineno, end if end is not None else body[-1].lineno),)
+    return [_LineSpan(body[0].lineno, end if end is not None else body[-1].lineno)]
 
 
-def _fallback_arms(node: ast.If) -> tuple[_LineSpan, ...]:
+def _fallback_arms(node: ast.If) -> list[_LineSpan]:
     """The arm of *node* that runs when the zone is unavailable, if the test says which."""
     if _is_absence_test(node.test):
         return _span_of(node.body)
     if _is_presence_test(node.test):
         return _span_of(node.orelse)
-    return ()
+    return []
 
 
 def _called_name(node: ast.Call) -> str:
@@ -161,16 +165,16 @@ def _builds_zone_from_a_value(node: ast.Call, constant_names: set[str]) -> bool:
     return not _is_a_constant_zone_identity(identity, constant_names)
 
 
-def _lookup_defaults(node: ast.Call) -> tuple[ast.expr, ...]:
+def _lookup_defaults(node: ast.Call) -> list[ast.expr]:
     """The argument of *node* that is used when the lookup it performs finds nothing."""
     name = _called_name(node)
     if isinstance(node.func, ast.Attribute) and name in _LOOKUP_METHODS and len(node.args) == _LOOKUP_METHOD_ARGC:
-        return (node.args[-1],)
+        return [node.args[-1]]
     if isinstance(node.func, ast.Name):
         for builtin in _DEFAULTING_BUILTINS:
             if name == builtin.name and len(node.args) == builtin.argc:
-                return (node.args[-1],)
-    return ()
+                return [node.args[-1]]
+    return []
 
 
 def _is_zone_literal(node: ast.expr, constant_names: set[str]) -> bool:
@@ -280,7 +284,7 @@ class ML701(Rule):
         # One frame per enclosing function; the innermost owns any guarded-arm finding.
         self._function_stack: list[_FunctionFrame] = []
         # Line spans of the arms that run when a zone turns out to be unavailable.
-        self._arm_stack: list[tuple[_LineSpan, ...]] = []
+        self._arm_stack: list[list[_LineSpan]] = []
 
     # ------------------------------------------------------------------
     # Zone-valued names
@@ -403,7 +407,7 @@ class ML701(Rule):
 
     def enter_Call(self, node: ast.Call) -> None:
         if self._function_stack and _builds_zone_from_a_value(node, self._module_constant_names):
-            self._function_stack[-1].reaches_a_real_zone = True
+            self._function_stack[-1] = replace(self._function_stack[-1], reaches_a_real_zone=True)
         for default in _lookup_defaults(node):
             if self._is_zone(default):
                 self._report_substitution(node.lineno, node.col_offset, ast.unparse(default))

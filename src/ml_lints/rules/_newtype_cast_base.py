@@ -45,6 +45,18 @@ class NewTypeCastRuleBase(Rule):
     leave_AsyncFunctionDef = leave_FunctionDef  # type: ignore[assignment]
 
     # ------------------------------------------------------------------
+    # Class scope — field declarations are not variable bindings
+    # ------------------------------------------------------------------
+
+    def enter_ClassDef(self, node: ast.ClassDef) -> None:
+        if self._analyzer is not None:
+            self._analyzer.enter_class(node)
+
+    def leave_ClassDef(self, node: ast.ClassDef) -> None:
+        if self._analyzer is not None:
+            self._analyzer.leave_class(node)
+
+    # ------------------------------------------------------------------
     # Local annotation tracking
     # ------------------------------------------------------------------
 

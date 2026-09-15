@@ -106,7 +106,7 @@ class _RunConfig:
 
     @classmethod
     def from_args(cls, args: argparse.Namespace, hooks_config: _HooksConfig) -> _RunConfig:
-        # Exclusion logic (matches Ruff's override/additive behavior)
+        # Exclusion logic (matches Ruff's override/additive behaviour)
         exclude = _flatten_groups(getattr(args, "exclude", None))
         if exclude is None:
             exclude = hooks_config.exclude

@@ -38,3 +38,8 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+[tool.ml-lints]
+# tests/ deliberately contains fixtures that violate ML500/ML501 -- that's the point of
+# the test suite for those rules, not something to fix. See `just extra-lints`.
+extend-exclude = ["tests"]
+

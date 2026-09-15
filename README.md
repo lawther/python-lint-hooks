@@ -177,6 +177,19 @@ def authenticated_uid(credentials: ...) -> str:
     ...
 ```
 
+## Suppressing a rule for a whole file
+
+Place a `# ml-lints: noqa: <code>` comment anywhere in the file (conventionally at the
+top) to suppress that code everywhere in the file, rather than on one line or docstring:
+
+```python
+# ml-lints: noqa: ML501
+"""A module whose own examples must contain the pattern a rule is written to detect."""
+```
+
+Like per-line `# noqa`, a bare `# ml-lints: noqa` (no code) is not honoured — suppressions
+must always name the code(s) being silenced.
+
 ## Integration with justfile and pre-commit
 
 The recommended setup keeps the justfile as the single source of truth, with the pre-commit hook and CI both calling `just`.

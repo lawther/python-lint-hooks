@@ -214,6 +214,27 @@ def test_for_loop_over_class_iterable_attribute_flagged(tmp_path: Path) -> None:
     assert len(ml108) == 1
 
 
+def test_class_field_annotation_does_not_leak_into_later_scope(tmp_path: Path) -> None:
+    # A class field declaration (`code: UserId`) is not a variable binding. It must not
+    # leak into the enclosing scope and be picked up by an unrelated later loop variable
+    # that happens to share the same name but iterates over plain strings.
+    files = {
+        "pkg/app.py": textwrap.dedent("""\
+            from typing import NamedTuple, NewType
+
+            UserId = NewType("UserId", str)
+
+            class Tagged(NamedTuple):
+                code: UserId
+
+            def rewrap(raw_codes: list[str]) -> tuple[UserId, ...]:
+                return tuple(UserId(code) for code in raw_codes)
+        """),
+    }
+    violations = check_project(files, tmp_path)
+    assert "ML108" not in [v.code for v in violations]
+
+
 def test_different_newtypes_not_flagged_by_ml108(tmp_path: Path) -> None:
     # ML108 must not fire on a cross-cast — that's ML109's job.
     files = {

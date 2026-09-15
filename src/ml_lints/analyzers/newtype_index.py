@@ -19,7 +19,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import TYPE_CHECKING, NewType
+from typing import TYPE_CHECKING, NamedTuple, NewType
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -62,7 +62,18 @@ class NewTypeId:
     name: str  # local name in the defining module
 
 
-@dataclass
+class ResolvedSymbol(NamedTuple):
+    """A name resolved to the module that actually defines it.
+
+    Returned by lookups that follow re-export chains: `module` is where `name` is
+    ultimately defined, not necessarily the module the caller asked about.
+    """
+
+    module: str
+    name: str
+
+
+@dataclass(frozen=True)
 class _ModuleInfo:
     """Everything ingested for a single module before finalisation."""
 
@@ -318,16 +329,16 @@ class NewTypeIndex:
             return None
         return info.function_returns.get(function_name)
 
-    def find_class_module(self, calling_module: str, class_name: str) -> tuple[str, str] | None:
-        """Resolve `class_name` in `calling_module` to (defining_module, original_name).
+    def find_class_module(self, calling_module: str, class_name: str) -> ResolvedSymbol | None:
+        """Resolve `class_name` in `calling_module` to where it is actually defined.
 
         Handles `from x import Foo` and `from x import Foo as Bar` so the returned
-        original_name is what the class is called in its defining module.
+        name is what the class is called in its defining module.
         """
         return self._resolve_symbol(calling_module, class_name, "class_field_annotations")
 
-    def find_function_module(self, calling_module: str, function_name: str) -> tuple[str, str] | None:
-        """Resolve `function_name` in `calling_module` to (defining_module, original_name)."""
+    def find_function_module(self, calling_module: str, function_name: str) -> ResolvedSymbol | None:
+        """Resolve `function_name` in `calling_module` to where it is actually defined."""
         return self._resolve_symbol(calling_module, function_name, "function_returns")
 
     def canonical_base(self, identity: NewTypeId) -> BuiltinBase:
@@ -353,12 +364,11 @@ class NewTypeIndex:
             return BuiltinBase.UNKNOWN
         return self._resolve_newtype_base(next_id, visited)
 
-    def _resolve_symbol(self, calling_module: str, name: str, attr: str) -> tuple[str, str] | None:
+    def _resolve_symbol(self, calling_module: str, name: str, attr: str) -> ResolvedSymbol | None:
         """Locate `name` (as it appears in `calling_module`) in some module's `attr` mapping.
 
         `attr` is the _ModuleInfo dict to consult: one of "newtype_base_expr",
-        "class_field_annotations", or "function_returns". Returns (defining_module,
-        original_name) or None.
+        "class_field_annotations", or "function_returns".
 
         Follows the alias chain as far as it goes, so a name reached through one or
         more re-exporting modules resolves to the same identity as one imported
@@ -375,7 +385,7 @@ class NewTypeIndex:
             if info is None:
                 return None
             if current_name in getattr(info, attr):
-                return (current_module, current_name)
+                return ResolvedSymbol(current_module, current_name)
             alias = info.aliases.get(current_name)
             if alias is None or alias[0] == "<external>":
                 return None

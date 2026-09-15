@@ -32,14 +32,14 @@ class ForbiddenTypeFinding:
 class ForbiddenTypeAnalyzer:
     """Recursively inspect a type annotation AST node and collect forbidden-type findings.
 
-    Instantiate once per annotation, call `analyze(node)`, then read `.findings`.
+    Instantiate once per annotation, call `analyse(node)`, then read `.findings`.
     The analyzer does NOT emit Violations — that is the caller's responsibility.
     """
 
     def __init__(self) -> None:
         self.findings: list[ForbiddenTypeFinding] = []
 
-    def analyze(self, node: ast.AST) -> None:
+    def analyse(self, node: ast.AST) -> None:
         if isinstance(node, ast.Name):
             self._check_name(node)
         elif isinstance(node, ast.Attribute):
@@ -47,12 +47,12 @@ class ForbiddenTypeAnalyzer:
         elif isinstance(node, ast.Subscript):
             self._check_subscript(node)
         elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
-            self.analyze(node.left)
-            self.analyze(node.right)
+            self.analyse(node.left)
+            self.analyse(node.right)
         elif isinstance(node, ast.Tuple):
             self.findings.append(ForbiddenTypeFinding(RuleCode.ML101, node.lineno, node.col_offset + 1))
             for elt in node.elts:
-                self.analyze(elt)
+                self.analyse(elt)
 
     def _check_name(self, node: ast.Name) -> None:
         if node.id in _DICT_NAMES:
@@ -86,9 +86,9 @@ class ForbiddenTypeAnalyzer:
             self._check_tuple_subscript(node)
         elif isinstance(node.slice, ast.Tuple):
             for elt in node.slice.elts:
-                self.analyze(elt)
+                self.analyse(elt)
         else:
-            self.analyze(node.slice)
+            self.analyse(node.slice)
 
     def _check_dict_subscript(self, node: ast.Subscript) -> None:
         if not isinstance(node.slice, ast.Tuple) or len(node.slice.elts) != _KEY_VALUE_SUBSCRIPT_LEN:
@@ -99,8 +99,8 @@ class ForbiddenTypeAnalyzer:
         if _is_primitive(k) and _is_primitive(v):
             self.findings.append(ForbiddenTypeFinding(RuleCode.ML102, node.lineno, node.col_offset + 1))
 
-        self.analyze(k)
-        self.analyze(v)
+        self.analyse(k)
+        self.analyse(v)
 
     def _check_mapping_subscript(self, node: ast.Subscript) -> None:
         if not isinstance(node.slice, ast.Tuple) or len(node.slice.elts) != _KEY_VALUE_SUBSCRIPT_LEN:
@@ -111,8 +111,8 @@ class ForbiddenTypeAnalyzer:
         if _is_primitive(k) and _is_primitive(v):
             self.findings.append(ForbiddenTypeFinding(RuleCode.ML107, node.lineno, node.col_offset + 1))
 
-        self.analyze(k)
-        self.analyze(v)
+        self.analyse(k)
+        self.analyse(v)
 
     def _check_tuple_subscript(self, node: ast.Subscript) -> None:
         elts = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
@@ -123,7 +123,7 @@ class ForbiddenTypeAnalyzer:
 
         for elt in elts:
             if not (isinstance(elt, ast.Constant) and elt.value is Ellipsis):
-                self.analyze(elt)
+                self.analyse(elt)
 
 
 def _is_primitive(node: ast.AST) -> bool:

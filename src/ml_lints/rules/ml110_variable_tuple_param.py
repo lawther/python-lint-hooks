@@ -54,7 +54,7 @@ class ML110(Rule):
             if arg.annotation is None:
                 continue
             analyzer = ForbiddenTypeAnalyzer()
-            analyzer.analyze(arg.annotation)
+            analyzer.analyse(arg.annotation)
             if any(f.code == RuleCode.ML104 for f in analyzer.findings):
                 self.report(
                     arg.annotation.lineno,

@@ -12,11 +12,12 @@ import pkgutil
 from enum import Enum
 from typing import TYPE_CHECKING, ClassVar, TypeVar
 
-from ml_lints.noqa import has_noqa
+from ml_lints.noqa import has_file_noqa, has_noqa
 from ml_lints.violation import RuleCode, Violation
 
 if TYPE_CHECKING:
     import ast
+    from collections.abc import Sequence
     from pathlib import Path
 
     from ml_lints.analyzers.newtype_index import NewTypeIndex
@@ -47,7 +48,7 @@ class CheckContext:
     def __init__(
         self,
         path: Path,
-        source_lines: tuple[str, ...],
+        source_lines: Sequence[str],
         project_index: NewTypeIndex | None = None,
     ) -> None:
         self.path = path
@@ -89,7 +90,8 @@ class Rule:
     ) -> None:
         """Emit a violation, automatically honouring noqa suppression."""
         lines_to_check = noqa_lines if noqa_lines is not None else [line]
-        if has_noqa(list(self._context.source_lines), lines_to_check, self.code):
+        source_lines = list(self._context.source_lines)
+        if has_noqa(source_lines, lines_to_check, self.code) or has_file_noqa(source_lines, self.code):
             return
         self.violations.append(
             Violation(

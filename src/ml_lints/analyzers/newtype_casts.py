@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING
 from ml_lints.analyzers.newtype_index import BuiltinBase
 
 if TYPE_CHECKING:
-    from ml_lints.analyzers.newtype_index import NewTypeId, NewTypeIndex
+    from ml_lints.analyzers.newtype_index import NewTypeId, NewTypeIndex, ResolvedSymbol
 
 
 _WIDENING_BUILTINS = frozenset({"str", "int", "float", "bool", "bytes", "bytearray", "complex"})
@@ -135,9 +135,9 @@ class ResolvedType:
     """
 
     newtype: NewTypeId | None = None
-    class_id: tuple[str, str] | None = None
+    class_id: ResolvedSymbol | None = None
     iter_elem_newtype: NewTypeId | None = None
-    iter_elem_class: tuple[str, str] | None = None
+    iter_elem_class: ResolvedSymbol | None = None
 
     @property
     def is_empty(self) -> bool:
@@ -152,6 +152,13 @@ class ResolvedType:
 _EMPTY = ResolvedType()
 
 
+class _BlockKind(Enum):
+    """What kind of block a scope layer belongs to, for `record_ann_assign` to consult."""
+
+    CLASS = auto()
+    FUNCTION = auto()
+
+
 class NewTypeCastAnalyzer:
     """Scope-aware classifier for NewType cast calls within a single file."""
 
@@ -162,6 +169,10 @@ class NewTypeCastAnalyzer:
         self._scopes: list[dict[str, ResolvedType]] = [{}]
         # Stack of enclosing function frames; empty at module level.
         self._function_frames: list[_FunctionFrame] = []
+        # Stack of enclosing class/function blocks, innermost last; empty at module level.
+        # A bare `Name: Annotation` statement means something different in each: a class
+        # field declaration (not a variable binding at all) versus a local variable.
+        self._block_kinds: list[_BlockKind] = []
 
     # ------------------------------------------------------------------
     # Scope tracking — driven by the rule's AST hooks
@@ -188,13 +199,30 @@ class NewTypeCastAnalyzer:
                 return_call_ids=_direct_return_call_ids(node),
             ),
         )
+        self._block_kinds.append(_BlockKind.FUNCTION)
 
     def leave_function(self, _node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self._scopes.pop()
         self._function_frames.pop()
+        self._block_kinds.pop()
+
+    def enter_class(self, _node: ast.ClassDef) -> None:
+        self._block_kinds.append(_BlockKind.CLASS)
+
+    def leave_class(self, _node: ast.ClassDef) -> None:
+        self._block_kinds.pop()
 
     def record_ann_assign(self, node: ast.AnnAssign) -> None:
+        """Bind a local variable's annotated type, ignoring class field declarations.
+
+        `Name: Annotation` directly inside a class body declares a field on instances
+        of that class — it names no variable in the surrounding function or module
+        scope, so recording it there would let an unrelated later binding of the same
+        name (a loop variable, another local) inherit a type it was never given.
+        """
         if not isinstance(node.target, ast.Name):
+            return
+        if self._block_kinds and self._block_kinds[-1] is _BlockKind.CLASS:
             return
         resolved = self._resolve_in_module(self._module, node.annotation)
         if not resolved.is_empty:

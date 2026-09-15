@@ -43,7 +43,7 @@ class ML102(Rule):
 
     def _check_return(self, func_name: str, returns: ast.expr) -> None:
         analyzer = ForbiddenTypeAnalyzer()
-        analyzer.analyze(returns)
+        analyzer.analyse(returns)
         for finding in analyzer.findings:
             if finding.code != self.code:
                 continue

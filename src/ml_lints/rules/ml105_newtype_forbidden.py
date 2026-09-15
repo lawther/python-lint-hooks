@@ -40,7 +40,7 @@ class ML105(Rule):
 
         wrapped_type = node.args[1]
         analyzer = ForbiddenTypeAnalyzer()
-        analyzer.analyze(wrapped_type)
+        analyzer.analyse(wrapped_type)
         if not analyzer.findings:
             return
 
