@@ -72,7 +72,7 @@ def test_ml501_multiline_string_offsets(tmp_path: Path) -> None:
 
 def test_ml501_source_lines_index_error() -> None:
     """Ensure that we handle IndexError if the node's lineno is out of range for source_lines."""
-    context = CheckContext(Path("sample.py"), source_lines=("a", "b"))
+    context = CheckContext(Path("sample.py"), source_lines=("a", "b"), comments=())
     rule = ML501(context)
     node = ast.Constant(value="version(s)")
     node.lineno = 10
@@ -124,7 +124,7 @@ def test_ml501_no_false_positives_lookahead(tmp_path: Path) -> None:
 
 def test_ml501_no_lineno_or_col_offset() -> None:
     """Ensure that we safely return if lineno or col_offset is missing on a string constant."""
-    context = CheckContext(Path("sample.py"), source_lines=())
+    context = CheckContext(Path("sample.py"), source_lines=(), comments=())
     rule = ML501(context)
     node = ast.Constant(value="version(s)")
     if hasattr(node, "lineno"):

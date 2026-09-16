@@ -4,9 +4,7 @@ import ast
 from dataclasses import dataclass
 from typing import ClassVar
 
-from ml_lints.noqa import has_file_noqa, has_noqa
 from ml_lints.rules import CheckContext, Rule, RuleCategory, RuleCode, register
-from ml_lints.violation import Violation
 
 _UNTRUSTED_FUNCS: frozenset[str] = frozenset({"loads", "load", "safe_load", "full_load", "literal_eval"})
 
@@ -127,28 +125,14 @@ class ML400(Rule):
         if report_node in self._flagged_sources:
             return
 
-        usage_lineno = usage_node.lineno
-        report_lineno = report_node.lineno
-        report_col = report_node.col_offset
-
-        source_lines = list(self._context.source_lines)
-        if (
-            has_noqa(source_lines, [usage_lineno], self.code)
-            or has_noqa(source_lines, [report_lineno], self.code)
-            or has_file_noqa(source_lines, self.code)
-        ):
-            return
-
-        self._flagged_sources.add(report_node)
-        self.violations.append(
-            Violation(
-                code=self.code,
-                message=f"Variable '{name}' assigned unvalidated data and used here; validate with Pydantic",
-                path=self._context.path,
-                line=report_lineno,
-                col=report_col + 1,
-            ),
+        emitted = self.report(
+            report_node.lineno,
+            report_node.col_offset + 1,
+            f"Variable '{name}' assigned unvalidated data and used here; validate with Pydantic",
+            noqa_lines=[usage_node.lineno, report_node.lineno],
         )
+        if emitted:
+            self._flagged_sources.add(report_node)
 
     def _get_taint(self, name: str) -> _Tainted | None:
         for scope in reversed(self._taint_stack):

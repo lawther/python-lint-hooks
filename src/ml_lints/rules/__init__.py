@@ -50,8 +50,8 @@ class CheckContext:
 
     comments holds the file's real comment tokens, as found by `ml_lints.comments`. A rule
     that needs comments must read them from here: searching source_lines for "#" finds
-    string literals too. It defaults to empty so a context built by hand (tests) needs
-    only the lines it cares about.
+    string literals too. noqa suppression reads them as well, which is why there is no
+    default: a context built without them would silently honour no noqa at all.
     """
 
     __slots__ = ("comments", "encoding", "path", "project_index", "source_lines")
@@ -60,9 +60,9 @@ class CheckContext:
         self,
         path: Path,
         source_lines: Sequence[str],
+        comments: Sequence[Comment],
         project_index: NewTypeIndex | None = None,
         encoding: str = "utf-8",
-        comments: Sequence[Comment] = (),
     ) -> None:
         self.path = path
         self.source_lines = source_lines
@@ -79,8 +79,8 @@ class Rule:
     do NOT recurse inside hook methods.
 
     Call `self.report(line, col, message)` to emit a violation. noqa handling is
-    automatic; do not call `has_noqa` directly unless you need multi-line annotation
-    coverage and must pass explicit `noqa_lines`.
+    automatic; pass `noqa_lines` when a noqa on some other line (e.g. elsewhere in a
+    multi-line annotation) should also suppress it. Never call `has_noqa` directly.
     """
 
     code: ClassVar[RuleCode]
@@ -108,12 +108,12 @@ class Rule:
         message: str,
         *,
         noqa_lines: list[int] | None = None,
-    ) -> None:
-        """Emit a violation, automatically honouring noqa suppression."""
+    ) -> bool:
+        """Emit a violation unless noqa suppresses it; return True if it was emitted."""
         lines_to_check = noqa_lines if noqa_lines is not None else [line]
-        source_lines = list(self._context.source_lines)
-        if has_noqa(source_lines, lines_to_check, self.code) or has_file_noqa(source_lines, self.code):
-            return
+        comments = self._context.comments
+        if has_noqa(comments, lines_to_check, self.code) or has_file_noqa(comments, self.code):
+            return False
         self.violations.append(
             Violation(
                 code=self.code,
@@ -123,6 +123,7 @@ class Rule:
                 col=col,
             ),
         )
+        return True
 
 
 def annotation_noqa_lines(returns: ast.expr) -> list[int]:

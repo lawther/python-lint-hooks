@@ -75,6 +75,33 @@ def test_noqa_ml400_suppresses(tmp_path: Path) -> None:
     assert "ML400" not in codes(violations)
 
 
+def test_noqa_ml400_on_source_line_suppresses(tmp_path: Path) -> None:
+    # The violation is reported at the load, so a noqa there must count as well as one on
+    # the use.
+    code = textwrap.dedent("""
+        import json
+        def foo():
+            data = json.loads('{"a": 1}')  # noqa: ML400
+            print(data["a"])
+    """)
+    violations = check(code, tmp_path)
+    assert "ML400" not in codes(violations)
+
+
+def test_noqa_ml400_on_one_use_does_not_silence_a_later_use(tmp_path: Path) -> None:
+    # ML400 reports each source once. A suppressed use must not use up that one report:
+    # the second use is unsuppressed, so the source is still flagged, at the load line.
+    code = textwrap.dedent("""
+        import json
+        def foo():
+            data = json.loads('{"a": 1}')
+            print(data["a"])  # noqa: ML400
+            print(data["b"])
+    """)
+    violations = [v for v in check(code, tmp_path) if v.code == "ML400"]
+    assert [v.line for v in violations] == [4]
+
+
 def test_unvalidated_data_reassigned_ok(tmp_path: Path) -> None:
     # Reassigning the variable clears taint.
     code = textwrap.dedent("""
