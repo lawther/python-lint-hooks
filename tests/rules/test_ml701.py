@@ -187,6 +187,9 @@ def test_ml701_flags_a_fallback_bound_to_a_module_constant(tmp_path: Path) -> No
     """)
     violations = check(code, tmp_path)
     assert codes(violations) == ["ML701"]
+    # The message names what `_FALLBACK` is bound to, not just the name, so it is
+    # actionable without the reader going to find the binding themselves.
+    assert "_FALLBACK (zoneinfo.ZoneInfo('UTC'))" in violations[0].message
 
 
 def test_ml701_flags_a_constant_defined_after_the_function_that_uses_it(tmp_path: Path) -> None:
@@ -217,6 +220,7 @@ def test_ml701_flags_a_local_name_bound_to_a_zone(tmp_path: Path) -> None:
     """)
     violations = check(code, tmp_path)
     assert codes(violations) == ["ML701"]
+    assert "fallback (timezone.utc)" in violations[0].message
 
 
 def test_ml701_ignores_a_name_bound_to_something_that_is_not_a_zone(tmp_path: Path) -> None:
@@ -598,6 +602,9 @@ def test_ml701_flags_a_name_bound_to_both_a_derived_and_a_constant_zone(tmp_path
     """)
     violations = check(code, tmp_path)
     assert codes(violations) == ["ML701"]
+    # `zi` is rebound between the two returns; the flagged one shows the binding in
+    # effect at that point (`timezone.utc`), not the one it started with.
+    assert "zi (timezone.utc)" in violations[0].message
 
 
 def test_ml701_reads_the_zone_identity_through_the_key_keyword(tmp_path: Path) -> None:

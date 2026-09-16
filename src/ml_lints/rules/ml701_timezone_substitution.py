@@ -94,11 +94,18 @@ class _FunctionFrame:
     assigned — a rebind to a plain runtime value is still a local binding, and it must
     shadow an outer scope's zone or constant of the same name exactly as it would in
     real Python, not just when the rebound value happens to also qualify.
+
+    `zone_names` maps to the rendered text of the binding that currently makes the name
+    qualify, so a report can show what a name is bound to instead of just the name. A
+    rebind replaces the entry, so a name qualifying through two assignments — bound to
+    `ZoneInfo(sname)` and later, in an `except` arm, rebound to `timezone.utc` — shows
+    whichever one is current at the point being reported, the same point-in-time
+    semantics `local_names` already gives membership.
     """
 
     candidates: list[_Candidate] = field(default_factory=list)
     reaches_a_real_zone: bool = False
-    zone_names: set[str] = field(default_factory=set)
+    zone_names: dict[str, str] = field(default_factory=dict)
     constant_names: set[str] = field(default_factory=set)
     local_names: set[str] = field(default_factory=set)
 
@@ -112,7 +119,7 @@ class _ClassScope:
     ever read from further down the walk. See `_ScopeKind`.
     """
 
-    zone_names: set[str] = field(default_factory=set)
+    zone_names: dict[str, str] = field(default_factory=dict)
     constant_names: set[str] = field(default_factory=set)
     local_names: set[str] = field(default_factory=set)
 
@@ -123,6 +130,14 @@ def _toggle(names: set[str], name: str, *, present: bool) -> None:
         names.add(name)
     else:
         names.discard(name)
+
+
+def _toggle_zone(names: dict[str, str], name: str, *, text: str | None) -> None:
+    """Set or clear *name*'s rendered binding, so a rebind that stops qualifying drops it."""
+    if text is not None:
+        names[name] = text
+    else:
+        names.pop(name, None)
 
 
 def _is_none(node: ast.expr) -> bool:
@@ -278,10 +293,11 @@ class ML701(Rule):
 
     def __init__(self, context: CheckContext) -> None:
         super().__init__(context)
-        # Module-level names bound to a timezone, so `x or _FALLBACK` reads like `x or UTC`.
-        # Function- and class-body-local bindings live on their own frame/scope instead,
-        # and go out of scope with it — see `_bind_name`.
-        self._module_zone_names: set[str] = set()
+        # Module-level names bound to a timezone, mapped to the rendered text of the
+        # binding, so `x or _FALLBACK` reads like `x or UTC` and a report can show what
+        # `_FALLBACK` holds. Function- and class-body-local bindings live on their own
+        # frame/scope instead, and go out of scope with it — see `_bind_name`.
+        self._module_zone_names: dict[str, str] = {}
         # Module-level names bound to a string literal, so `ZoneInfo(_DEFAULT_ZONE_NAME)`
         # reads as the invented `ZoneInfo("UTC")` it is.
         self._module_constant_names: set[str] = set()
@@ -353,21 +369,21 @@ class ML701(Rule):
             return
         if value is None:
             return
-        is_zone = self._is_zone_literal(value)
+        zone_text = ast.unparse(value) if self._is_zone_literal(value) else None
         is_constant_string = isinstance(value, ast.Constant) and isinstance(value.value, str)
         for target in targets:
             if isinstance(target, ast.Name):
-                self._bind_name(target.id, is_zone=is_zone, is_constant_string=is_constant_string)
+                self._bind_name(target.id, zone_text=zone_text, is_constant_string=is_constant_string)
 
-    def _bind_name(self, name: str, *, is_zone: bool, is_constant_string: bool) -> None:
+    def _bind_name(self, name: str, *, zone_text: str | None, is_constant_string: bool) -> None:
         if not self._scope_kinds:
-            _toggle(self._module_zone_names, name, present=is_zone)
+            _toggle_zone(self._module_zone_names, name, text=zone_text)
             _toggle(self._module_constant_names, name, present=is_constant_string)
             return
         scope: _FunctionFrame | _ClassScope
         scope = self._function_stack[-1] if self._scope_kinds[-1] is _ScopeKind.FUNCTION else self._class_stack[-1]
         scope.local_names.add(name)
-        _toggle(scope.zone_names, name, present=is_zone)
+        _toggle_zone(scope.zone_names, name, text=zone_text)
         _toggle(scope.constant_names, name, present=is_constant_string)
 
     def _is_zone_name(self, name: str) -> bool:
@@ -387,6 +403,33 @@ class ML701(Rule):
             if name in frame.local_names:
                 return name in frame.zone_names
         return name in self._module_zone_names
+
+    def _zone_binding_text(self, name: str) -> str:
+        """The rendered text of the binding that makes `_is_zone_name(name)` true.
+
+        Mirrors `_is_zone_name`'s scope search exactly, since it is only ever called
+        once that has already confirmed *name* qualifies somewhere in that same order.
+        """
+        if self._scope_kinds and self._scope_kinds[-1] is _ScopeKind.CLASS:
+            scope = self._class_stack[-1]
+            if name in scope.local_names:
+                return scope.zone_names[name]
+        for frame in reversed(self._function_stack):
+            if name in frame.local_names:
+                return frame.zone_names[name]
+        return self._module_zone_names[name]
+
+    def _render_fallback(self, node: ast.expr) -> str:
+        """The text to show for a fallback: the binding behind a name, or the node itself.
+
+        A named fallback such as `zi` unparses to just the name, which asserts a
+        substitution without showing what is being substituted. Rendering it as
+        `zi (timezone.utc)` instead makes the message actionable without the reader
+        having to go find the binding themselves.
+        """
+        if isinstance(node, ast.Name) and self._is_zone_name(node.id):
+            return f"{node.id} ({self._zone_binding_text(node.id)})"
+        return ast.unparse(node)
 
     def _is_constant_name(self, name: str) -> bool:
         """True when *name* is bound to a string literal in the nearest scope that binds it.
@@ -459,11 +502,11 @@ class ML701(Rule):
 
     def enter_IfExp(self, node: ast.IfExp) -> None:
         if self._is_zone(node.orelse):
-            self._report_substitution(node.lineno, node.col_offset, ast.unparse(node.orelse))
+            self._report_substitution(node.lineno, node.col_offset, self._render_fallback(node.orelse))
 
     def enter_BoolOp(self, node: ast.BoolOp) -> None:
         if isinstance(node.op, ast.Or) and self._is_zone(node.values[-1]):
-            self._report_substitution(node.lineno, node.col_offset, ast.unparse(node.values[-1]))
+            self._report_substitution(node.lineno, node.col_offset, self._render_fallback(node.values[-1]))
 
     # ------------------------------------------------------------------
     # The same trade spread over statements: an absence guard or an `except` arm that
@@ -511,7 +554,7 @@ class ML701(Rule):
         if not any(span.contains(node.lineno) for arms in self._arm_stack for span in arms):
             return
         self._function_stack[-1].candidates.append(
-            _Candidate(node.lineno, node.col_offset, ast.unparse(node.value)),
+            _Candidate(node.lineno, node.col_offset, self._render_fallback(node.value)),
         )
 
     # ------------------------------------------------------------------
@@ -523,7 +566,7 @@ class ML701(Rule):
             self._function_stack[-1] = replace(self._function_stack[-1], reaches_a_real_zone=True)
         for default in _lookup_defaults(node):
             if self._is_zone(default):
-                self._report_substitution(node.lineno, node.col_offset, ast.unparse(default))
+                self._report_substitution(node.lineno, node.col_offset, self._render_fallback(default))
 
     def _report_substitution(self, line: int, col: int, fallback: str) -> None:
         self.report(
