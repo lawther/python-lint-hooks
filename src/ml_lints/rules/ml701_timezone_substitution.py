@@ -361,7 +361,10 @@ class ML701(Rule):
                 bound.add(target.id)
 
     def _is_zone_name(self, name: str) -> bool:
-        """True when *name* is bound to a zone in this scope, or in one enclosing it."""
+        """True when *name* is bound to a zone in this scope, or in an enclosing function.
+
+        A class scope does not "enclose" in this sense — see `_ScopeKind`.
+        """
         if name in self._module_zone_names:
             return True
         if any(name in frame.zone_names for frame in self._function_stack):
