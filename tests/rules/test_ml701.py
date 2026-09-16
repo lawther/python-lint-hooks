@@ -457,6 +457,39 @@ def test_ml701_does_not_leak_a_local_zone_name_into_another_function(tmp_path: P
     assert codes(violations) == ["ML701"]
 
 
+def test_ml701_does_not_leak_a_class_body_zone_name_into_the_module(tmp_path: Path) -> None:
+    # `FALLBACK` is a zone as a class attribute but a plain string in the unrelated
+    # function below — a name bound in a class body is not visible outside that body.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        class Config:
+            FALLBACK = zoneinfo.ZoneInfo("UTC")
+
+
+        def label_for(name: str, FALLBACK: str) -> str:
+            return name or FALLBACK
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == []
+
+
+def test_ml701_flags_a_zone_name_bound_directly_in_the_class_body(tmp_path: Path) -> None:
+    # The fix is scoped, not a blanket exemption: a fallback to the class attribute from
+    # another statement directly in the same class body still resolves it as a zone.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        class Config:
+            FALLBACK = zoneinfo.ZoneInfo("UTC")
+            DISPLAY = None or FALLBACK
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML701"]
+
+
 # ---------------------------------------------------------------------------
 # Derived zones — a zone built from a value is the caller's, not an invented one
 # ---------------------------------------------------------------------------

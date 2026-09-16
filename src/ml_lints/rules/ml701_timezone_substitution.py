@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field, replace
+from enum import Enum, auto
 from typing import ClassVar, NamedTuple
 
 from ml_lints.rules import CheckContext, Rule, RuleCategory, RuleCode, register
@@ -42,6 +43,20 @@ _DEFAULTING_BUILTINS: tuple[_DefaultingBuiltin, ...] = (
     _DefaultingBuiltin("getattr", 3),
     _DefaultingBuiltin("next", 2),
 )
+
+
+class _ScopeKind(Enum):
+    """Which of `_function_stack` / `_class_stack` was pushed most recently.
+
+    Function scopes chain for closures regardless of what is interleaved above them, so
+    `_function_stack` alone is enough to answer "is this name a closed-over local".  A
+    class scope does not chain at all — not even into a class nested inside it — so it
+    only answers "is this name bound in the class body I am *directly* inside right now",
+    which is exactly what the top of this stack says.
+    """
+
+    FUNCTION = auto()
+    CLASS = auto()
 
 
 class _LineSpan(NamedTuple):
@@ -283,6 +298,11 @@ class ML701(Rule):
         self._module_constant_names: set[str] = set()
         # One frame per enclosing function; the innermost owns any guarded-arm finding.
         self._function_stack: list[_FunctionFrame] = []
+        # One set per enclosing class body.
+        self._class_stack: list[set[str]] = []
+        # Push order of the two stacks above, so a binding or lookup can tell which one is
+        # the scope it is currently, literally inside — see `_ScopeKind`.
+        self._scope_kinds: list[_ScopeKind] = []
         # Line spans of the arms that run when a zone turns out to be unavailable.
         self._arm_stack: list[list[_LineSpan]] = []
 
@@ -330,7 +350,12 @@ class ML701(Rule):
             return
         if value is None or not _is_zone_literal(value, self._module_constant_names):
             return
-        bound = self._function_stack[-1].zone_names if self._function_stack else self._module_zone_names
+        if not self._scope_kinds:
+            bound = self._module_zone_names
+        elif self._scope_kinds[-1] is _ScopeKind.FUNCTION:
+            bound = self._function_stack[-1].zone_names
+        else:
+            bound = self._class_stack[-1]
         for target in targets:
             if isinstance(target, ast.Name):
                 bound.add(target.id)
@@ -339,7 +364,9 @@ class ML701(Rule):
         """True when *name* is bound to a zone in this scope, or in one enclosing it."""
         if name in self._module_zone_names:
             return True
-        return any(name in frame.zone_names for frame in self._function_stack)
+        if any(name in frame.zone_names for frame in self._function_stack):
+            return True
+        return bool(self._scope_kinds) and self._scope_kinds[-1] is _ScopeKind.CLASS and name in self._class_stack[-1]
 
     def _is_zone(self, node: ast.expr | None) -> bool:
         if node is None:
@@ -369,9 +396,11 @@ class ML701(Rule):
 
     def enter_FunctionDef(self, _node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self._function_stack.append(_FunctionFrame())
+        self._scope_kinds.append(_ScopeKind.FUNCTION)
 
     def leave_FunctionDef(self, _node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         frame = self._function_stack.pop()
+        self._scope_kinds.pop()
         if not frame.reaches_a_real_zone:
             return
         for candidate in frame.candidates:
@@ -379,6 +408,14 @@ class ML701(Rule):
 
     enter_AsyncFunctionDef = enter_FunctionDef
     leave_AsyncFunctionDef = leave_FunctionDef
+
+    def enter_ClassDef(self, _node: ast.ClassDef) -> None:
+        self._class_stack.append(set())
+        self._scope_kinds.append(_ScopeKind.CLASS)
+
+    def leave_ClassDef(self, _node: ast.ClassDef) -> None:
+        self._class_stack.pop()
+        self._scope_kinds.pop()
 
     def enter_If(self, node: ast.If) -> None:
         self._arm_stack.append(_fallback_arms(node))
