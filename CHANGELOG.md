@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.15.0](https://github.com/lawther/python-lint-hooks/compare/v0.14.0...v0.15.0) (2026-09-16)
+
+
+### Features
+
+* **corpus:** sweep rules across external checkouts to find false positives ([7f2edbe](https://github.com/lawther/python-lint-hooks/commit/7f2edbe8afc5c46bd929cad091c0d9c81a71bd3b))
+* **ML001:** add a rule flagging files that aren't clean UTF-8 ([88f0d7d](https://github.com/lawther/python-lint-hooks/commit/88f0d7d8172a9cbafb1583c65b5e3f1e52859d70))
+
+
+### Bug Fixes
+
+* **ML001:** compare normalised codec names, not raw cookie spelling ([29ab95e](https://github.com/lawther/python-lint-hooks/commit/29ab95e7ab850ac67151267c0d0ada78bf7636a2))
+* **ML500:** audit every spelling-map entry and drop 66 ([a15e6e6](https://github.com/lawther/python-lint-hooks/commit/a15e6e690ecca4308ac649d4d9624b3715e74054))
+* **ML500:** drop spelling-map entries that are wrong in any codebase ([a07d2b5](https://github.com/lawther/python-lint-hooks/commit/a07d2b578b3c50584e645eec1ef5eea4fefceb06))
+* **ML500:** scan real comment tokens, not every '#' in a line ([d63b841](https://github.com/lawther/python-lint-hooks/commit/d63b8419ff0950af237befcb5afc19a165c6a60a))
+* **ML700,ML701:** see three more substitution shapes, warn about memoised guards ([8fa027f](https://github.com/lawther/python-lint-hooks/commit/8fa027fdece2bac376455c3695b1bb8a90d2b09b))
+* **ML701:** check a class body's own binding before an enclosing function's ([d5952cf](https://github.com/lawther/python-lint-hooks/commit/d5952cfb7b19769f1d706b52d106f24d1e8c9cbf))
+* **ML701:** give class bodies their own scope ([07da56d](https://github.com/lawther/python-lint-hooks/commit/07da56d8a1fad83a6cb10335dc48fdc2d3de3ca0))
+* **ML701:** give the zone- and constant-name tables a real scope model ([7f4eb63](https://github.com/lawther/python-lint-hooks/commit/7f4eb6352be565e5686ff51fa732c0ded06e991f))
+* **ML701:** invalidate tuple/list-unpacking rebind targets ([ac03712](https://github.com/lawther/python-lint-hooks/commit/ac037126979855c2226e286a70d4dec9ceb42487))
+* **ML701:** read the zone identity through the key= keyword too ([166a1ad](https://github.com/lawther/python-lint-hooks/commit/166a1ad77a6227eab1a5fac148a04d5f2fcdc342))
+* **ML701:** show what a named fallback is bound to ([3340a3e](https://github.com/lawther/python-lint-hooks/commit/3340a3eceb52796d9a0b1293c5867b2500ef25d9))
+* **ML701:** tell a derived zone apart from an invented one ([0025a75](https://github.com/lawther/python-lint-hooks/commit/0025a75af1ab359108be1d671de9fceb4f5d9cd8))
+* **noqa:** honour only real comment tokens, not '# noqa' in strings ([a0bc36d](https://github.com/lawther/python-lint-hooks/commit/a0bc36d7ecaed1c0e53af0ce9df82867077d7eeb))
+* remove 'ax' as a spelling ([94eee54](https://github.com/lawther/python-lint-hooks/commit/94eee54073e63f508ab324ff53424b0287b52461))
+* **runner:** don't abort the run on an unreadable or unparseable file ([5591f71](https://github.com/lawther/python-lint-hooks/commit/5591f71a3a26874453be774f4402069ded1f2f38))
+
+
+### Performance Improvements
+
+* **index:** resolve an import through a name bucket, not a full scan ([b2e3532](https://github.com/lawther/python-lint-hooks/commit/b2e353238d2d315be921202e98780cc2207b1201))
+
+
+### Documentation
+
+* Add ML7xx rule for time correctness ([106186c](https://github.com/lawther/python-lint-hooks/commit/106186cc6cade986056bfe080a9c54abfa2f7337))
+* **corpus:** replace the all-rules warning with what the sweep costs ([e6212d6](https://github.com/lawther/python-lint-hooks/commit/e6212d6151f83147000f2434536f059625eb08f5))
+* **corpus:** warn that an all-rules sweep is impractical until mlp-kzi lands ([a463b16](https://github.com/lawther/python-lint-hooks/commit/a463b16fb4159d8a15175a0ab00cb467b9cdfc35))
+* **ML701:** correct _is_zone_name docstring for class scope ([487ab9d](https://github.com/lawther/python-lint-hooks/commit/487ab9d1f38acdb4558f217634a30eead53993dd))
+
 ## [0.14.0](https://github.com/lawther/python-lint-hooks/compare/v0.13.0...v0.14.0) (2026-09-14)
 
 
