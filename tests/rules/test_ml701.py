@@ -604,3 +604,93 @@ def test_ml701_flags_a_constant_zone_named_by_the_key_keyword(tmp_path: Path) ->
     """)
     violations = check(code, tmp_path)
     assert codes(violations) == ["ML701"]
+
+
+# ---------------------------------------------------------------------------
+# String-constant scope model (mlp-zo3) — a local or class-body name is resolved just
+# like a module one, and a rebinding away from a constant or a zone un-marks the name.
+# ---------------------------------------------------------------------------
+
+
+def test_ml701_flags_a_zone_built_from_a_local_string_constant(tmp_path: Path) -> None:
+    # A local constant is as fixed at write time as a module-level one; the rule should
+    # no longer be silent here.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def resolve(n: str) -> str:
+            name = "UTC"
+            fallback = zoneinfo.ZoneInfo(name)
+            return zoneinfo.ZoneInfo(n) if n else fallback
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML701"]
+
+
+def test_ml701_flags_a_zone_built_from_a_class_body_string_constant(tmp_path: Path) -> None:
+    # Same indirection as the module-level constant test, but the constant and the zone
+    # built from it are both bound directly in the class body.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        class Config:
+            DEFAULT_ZONE_NAME = "UTC"
+            FALLBACK = zoneinfo.ZoneInfo(DEFAULT_ZONE_NAME)
+            DISPLAY = None or FALLBACK
+    """)
+    violations = check(code, tmp_path)
+    assert codes(violations) == ["ML701"]
+
+
+def test_ml701_ignores_a_local_constant_shadowed_by_a_runtime_value(tmp_path: Path) -> None:
+    # `_TZ` is a module constant, but this function rebinds it to a request value before
+    # using it — the local rebinding must shadow the module-level constant.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+        _TZ = "UTC"
+
+
+        def resolve(request: object, d: object) -> object:
+            _TZ = request.tz_name
+            fallback = zoneinfo.ZoneInfo(_TZ)
+            return d.tzinfo or fallback
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml701_ignores_a_module_constant_rebound_to_a_runtime_value(tmp_path: Path) -> None:
+    # The second assignment is the one live when any function reads `_TZ`, so the name
+    # must stop reading as a constant once it is no longer bound to one.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+        _TZ = "UTC"
+        _TZ = discover()
+
+
+        def resolve(d: object) -> object:
+            fallback = zoneinfo.ZoneInfo(_TZ)
+            return d.tzinfo or fallback
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml701_ignores_a_local_zone_name_rebound_to_a_runtime_value(tmp_path: Path) -> None:
+    # The same rebind-invalidation applies to the zone-name table, not only the
+    # string-constant one: a name that stops holding a zone stops counting as one.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def resolve(tz: str, live_zone: str) -> str:
+            fallback = zoneinfo.ZoneInfo("UTC")
+            fallback = live_zone
+            return tz or fallback
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
