@@ -374,16 +374,18 @@ class ML701(Rule):
         """True when *name* is bound to a zone in the nearest scope that binds it at all.
 
         A rebind to a non-zone shadows an outer zone of the same name exactly as it
-        would in real Python, whether or not the rebound value itself qualifies. A class
-        scope does not chain into anything nested inside it — see `_ScopeKind`.
+        would in real Python, whether or not the rebound value itself qualifies. The
+        class body directly enclosing this point, if any, is nearer than any function
+        further out and so is checked first — it does not chain into anything nested
+        inside it, see `_ScopeKind`.
         """
-        for frame in reversed(self._function_stack):
-            if name in frame.local_names:
-                return name in frame.zone_names
         if self._scope_kinds and self._scope_kinds[-1] is _ScopeKind.CLASS:
             scope = self._class_stack[-1]
             if name in scope.local_names:
                 return name in scope.zone_names
+        for frame in reversed(self._function_stack):
+            if name in frame.local_names:
+                return name in frame.zone_names
         return name in self._module_zone_names
 
     def _is_constant_name(self, name: str) -> bool:
@@ -391,13 +393,13 @@ class ML701(Rule):
 
         The same rule `_is_zone_name` applies, for the constant-name table.
         """
-        for frame in reversed(self._function_stack):
-            if name in frame.local_names:
-                return name in frame.constant_names
         if self._scope_kinds and self._scope_kinds[-1] is _ScopeKind.CLASS:
             scope = self._class_stack[-1]
             if name in scope.local_names:
                 return name in scope.constant_names
+        for frame in reversed(self._function_stack):
+            if name in frame.local_names:
+                return name in frame.constant_names
         return name in self._module_constant_names
 
     def _is_constant_zone_identity(self, node: ast.expr) -> bool:

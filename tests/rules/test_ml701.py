@@ -490,6 +490,28 @@ def test_ml701_flags_a_zone_name_bound_directly_in_the_class_body(tmp_path: Path
     assert codes(violations) == ["ML701"]
 
 
+def test_ml701_prefers_a_class_bodys_own_binding_over_an_enclosing_function(tmp_path: Path) -> None:
+    # `fallback` is a zone in `factory`'s own scope but rebound to a plain string directly
+    # in the nested class body — the nearer, class-body binding must win the lookup.
+    # (ML300 separately flags the class-inside-a-function nesting; that is expected here
+    # and is not what this test is about.)
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def factory() -> type:
+            fallback = zoneinfo.ZoneInfo("UTC")
+
+            class Config:
+                fallback = "not a zone"
+                display = None or fallback
+
+            return Config
+    """)
+    violations = check(code, tmp_path)
+    assert "ML701" not in codes(violations)
+
+
 # ---------------------------------------------------------------------------
 # Derived zones — a zone built from a value is the caller's, not an invented one
 # ---------------------------------------------------------------------------
