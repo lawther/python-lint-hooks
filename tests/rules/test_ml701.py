@@ -723,3 +723,53 @@ def test_ml701_ignores_a_local_zone_name_rebound_to_a_runtime_value(tmp_path: Pa
     """)
     violations = check(code, tmp_path)
     assert violations == []
+
+
+def test_ml701_ignores_a_module_constant_rebound_through_tuple_unpacking(tmp_path: Path) -> None:
+    # `_TZ, _ = discover()` rebinds `_TZ` exactly as `_TZ = discover()` does — the
+    # unpacking target must invalidate it the same way a plain Name target does.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+        _TZ = "UTC"
+        _TZ, _rest = discover()
+
+
+        def resolve(d: object) -> object:
+            fallback = zoneinfo.ZoneInfo(_TZ)
+            return d.tzinfo or fallback
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml701_ignores_a_local_zone_name_rebound_through_tuple_unpacking(tmp_path: Path) -> None:
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+
+        def resolve(tz: str, live_zone: str) -> str:
+            fallback = zoneinfo.ZoneInfo("UTC")
+            fallback, _rest = live_zone, None
+            return tz or fallback
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []
+
+
+def test_ml701_ignores_a_module_constant_rebound_through_nested_unpacking(tmp_path: Path) -> None:
+    # `_TZ` sits inside a nested tuple target and behind a starred one — both must be
+    # walked all the way down rather than only one level of unpacking.
+    code = textwrap.dedent("""\
+        import zoneinfo
+
+        _TZ = "UTC"
+        first, (_TZ, *_rest) = discover()
+
+
+        def resolve(d: object) -> object:
+            fallback = zoneinfo.ZoneInfo(_TZ)
+            return d.tzinfo or fallback
+    """)
+    violations = check(code, tmp_path)
+    assert violations == []

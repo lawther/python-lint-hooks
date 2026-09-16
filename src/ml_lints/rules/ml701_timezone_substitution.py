@@ -124,6 +124,23 @@ class _ClassScope:
     local_names: set[str] = field(default_factory=set)
 
 
+def _assignment_target_names(target: ast.expr) -> list[str]:
+    """Every `ast.Name` an assignment target binds, recursing through unpacking.
+
+    A plain `NAME = ...` target is just itself. `a, (b, *c) = ...` binds `a`, `b`
+    and `c` even though only `a` is a direct `ast.Name` child of the statement —
+    `ast.Tuple`, `ast.List` and `ast.Starred` all nest further targets rather than
+    naming anything themselves, so they are walked rather than skipped.
+    """
+    if isinstance(target, ast.Name):
+        return [target.id]
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return [name for elt in target.elts for name in _assignment_target_names(elt)]
+    if isinstance(target, ast.Starred):
+        return _assignment_target_names(target.value)
+    return []
+
+
 def _toggle(names: set[str], name: str, *, present: bool) -> None:
     """Add or remove *name*, so a rebinding that no longer qualifies un-marks it too."""
     if present:
@@ -344,8 +361,8 @@ class ML701(Rule):
         is_constant_string = isinstance(value, ast.Constant) and isinstance(value.value, str)
         targets = [stmt.target] if isinstance(stmt, ast.AnnAssign) else stmt.targets
         for target in targets:
-            if isinstance(target, ast.Name):
-                _toggle(self._module_constant_names, target.id, present=is_constant_string)
+            for name in _assignment_target_names(target):
+                _toggle(self._module_constant_names, name, present=is_constant_string)
 
     def enter_Assign(self, node: ast.Assign) -> None:
         self._note_binding(node)
@@ -372,8 +389,8 @@ class ML701(Rule):
         zone_text = ast.unparse(value) if self._is_zone_literal(value) else None
         is_constant_string = isinstance(value, ast.Constant) and isinstance(value.value, str)
         for target in targets:
-            if isinstance(target, ast.Name):
-                self._bind_name(target.id, zone_text=zone_text, is_constant_string=is_constant_string)
+            for name in _assignment_target_names(target):
+                self._bind_name(name, zone_text=zone_text, is_constant_string=is_constant_string)
 
     def _bind_name(self, name: str, *, zone_text: str | None, is_constant_string: bool) -> None:
         if not self._scope_kinds:
