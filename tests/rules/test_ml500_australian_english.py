@@ -432,3 +432,32 @@ def test_ml500_complex_base_expression_methods_are_checked(tmp_path: Path) -> No
     violations = check(code, tmp_path)
     ml500_violations = [v for v in violations if v.code == "ML500"]
     assert any("initialize" in v.message for v in ml500_violations)
+
+
+def test_ml500_hash_inside_string_literal_is_not_a_comment(tmp_path: Path) -> None:
+    # The motivating bug (mlp-0wi): a "#" inside a string literal used to be treated as the
+    # start of a comment, so the string's contents were scanned as if they were prose the
+    # developer had written in Australian English. Non-docstring strings are deliberately
+    # exempt from ML500 (external APIs, JSON payloads), and a "#" in one changes nothing.
+    code = 'BAD_EXAMPLE = """\n# This color is nice\n"""\n'
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert ml500_violations == []
+
+
+def test_ml500_hash_in_string_does_not_shift_a_real_comment(tmp_path: Path) -> None:
+    # A real trailing comment on a line whose string also contains a "#": the old scan split
+    # on the *first* "#", so it read the tail of the string as comment text and reported the
+    # violation at the wrong column. Tokenising gives the comment's true start.
+    code = 'SEPARATOR = "#### colors ####"  # the color divider\n'
+    violations = check(code, tmp_path)
+    ml500_violations = [v for v in violations if v.code == "ML500"]
+    assert len(ml500_violations) == 1
+    assert "color" in ml500_violations[0].message
+    assert ml500_violations[0].col == code.index("# the color divider") + len("# the ") + 1
+
+
+def test_ml500_flagged_in_trailing_comment_after_code(tmp_path: Path) -> None:
+    # A comment is still found when it is not the first thing on the line.
+    violations = check("x = 1  # set the color\n", tmp_path)
+    assert "ML500" in codes(violations)

@@ -7,6 +7,7 @@ import tokenize
 from typing import TYPE_CHECKING
 
 from ml_lints.analyzers.newtype_index import NewTypeIndex
+from ml_lints.comments import scan_comments
 from ml_lints.rules import CheckContext, Rule, all_rules
 from ml_lints.violation import RuleCode, Violation
 
@@ -39,7 +40,13 @@ def check_file(
         encoding = f.encoding
     source_lines = tuple(source.splitlines())
     tree = ast.parse(source, filename=str(path))
-    context = CheckContext(path, source_lines, project_index=project_index, encoding=encoding)
+    context = CheckContext(
+        path,
+        source_lines,
+        project_index=project_index,
+        encoding=encoding,
+        comments=scan_comments(source),
+    )
 
     rules: list[Rule] = [cls(context) for cls in all_rules() if enabled_codes is None or cls.code in enabled_codes]
 

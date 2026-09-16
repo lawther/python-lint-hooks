@@ -1,7 +1,3 @@
-# ml-lints: noqa: ML500
-# `bad_example` below deliberately contains American spelling in a `#` comment, and
-# enter_Module's comment scan matches that "#" even though it sits inside a string
-# literal. See ml_lints.noqa for the file-level suppression this comment invokes.
 """ML500 — American English spelling detected.
 
 The project requires Australian English spelling in all code and comments.
@@ -234,13 +230,10 @@ class ML500(Rule):
         return result
 
     def enter_Module(self, node: ast.Module) -> None:
-        """Scan comments in the entire file and check module docstring."""
+        """Check the module docstring and every real comment in the file."""
         self._check_docstring(node)
-        for i, line_text in enumerate(self._context.source_lines, 1):
-            if "#" in line_text:
-                comment_part = line_text.split("#", 1)[1]
-                comment_col = line_text.find("#") + 1
-                self._check_text(comment_part, i, comment_col)
+        for comment in self._context.comments:
+            self._check_text(comment.text, comment.line, comment.col)
 
     def enter_Import(self, node: ast.Import) -> None:
         """Track imported names so they are exempt from spelling checks."""

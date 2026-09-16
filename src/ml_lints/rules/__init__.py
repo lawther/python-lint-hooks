@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from ml_lints.analyzers.newtype_index import NewTypeIndex
+    from ml_lints.comments import Comment
 
 
 class RuleCategory(Enum):
@@ -46,9 +47,14 @@ class CheckContext:
     encoding is the codec `tokenize.open()` actually used to decode the file (e.g.
     "utf-8", "utf-8-sig" for a BOM, or a PEP 263 declaration like "iso-8859-1"). ML001
     consumes it; other rules ignore it.
+
+    comments holds the file's real comment tokens, as found by `ml_lints.comments`. A rule
+    that needs comments must read them from here: searching source_lines for "#" finds
+    string literals too. It defaults to empty so a context built by hand (tests) needs
+    only the lines it cares about.
     """
 
-    __slots__ = ("encoding", "path", "project_index", "source_lines")
+    __slots__ = ("comments", "encoding", "path", "project_index", "source_lines")
 
     def __init__(
         self,
@@ -56,11 +62,13 @@ class CheckContext:
         source_lines: Sequence[str],
         project_index: NewTypeIndex | None = None,
         encoding: str = "utf-8",
+        comments: Sequence[Comment] = (),
     ) -> None:
         self.path = path
         self.source_lines = source_lines
         self.project_index = project_index
         self.encoding = encoding
+        self.comments = comments
 
 
 class Rule:
