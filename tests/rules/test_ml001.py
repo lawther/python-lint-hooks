@@ -64,6 +64,21 @@ def test_ml001_ok_for_clean_utf8(tmp_path: Path) -> None:
     assert violations == []
 
 
+def test_ml001_ok_for_a_utf8_alias_spelling(tmp_path: Path) -> None:
+    """A guard against comparing the raw codec name instead of its normalised form.
+
+    tokenize.open() reports the codec exactly as spelled in the cookie (e.g. "UTF8"),
+    not normalised — comparing that raw string to "utf-8" would false-positive on any
+    alias spelling of the same, genuinely-clean encoding.
+    """
+    path = tmp_path / "sample.py"
+    path.write_bytes(b"# coding: UTF8\nx = 1\n")
+
+    violations = check_paths([path])
+
+    assert violations == []
+
+
 # ---------------------------------------------------------------------------
 # Suppression
 # ---------------------------------------------------------------------------

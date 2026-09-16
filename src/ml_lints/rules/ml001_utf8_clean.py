@@ -8,6 +8,7 @@ physical lines, which the shared test PRELUDE would otherwise always precede.
 
 from __future__ import annotations
 
+import codecs
 import re
 from typing import TYPE_CHECKING, ClassVar
 
@@ -64,7 +65,12 @@ class ML001(Rule):
     ]
 
     def enter_Module(self, _node: ast.Module) -> None:
-        if self._context.encoding == "utf-8":
+        encoding = self._context.encoding
+        # tokenize.open() reports the codec name exactly as spelled in the source's
+        # coding declaration (e.g. "UTF8", "utf_8"), not its normalised form, so
+        # compare canonical names rather than the raw string. codecs.lookup() cannot
+        # fail here: tokenize.open() already used this same name to decode the file.
+        if codecs.lookup(encoding).name == "utf-8":
             return
         line = _coding_declaration_line(self._context.source_lines) or 1
-        self.report(line, 1, f"File is not clean UTF-8 (detected encoding: {self._context.encoding})")
+        self.report(line, 1, f"File is not clean UTF-8 (detected encoding: {encoding})")
