@@ -42,7 +42,7 @@ test:
     echo "Running tests..."
     cov_json=$(mktemp)
     trap 'rm -f "$cov_json"' EXIT
-    uv run pytest --cov=ml_lints --cov-report=term-missing --cov-branch --cov-report=json:"$cov_json"
+    uv run pytest -n auto --dist=worksteal --cov=ml_lints --cov-report=term-missing --cov-branch --cov-report=json:"$cov_json"
     uv run python scripts/branch_summary.py "$cov_json"
     echo "{{success}}Tests passed{{reset}}"
 
