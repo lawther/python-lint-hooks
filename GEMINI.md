@@ -1,4 +1,4 @@
-<!-- BEGIN GLOBAL RULES sha256:c9c4c18fdb8efe1b -->
+<!-- BEGIN GLOBAL RULES sha256:87d384467f05a6e0 -->
 <!-- Generated from agent_rules/global.md. Do not edit inside this block:
      edit global.md, then run `just sync-rules` in agent_rules. -->
 
@@ -8,7 +8,6 @@
 
 # Python Code Style
 
-- All code must be type-hinted.
 - All code must pass the project's linting rules.
   - DO NOT ignore the linting rules. BAD: `if e.resp.status == 404:  # noqa: PLR2004`. GOOD: `if e.resp.status == http.HTTPStatus.NOT_FOUND:`
 - Any data loaded from a file or external source (e.g. YAML, TOML, JSON, HTTP) must be validated against a Pydantic model. Never trust outside data.
@@ -89,11 +88,7 @@ The **justfile is the single source of truth** for all check commands. Pre-commi
 
 When a tool refuses to do something, that refusal is information, not an obstacle. Never reach for the flag that silences it. **Stop and ask me instead.** This is not negotiable and it is not a judgement call.
 
-- **`bd ... --force`** — a blocked `bd` operation means the dependency graph says the work is not finishable yet. The error text says "use --force to override"; that describes a mechanism, it does not grant permission. Ask me whether the dependency is wrong.
-- **`git push --force` / `-f` / `--force-with-lease`** — rewriting published history is my call, never yours.
-- **`--no-verify`** — a failing precommit gate is a finding to report to me, not something to route around.
-
-The same rule applies to anything else that exists to bypass a check, whether or not it is listed here. If you believe the refusal is genuinely wrong, say so and wait — do not act first and explain afterwards. Explaining after the fact is not asking.
+A hook already blocks the concrete cases — `bd --force`, `git push --force`/`-f`/`--force-with-lease`, and `--no-verify` — and denies them with the same reasoning stated here. The same rule applies to anything else that exists to bypass a check, whether or not a hook catches it. If you believe a refusal is genuinely wrong, say so and wait — do not act first and explain afterwards. Explaining after the fact is not asking.
 
 # Committing Code
 
