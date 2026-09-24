@@ -1,4 +1,4 @@
-<!-- BEGIN GLOBAL RULES sha256:87d384467f05a6e0 -->
+<!-- BEGIN GLOBAL RULES sha256:4b3b560951ce29a7 -->
 <!-- Generated from agent_rules/global.md. Do not edit inside this block:
      edit global.md, then run `just sync-rules` in agent_rules. -->
 
@@ -19,7 +19,7 @@
   - Strongly prefer to make dataclasses immutable where possible. Use `@dataclass(frozen=True)`
   - Use 'NewType' to create distinct types for dynamic dict key/values. eg BAD `def func() -> dict[str, str]` GOOD `UserId = NewType('UserId', str); Address = NewType('Address', str); def func() -> dict[UserId, Address]`
   - It's OK to use dicts/tuples strictly within the scope of a single function.
-- Do not use magic numbers. Instead, go back to first principles for maximum explainability of values. Example:
+- Do not use magic numbers. Instead, go back to first principles for maximum explainability of values. The linter only catches this in a comparison (`PLR2004`) — an assignment like the BAD example below is not flagged, so this one is on you. Example:
   - BAD: `_MIN_COVERAGE_SLOTS = 93`
   - GOOD:
     ```
@@ -28,10 +28,8 @@
     _MAX_MISSED_SLOTS = 3
     _MIN_COVERAGE_SLOTS = _SLOTS_PER_DAY - _MAX_MISSED_SLOTS
     ```
-- Do not leave comments as questions to yourself in the code. Either figure it out or ask me.
 - Do not leave comments in the code that are not necessary for understanding the code.
   - The exception is in test code. Copious comments explaining the 'why' are allowed in test code.
-- Do not 'number' steps in the code. It's not necessary.
 
 # Running Tests
 
@@ -39,25 +37,16 @@
 
 # Checks Architecture
 
-The **justfile is the single source of truth** for all check commands. Pre-commit hooks and CI are both thin wrappers that call the same justfile recipes — there is no logic duplicated between them.
-
-- **Local (pre-commit)**: hooks in `.pre-commit-config.yaml` call `just <recipe>` and fire on relevant file changes
-- **CI** (`.github/workflows/ci.yml`): calls `just <recipe>` steps directly — no pre-commit involved
-- **Manually**: `just lint`, `just test`, or an individual recipe
-
-**If you need to add, change, or remove a check: edit the justfile recipe.** Then update `.pre-commit-config.yaml` (add/remove a hook entry) and `.github/workflows/ci.yml` (add/remove a `run: just <recipe>` step) to match. Never put command logic in the hook `entry:` or the CI `run:` — only `just <recipe>` calls belong there.
+- The justfile is each repo's single source of truth for checks. To add, change or remove one: edit the justfile recipe, then update `.pre-commit-config.yaml` and `.github/workflows/ci.yml` to match — both call `just <recipe>`, never inline command logic.
 
 # Task Tracking
 
 - Use `bd` (beads) for ALL task tracking. Never use TodoWrite, TaskCreate, or a markdown
   TODO list. Create the issue before writing the code, and claim it with
   `bd update <id> --claim` when you start.
-- Run `bd prime` when you need the command reference or the session-close protocol. It is
-  not injected at session start: the SessionStart hook runs `bd prime --memories-only`,
-  which carries this repo's `bd remember` memories and nothing else. That is deliberate --
-  bd's full output asserts a "Conservative" git policy that contradicts the Committing Code
-  section below, and pinning the hook is the only place it can be corrected. See
-  agent_rules/hooks.toml, `[commands.bd-prime]`.
+- Run `bd prime` when you need the command reference or the session-close protocol; only
+  this repo's `bd remember` memories are injected automatically at session start (see
+  `agent_rules/hooks.toml`, `[commands.bd-prime]`, for why).
 - Use `bd remember` for knowledge that should outlive the session. Do not create MEMORY.md
   or similar files.
 - An issue is a description of the work as it now stands, not a diary of how it got there.
@@ -105,6 +94,13 @@ A hook already blocks the concrete cases — `bd --force`, `git push --force`/`-
 # Time and Date
 
 - All time and date usage and calculations MUST be timezone aware. Never create datetimes or similar without explicitly specifying a timezone.
+- Timezone-aware is not the same as DST-safe. Arithmetic on an aware datetime is wall-clock
+  (preserves local time — the right semantics for calendar and schedule code) only when its
+  `tzinfo` is a real zone; a fixed offset makes the identical expression absolute elapsed
+  time instead, and the two silently disagree across a DST transition. Decide which one an
+  operation needs, and do not let a widened `tzinfo`/`object`/`Any` annotation blur the two —
+  a `str` IANA key is fine, but a bare `tzinfo` is not. (Python: enforced by ml-lints
+  ML700/ML701; not yet covered for Rust or TypeScript.)
 
 # File Manipulation
 
