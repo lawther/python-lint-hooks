@@ -1,4 +1,4 @@
-<!-- BEGIN GLOBAL RULES sha256:4b3b560951ce29a7 -->
+<!-- BEGIN GLOBAL RULES sha256:a0e8b2b522f5c8bd -->
 <!-- Generated from agent_rules/global.md. Do not edit inside this block:
      edit global.md, then run `just sync-rules` in agent_rules. -->
 
@@ -28,8 +28,10 @@
     _MAX_MISSED_SLOTS = 3
     _MIN_COVERAGE_SLOTS = _SLOTS_PER_DAY - _MAX_MISSED_SLOTS
     ```
+- Do not leave comments as questions to yourself in the code. Either figure it out or ask me.
 - Do not leave comments in the code that are not necessary for understanding the code.
   - The exception is in test code. Copious comments explaining the 'why' are allowed in test code.
+- Do not 'number' steps in the code. It's not necessary.
 
 # Running Tests
 
