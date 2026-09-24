@@ -10,7 +10,7 @@ from __future__ import annotations
 import importlib
 import pkgutil
 from enum import Enum
-from typing import TYPE_CHECKING, ClassVar, TypeVar
+from typing import TYPE_CHECKING, ClassVar
 
 from ml_lints.noqa import has_file_noqa, has_noqa
 from ml_lints.violation import RuleCode, Violation
@@ -137,10 +137,8 @@ def annotation_noqa_lines(returns: ast.expr) -> list[int]:
 
 _REGISTRY: list[type[Rule]] = []
 
-_RuleT = TypeVar("_RuleT", bound=Rule)
 
-
-def register(cls: type[_RuleT]) -> type[_RuleT]:
+def register[RuleT: Rule](cls: type[RuleT]) -> type[RuleT]:
     """Register a Rule subclass so the runner can discover it."""
     _REGISTRY.append(cls)
     return cls

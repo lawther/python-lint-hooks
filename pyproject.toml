@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "ml-lints"
 version = "0.15.0"
 description = "Python linting rules for optimised AI agent development"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.0",
     "pathspec>=0.12.1",
@@ -26,6 +26,7 @@ dev = [
     "pytest-xdist>=3.6.0",
     "rich>=15.0.0",
     "ruff>=0.15.16",
+    "smoke-optimiser~=0.3.2",
     "tiktoken>=0.14.0",
     "ty>=0.0.44",
 ]
@@ -33,8 +34,20 @@ dev = [
 # ruff and ty config lives in ruff.toml and ty.toml beside this file, not here -- see
 # agent_rules' ar-vlz. ruff.toml extends the fleet's shared ruff_shared.toml (synced by
 # agent_rules) and adds this repo's own extras, including the py311 target-version override
-# (this repo publishes ml-lints, requires-python >=3.11). ty.toml is the fleet's shared file
+# (this repo publishes ml-lints, requires-python >=3.12). ty.toml is the fleet's shared file
 # verbatim. A [tool.ruff]/[tool.ty] table here would be silently overridden and dead.
+
+# The arguments the shared `downwind` recipe's pytest runs take. They live here rather
+# than on the recipe's command line because the recipe is synced from agent_rules and is
+# byte-identical in every repo that carries it -- a per-repo argument has to be declared
+# per repo. Read by both the selective run and the --no-regenerate-on-fallback full suite,
+# so CI's fallback stays parallel.
+#
+# No --cov here: a selective run's coverage measures only the tests it chose, so the number
+# would be a smaller one wearing the same name. Coverage and the branch summary stay on
+# `just test`, which still runs the whole suite. See agent_rules ar-7on.
+[tool.smoke_optimiser]
+downwind_pytest_args = "-n auto --dist=worksteal"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

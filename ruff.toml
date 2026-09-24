@@ -3,9 +3,9 @@
 # ruff_shared.toml. Everything below is python-lint-hooks-only.
 extend = "ruff_shared.toml"
 
-# This repo publishes ml-lints (requires-python >=3.11), so 3.12/3.13-only rewrites the
-# shared py313 pin would suggest are wrong here. Overrides the shared value.
-target-version = "py311"
+# This repo publishes ml-lints (requires-python >=3.12), so 3.13-only rewrites the shared
+# py313 pin would suggest are wrong here. Overrides the shared value.
+target-version = "py312"
 
 [lint.pep8-naming]
 # AST visitor hook methods on Rule subclasses are named enter_<ASTNodeName> and leave_<ASTNodeName>

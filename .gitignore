@@ -21,3 +21,8 @@ coverage.xml
 # Corpus sweep configuration and output (see .corpus.toml.example)
 .corpus.toml
 .corpus-out/
+
+# smoke optimiser
+.smoke_profiling_data.json
+.smoke_suite.json
+.downwind.json
