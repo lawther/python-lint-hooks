@@ -20,6 +20,16 @@
             "statusMessage": "Checking dependency type..."
           }
         ]
+      },
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          {
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check_diary_prose.py",
+            "type": "command",
+            "statusMessage": "Checking for diary prose..."
+          }
+        ]
       }
     ],
     "SessionStart": [
