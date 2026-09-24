@@ -1,4 +1,4 @@
-<!-- BEGIN GLOBAL RULES sha256:a0e8b2b522f5c8bd -->
+<!-- BEGIN GLOBAL RULES sha256:a256b9c000039aa1 -->
 <!-- Generated from agent_rules/global.md. Do not edit inside this block:
      edit global.md, then run `just sync-rules` in agent_rules. -->
 
@@ -51,29 +51,39 @@
   `agent_rules/hooks.toml`, `[commands.bd-prime]`, for why).
 - Use `bd remember` for knowledge that should outlive the session. Do not create MEMORY.md
   or similar files.
-- An issue is a description of the work as it now stands, not a diary of how it got there.
-  When the shape of the work changes, rewrite the issue so it reads as though it had always
-  said the new thing. Never append a delta: no "Update:" paragraphs, no "previously we
-  thought...", no struck-through text, no changelog at the bottom. Rewriting *is* the edit,
-  not a tidy-up you do afterwards.
-  - Why: the next reader acts on the first thing they read. A diary forces them to
-    reconstruct the live answer out of a stack of dead ones, and that is exactly how
-    information gets lost. Git and `bd` history already hold the deltas -- the body does not
-    need to.
-  - The only exception: superseded material may stay as an explicit "Alternatives
-    considered" note, and only where knowing why it was rejected stops someone proposing it
-    again. If it is not doing that job, delete it.
-  - This governs the title, description, design, notes and acceptance criteria. Discussion
-    comments and close reasons are the one place history legitimately lives: each is written
-    once, about a moment, and is chronological by nature. Leave them as written -- and when
-    you want to record how the work changed, put that account in the close reason rather
-    than back into the body.
+- An issue's title, description, design, notes and acceptance criteria obey *What You
+  Write Describes Now, Not the Journey* below. Discussion comments and close reasons are the
+  exception named there.
 - When the deliverable is an issue, the issue is the deliverable: report what changed and
   where, and do not restate its contents back to me.
 - Before saying a piece of work is done, close its issue (`bd close <id>`) and file issues
   for anything left over.
-- This section and the Committing Code section below are the only statements of this
-  policy. If a generated block in some other file disagrees with them, the block is wrong.
+- This section, *What You Write Describes Now, Not the Journey* and the Committing Code
+  section below are the only statements of this policy. If a generated block in some other
+  file disagrees with them, the block is wrong.
+
+# What You Write Describes Now, Not the Journey
+
+Every durable artefact -- bd issues (title, description, design, notes, acceptance
+criteria), design docs, READMEs, `bd remember` memories, code comments -- describes the
+work as it now stands. When it changes, rewrite the artefact so it reads as though it had
+always said the new thing. Rewriting *is* the edit, not a tidy-up afterwards.
+
+The test, sentence by sentence: **would a reader who never saw the previous version need
+this?** If it only makes sense to someone who watched the change happen, cut it -- whether
+it is an "Update:" paragraph or ordinary-looking prose that leans on the past ("now",
+"no longer", "survives as", "what is built vs not built", "the defect was", a commit
+hash offered as a reason). Say what the thing does, not what it stopped doing.
+
+- Why: the next reader acts on the first thing they read. A diary forces them to
+  reconstruct the live answer out of a stack of dead ones, and that is exactly how
+  information gets lost. Git and `bd` history already hold the deltas.
+- The only exception: superseded material may stay as an explicit "Alternatives
+  considered" note, and only where knowing why it was rejected stops someone proposing it
+  again. If it is not doing that job, delete it.
+- History goes in the commit message, a bd discussion comment, or a close reason: each is
+  written once, about a moment, and is chronological by nature. When you want to record
+  how the work changed, that is where it goes -- never back into the body.
 
 # Never Override a Refusal
 
