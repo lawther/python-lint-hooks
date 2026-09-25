@@ -24,10 +24,8 @@ dev = [
     "pytest-cov>=7.1.0",
     "pytest-randomly>=4.1.0",
     "pytest-xdist>=3.6.0",
-    "rich>=15.0.0",
     "ruff>=0.15.16",
     "smoke-optimiser~=0.3.2",
-    "tiktoken>=0.14.0",
     "ty>=0.0.44",
 ]
 
