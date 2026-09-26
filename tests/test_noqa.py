@@ -60,7 +60,9 @@ def test_has_noqa_finds_real_comment_after_string_mentioning_noqa() -> None:
 
 
 def test_has_noqa_honours_directive_after_another_in_same_comment() -> None:
-    # `# type: ignore  # noqa: ...` is a single comment token; the noqa must still count.
+    # A leading suppression marker and a trailing noqa share one comment token; the noqa
+    # must still count. This explanation avoids spelling that marker literally, since ty's
+    # own comment scanner mistakes the substring for a real directive wherever it appears.
     assert has_noqa(_comments("x = {}  # type: ignore  # noqa: ML100"), [1], "ML100")
 
 
