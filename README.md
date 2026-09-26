@@ -160,6 +160,7 @@ Place a `# noqa: <code>` comment on the `def` line (or on the return annotation 
 def legacy_helper() -> dict[str, str]:  # noqa: ML102
     ...
 
+
 # Suppress on the annotation line for multi-line signatures
 def build_index(
     items: list[str],

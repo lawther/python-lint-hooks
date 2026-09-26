@@ -24,9 +24,9 @@ dev = [
     "pytest-cov>=7.1.0",
     "pytest-randomly>=4.1.0",
     "pytest-xdist>=3.6.0",
-    "ruff>=0.15.16",
+    "ruff>=0.16.9",
     "smoke-optimiser~=0.3.2",
-    "ty>=0.0.44",
+    "ty>=0.0.84",
 ]
 
 # ruff and ty config lives in ruff.toml and ty.toml beside this file, not here -- see

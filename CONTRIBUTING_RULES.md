@@ -156,14 +156,17 @@ def __init__(self, context: CheckContext) -> None:
     super().__init__(context)
     self._function_depth: int = 0
 
+
 def enter_FunctionDef(self, node: ast.FunctionDef) -> None:
     if self._function_depth == 0:
         # only fires for top-level functions
         ...
     self._function_depth += 1
 
+
 def leave_FunctionDef(self, node: ast.FunctionDef) -> None:
     self._function_depth -= 1
+
 
 enter_AsyncFunctionDef = enter_FunctionDef  # type: ignore[assignment]
 leave_AsyncFunctionDef = leave_FunctionDef  # type: ignore[assignment]
@@ -206,8 +209,8 @@ For any rule that needs to determine whether a type annotation is "forbidden" (b
 from ml_lints.analyzers.forbidden_types import ForbiddenTypeAnalyzer
 
 analyzer = ForbiddenTypeAnalyzer()
-analyzer.analyze(node)          # node is an ast.expr (e.g. a return annotation)
-findings = analyzer.findings    # list[ForbiddenTypeFinding]
+analyzer.analyze(node)  # node is an ast.expr (e.g. a return annotation)
+findings = analyzer.findings  # list[ForbiddenTypeFinding]
 ```
 
 Each `ForbiddenTypeFinding` has `.code` (e.g. `"ML102"`), `.line`, and `.col`. Consumers use it in two ways:
@@ -231,6 +234,7 @@ Use the shared helpers from `tests/conftest.py`:
 
 ```python
 from tests.conftest import check, codes
+
 
 def test_something_flagged(tmp_path: Path) -> None:
     violations = check("def foo() -> dict: ...\n", tmp_path)
