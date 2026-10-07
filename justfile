@@ -28,7 +28,7 @@ lint:
     @echo "Linting and formatting..."
     @uv run ruff format .
     @uv run ruff check --fix .
-    @uv run ty check --exclude scripts/analyse_ai_readiness.py .
+    @uv run ty check .
     @just lint-pep723
     @echo "{{success}}Lint complete{{reset}}"
 
@@ -164,17 +164,17 @@ corpus-lint *codes:
 corpus-diff *codes:
     @{{uv_run}} scripts/corpus_lint.py --diff {{codes}}
 
-# BEGIN SHARED RECIPES (AI_READINESS) sha256:925735e38c225a7b
+# BEGIN SHARED RECIPES (AI_READINESS) sha256:45e10abdfa181601
 # Generated from agent_rules/snippets/ai_readiness.just. Do not edit inside this block:
 #      edit snippets/ai_readiness.just, then run `just sync-justfile-recipes` in agent_rules.
 
 # Analyse project source files to evaluate AI agent readiness
 analyse-ai-readiness *args:
-    @{{uv_run}} scripts/analyse_ai_readiness.py {{args}}
+    @{{uv_run}} shared_scripts/analyse_ai_readiness.py {{args}}
 
 # Check source file size thresholds for AI agent readiness (fails if threshold breached)
 check-ai-readiness *args:
-    @{{uv_run}} scripts/analyse_ai_readiness.py --fail-on {{args}}
+    @{{uv_run}} shared_scripts/analyse_ai_readiness.py --fail-on {{args}}
 
 # END SHARED RECIPES (AI_READINESS)
 
@@ -219,18 +219,18 @@ downwind:
 
 # END SHARED RECIPES (DOWNWIND)
 
-# BEGIN SHARED RECIPES (PEP723) sha256:90afb09325f1476f
+# BEGIN SHARED RECIPES (PEP723) sha256:0eedb944b6ad5f5a
 # Generated from agent_rules/snippets/pep723.just. Do not edit inside this block:
 #      edit snippets/pep723.just, then run `just sync-justfile-recipes` in agent_rules.
 
-# Type-check this repo's PEP 723 scripts in an ephemeral env built from each script's own
-# inline metadata, since ty resolves imports against the project's .venv and has no notion
-# of PEP 723 isolation -- checking the script via the project's own `ty check` fails or
-# silently passes depending on whether the project's .venv happens to already carry the
-# same packages. Drop this recipe, and this file's exclusion from the main `ty check`
-# invocation, once astral-sh/ty#691 lands.
+# Type-check the synced PEP 723 scripts in shared_scripts/ in an ephemeral env built from each
+# script's own inline metadata. ty resolves imports against the project's .venv and has no
+# notion of PEP 723 isolation, so checking them via the project's own `ty check` fails or
+# silently passes depending on whether the .venv happens to carry the same packages. Keep
+# shared_scripts/ out of the project's own `ty check` invocation, and call this recipe from
+# the project's lint recipe. Drop both once astral-sh/ty#691 lands.
 lint-pep723:
-    @uvx --with-requirements scripts/analyse_ai_readiness.py ty check scripts/analyse_ai_readiness.py
+    @uvx --with-requirements shared_scripts/analyse_ai_readiness.py ty check shared_scripts/analyse_ai_readiness.py
 
 # END SHARED RECIPES (PEP723)
 
