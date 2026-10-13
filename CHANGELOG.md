@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.0.0](https://github.com/lawther/python-lint-hooks/compare/v0.15.0...v1.0.0) (2026-10-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **justfile:** ml-lints now requires Python 3.12 or later.
+
+### Features
+
+* **justfile:** gate precommit on downwind, and require Python 3.12 ([9ebffb0](https://github.com/lawther/python-lint-hooks/commit/9ebffb0ee53bd0ccccfa7c722355b0aad4c0a021))
+* **test:** run pytest under xdist, matching enphase_curtailer ([376dc33](https://github.com/lawther/python-lint-hooks/commit/376dc33e15b45ad8bae5e090e0a54c699a7b5a09))
+
+
+### Bug Fixes
+
+* **justfile:** type-check analyse_ai_readiness.py in its own environment ([0e8f9f0](https://github.com/lawther/python-lint-hooks/commit/0e8f9f0298d0238d3387894ca1b9c95b482053bb))
+* **tests:** stop ty misreading a noqa test's own explanatory comment ([f77e9a8](https://github.com/lawther/python-lint-hooks/commit/f77e9a8f9de137e2e06c38ebe9a500ddf31b0990))
+
 ## [0.15.0](https://github.com/lawther/python-lint-hooks/compare/v0.14.0...v0.15.0) (2026-09-16)
 
 
