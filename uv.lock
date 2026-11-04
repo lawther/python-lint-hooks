@@ -212,7 +212,7 @@ dev = [
     { name = "pytest-randomly", specifier = ">=4.1.0" },
     { name = "pytest-xdist", specifier = ">=3.6.0" },
     { name = "ruff", specifier = ">=0.17.3" },
-    { name = "smoke-optimiser", specifier = ">=0.3.3" },
+    { name = "smoke-optimiser", specifier = ">=0.3.4" },
     { name = "ty", specifier = ">=0.0.94" },
 ]
 
@@ -477,7 +477,7 @@ wheels = [
 
 [[package]]
 name = "smoke-optimiser"
-version = "0.3.3"
+version = "0.3.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "coverage" },
@@ -486,9 +486,9 @@ dependencies = [
     { name = "pytest-cov" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/39/ca/80a3451e225be46922061544ba6c6ba87c3d760b583a527c27b56f0466f6/smoke_optimiser-0.3.3.tar.gz", hash = "sha256:de8c723a0030bfcbc8bc5404e287b090e761e5d016d5a49dd4e88fcb7446f77a", size = 261286, upload-time = "2026-09-30T04:03:52.35Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a8/e3/eaa7d1736e08ef7d9c6570ddb76d180877563668bf88af094ecfc921f3d3/smoke_optimiser-0.3.4.tar.gz", hash = "sha256:88cd2273270d6dad5329f65b91e569987971c8a4da4cfbdfd153c8c5c7132f50", size = 265217, upload-time = "2026-11-04T00:28:17.214Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/1e/e9aad4bad858c8ebbfceb376611d1610b5132066ec4de3b711b1dac5890d/smoke_optimiser-0.3.3-py3-none-any.whl", hash = "sha256:38bd33e3421d97967764b849d2e7f6023085fcd9b81c122dc8a2ca6c835263d0", size = 114033, upload-time = "2026-09-30T04:03:50.617Z" },
+    { url = "https://files.pythonhosted.org/packages/89/60/d9d3fe60f42cc32367734fee57bf365ecd02bd357ec002ace3431ad13e09/smoke_optimiser-0.3.4-py3-none-any.whl", hash = "sha256:ff48b29ae9bf6af31de53d850e7e61df9feaceed2dbf069d9f8a76f3beb27443", size = 115222, upload-time = "2026-11-04T00:28:15.432Z" },
 ]
 
 [[package]]
