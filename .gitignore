@@ -23,7 +23,3 @@ coverage.xml
 .corpus.toml
 .corpus-out/
 
-# smoke optimiser
-.smoke_profiling_data.json
-.smoke_suite.json
-.downwind.json

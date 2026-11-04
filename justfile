@@ -11,9 +11,6 @@ default:
 # The runner the shared ai_readiness recipes call; declared in agent_rules/repos.toml.
 uv_run := "uv run"
 
-# The directory the shared downwind recipe cds into; declared in agent_rules/repos.toml.
-python_project_dir := "."
-
 # Colors and formatting
 bold    := `tput bold 2>/dev/null || true`
 green   := `tput setaf 2 2>/dev/null || true`
@@ -87,7 +84,7 @@ precommit:
         xargs -r -0 git add < "$staged_list"
         git add README.md
         if [ -d "docs" ]; then git add docs; fi
-        just downwind
+        just test
     ) > "$tmpfile" 2>&1
     status=$?
     if [ $status -ne 0 ]; then
@@ -200,29 +197,6 @@ check-hooks-drift:
     ../agent_rules/run_shared_script.py --check-failed-exit 3 -- ../agent_rules/sync_hooks.py check .
 
 # END SHARED RECIPES (CHECK_HOOKS_DRIFT)
-
-# BEGIN SHARED RECIPES (DOWNWIND) sha256:8af83ba867138284
-# Generated from agent_rules/snippets/downwind.just. Do not edit inside this block:
-#      edit snippets/downwind.just, then run `just sync-justfile-recipes` in agent_rules.
-
-# Run every test downwind of the working-tree diff; full suite when it cannot tell.
-downwind:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    cd "{{python_project_dir}}"
-    # CI never persists the profile (it is gitignored), so a regenerated one dies with
-    # the runner -- every run would pay for instrumentation nothing ever reads. A missing
-    # profile still runs the full suite, which is the backstop CI is for.
-    #
-    # Spelled as two calls rather than an array of flags: under `set -u`, bash 3.2 --
-    # which is what macOS ships -- treats expanding an empty array as an unbound variable.
-    if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-        uv run smoke-optimiser downwind --no-regenerate-on-fallback
-    else
-        uv run smoke-optimiser downwind
-    fi
-
-# END SHARED RECIPES (DOWNWIND)
 
 # BEGIN SHARED RECIPES (PEP723) sha256:0eedb944b6ad5f5a
 # Generated from agent_rules/snippets/pep723.just. Do not edit inside this block:
