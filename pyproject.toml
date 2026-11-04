@@ -35,6 +35,7 @@ dev = [
 # verbatim. A [tool.ruff]/[tool.ty] table here would be silently overridden and dead.
 
 [tool.pytest.ini_options]
+addopts = "-n auto --dist=worksteal"
 testpaths = ["tests"]
 
 [tool.ml-lints]
