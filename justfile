@@ -93,7 +93,7 @@ setup-git-hooks:
     @echo "{{success}}Git hooks set up{{reset}}"
 
 # Run all pre-commit checks (lint + test), auto-stage mechanical fixes
-precommit:
+precommit: precommit-fleet
     #!/usr/bin/env bash
     if [[ "$(git config core.hooksPath 2>/dev/null)" != ".githooks" ]]; then
         echo "Git hooks not configured — installing now..."
