@@ -56,7 +56,6 @@ lint:
     @uv run ruff format .
     @uv run ruff check --fix .
     @uv run ty check .
-    @just lint-pep723
     @just lint-workflows
     @echo "{{success}}Lint complete{{reset}}"
 
@@ -86,16 +85,10 @@ setup-dev:
     just setup-git-hooks
     echo "{{success}}Development environment setup complete{{reset}}"
 
-# Install the git pre-commit hook
-setup-git-hooks:
-    @git config core.hooksPath .githooks
-    @chmod +x .githooks/pre-commit
-    @echo "{{success}}Git hooks set up{{reset}}"
-
 # Run all pre-commit checks (lint + test), auto-stage mechanical fixes
 precommit: precommit-fleet
     #!/usr/bin/env bash
-    if [[ "$(git config core.hooksPath 2>/dev/null)" != ".githooks" ]]; then
+    if [[ "$(git config core.hooksPath 2>/dev/null)" != ".fleet/git_hooks" ]]; then
         echo "Git hooks not configured — installing now..."
         just setup-git-hooks
     fi
@@ -198,20 +191,11 @@ corpus-diff *codes:
 
 # Analyse project source files to evaluate AI agent readiness
 analyse-ai-readiness *args:
-    @{{uv_run}} shared_scripts/analyse_ai_readiness.py {{args}}
+    @{{uv_run}} .fleet/scripts/analyse_ai_readiness.py {{args}}
 
 # Check source file size thresholds for AI agent readiness (fails if threshold breached)
 check-ai-readiness *args:
-    @{{uv_run}} shared_scripts/analyse_ai_readiness.py --fail-on {{args}}
-
-# Type-check the synced PEP 723 scripts in shared_scripts/ in an ephemeral env built from each
-# script's own inline metadata. ty resolves imports against the project's .venv and has no
-# notion of PEP 723 isolation, so checking them via the project's own `ty check` fails or
-# silently passes depending on whether the .venv happens to carry the same packages. Keep
-# shared_scripts/ out of the project's own `ty check` invocation, and call this recipe from
-# the project's lint recipe. Drop both once astral-sh/ty#691 lands.
-lint-pep723:
-    @uvx --with-requirements shared_scripts/analyse_ai_readiness.py ty check shared_scripts/analyse_ai_readiness.py
+    @{{uv_run}} .fleet/scripts/analyse_ai_readiness.py --fail-on {{args}}
 
 # END FLEET RECIPES (SCRIPTS)
 
@@ -224,12 +208,31 @@ lint-pep723:
 # git deliberately never lets a repo commit -- so this is the one-off `setup-git-hooks`
 # already asks a fresh clone to run, not something a sync can write for you. Actual
 # enforcement (for a clone that skips this, or whose global config wins some other way)
-# is the `pre-merge-commit` and `pre-push` hooks in .githooks/, which reject merge
+# is the `pre-merge-commit` and `pre-push` hooks in .fleet/git_hooks/, which reject merge
 # commits regardless of what these two settings say.
 setup-linear-history:
     @git config pull.rebase true
     @git config merge.ff only
     @echo "Linear history preferences set for this clone"
+
+# Refuses rather than clobbers. git reads exactly one hooks directory, so silently
+# overwriting core.hooksPath disables whatever was there -- which is precisely how four
+# repos lost their beads integration without a word (ar-x4l). `bd init` does exactly
+# this, so the refusal is needed; `check-git-hooks-active` is what reports it if bd wins the
+# race anyway. An unset value and the legacy `.githooks` are both safe to replace.
+#
+# Point git at .fleet/git_hooks/, so `just precommit` runs before each commit here.
+setup-git-hooks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    current=$(git config core.hooksPath || true)
+    if [ -n "$current" ] && [ "$current" != ".githooks" ] && [ "$current" != ".fleet/git_hooks" ]; then
+        echo "core.hooksPath is already $current -- refusing to overwrite it." >&2
+        echo "git reads one hooks directory only; merge the two before setting this." >&2
+        exit 1
+    fi
+    git config core.hooksPath .fleet/git_hooks
+    echo "Git hooks set up"
 
 # END FLEET RECIPES (GIT_HOOKS)
 
