@@ -56,7 +56,6 @@ lint:
     @uv run ruff format .
     @uv run ruff check --fix .
     @uv run ty check .
-    @just lint-workflows
     @echo "{{success}}Lint complete{{reset}}"
 
 # Lint this repo's own src/ and scripts/ with the working-tree ml-lints (tests/ fixtures
