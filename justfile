@@ -25,7 +25,7 @@ fleet-gate-core:
 
 # END FLEET RECIPES (CORE)
 
-# The runner the shared ai_readiness recipes call; declared in agent_rules/repos.toml.
+# The runner the shared ai_readiness recipes call; declared in fleet/repos.toml.
 uv_run := "uv run"
 
 # Colors and formatting

@@ -29,7 +29,7 @@ roots = [
     "../sig-cloud-control",
     "../smoke-optimiser",
     "../vaultscribe",
-    "../agent_rules",
+    "../fleet",
     "../forks/actron-air-esphome",
     "../forks/tuya-local",
 ]

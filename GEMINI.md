@@ -153,7 +153,7 @@ Do not add rule logic directly to any existing file — each rule lives in its o
 
 Neither of these is specific to this repo. Both are fleet rules that the
 shared block above does not carry yet, kept here so they are not lost.
-Tracked in agent_rules ar-0oq; delete them from this file when that lands.
+Tracked in fleet ar-0oq; delete them from this file when that lands.
 
 - Use `just precommit` to run all lints, type checking and formatting.
 - You MAY surgically ignore PLR0911 (too many returns) and/or PLR0912 (too many branches) ONLY if there is a match/case statement processing an enum with too many members.
