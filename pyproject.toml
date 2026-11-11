@@ -30,8 +30,8 @@ dev = [
 
 # ruff and ty config lives in ruff.toml and ty.toml beside this file, not here -- see
 # fleet's ar-vlz. ruff.toml extends the fleet's shared ruff_shared.toml (synced by
-# fleet) and adds this repo's own extras, including the py311 target-version override
-# (this repo publishes ml-lints, requires-python >=3.12). ty.toml is the fleet's shared file
+# fleet) and adds this repo's own extras; its target-version follows the fleet's Python floor,
+# which requires-python also states. ty.toml is the fleet's shared file
 # verbatim. A [tool.ruff]/[tool.ty] table here would be silently overridden and dead.
 
 [tool.pytest.ini_options]
