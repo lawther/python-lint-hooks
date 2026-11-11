@@ -76,7 +76,7 @@ def check_paths(
             with tokenize.open(path) as f:
                 source = f.read()
             tree = ast.parse(source, filename=str(path))
-        except (OSError, SyntaxError, UnicodeDecodeError):
+        except OSError, SyntaxError, UnicodeDecodeError:
             continue
         index.ingest(str(path.resolve()), tree)
     index.finalise()

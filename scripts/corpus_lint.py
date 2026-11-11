@@ -251,7 +251,7 @@ def _build_index(files: Iterable[Path]) -> NewTypeIndex:
     for path in files:
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        except (OSError, SyntaxError, UnicodeDecodeError, ValueError, RecursionError):
+        except OSError, SyntaxError, UnicodeDecodeError, ValueError, RecursionError:
             continue
         index.ingest(str(path), tree)
     index.finalise()
@@ -353,7 +353,7 @@ def _source_line(finding: Finding) -> str:
     """The offending line itself — a finding cannot be judged from its coordinates."""
     try:
         lines = Path(finding.path).read_text(encoding="utf-8").splitlines()
-    except (OSError, UnicodeDecodeError):
+    except OSError, UnicodeDecodeError:
         return "<source unavailable>"
     if not 1 <= finding.line <= len(lines):
         return "<line out of range>"

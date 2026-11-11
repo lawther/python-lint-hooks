@@ -223,7 +223,7 @@ class ML500(Rule):
             for attr in getattr_chain:
                 obj = getattr(obj, attr)
             result: frozenset[str] | None = frozenset(dir(obj))
-        except (ImportError, AttributeError, ValueError, TypeError):
+        except ImportError, AttributeError, ValueError, TypeError:
             result = None
 
         self._BASE_METHODS_CACHE[cache_key] = result
