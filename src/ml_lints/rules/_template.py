@@ -21,7 +21,7 @@ class MLxxx(Rule):
     automatically included in generated documentation and CLI help.
     """
 
-    code: ClassVar[RuleCode] = RuleCode.MLxxx  # ty: ignore[unresolved-attribute]  # placeholder replaced by just new-rule
+    code: ClassVar[RuleCode] = RuleCode.MLxxx  # ty: ignore[missing-attribute]  # placeholder replaced by just new-rule
     category: ClassVar[RuleCategory] = RuleCategory.RETURN_TYPES  # change as appropriate
     summary: ClassVar[str] = "Short description for the README rules table"
     suggestion: ClassVar[str] = "What the author should do instead"

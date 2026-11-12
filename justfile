@@ -124,7 +124,7 @@ new-rule code:
         echo "Rule file already exists: $rule_file" >&2
         exit 1
     fi
-    sed "s/MLxxx/${code}/g" src/ml_lints/rules/_template.py | sed 's/  # ty: ignore\[unresolved-attribute\]  # placeholder replaced by just new-rule//' > "$rule_file"
+    sed "s/MLxxx/${code}/g" src/ml_lints/rules/_template.py | sed 's/  # ty: ignore\[missing-attribute\]  # placeholder replaced by just new-rule//' > "$rule_file"
     sed "s/MLxxx/${code}/g; s/mlxxx/${lower}/g" tests/rules/_template.py > "$test_file"
     python3 -c "import pathlib,sys; code=sys.argv[1]; p=pathlib.Path('src/ml_lints/violation.py'); src=p.read_text(); sentinel='    # -- add new codes above this line --'; entry='    '+code+' = \"'+code+'\"'; p.write_text(src.replace(sentinel, entry+chr(10)+sentinel))" "$code"
     echo "Created: $rule_file"
